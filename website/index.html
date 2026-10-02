@@ -202,25 +202,57 @@
       <div class="wrap">
         <h2 class="manifesto reveal" id="privacy-title">Your files go from one device to the other. <span>That is the whole trip.</span></h2>
         <ul class="facts">
-          <li class="fact reveal">
-            <svg class="i" aria-hidden="true"><use href="assets/icons.svg#lock-key"/></svg>
-            <h3>Encrypted on your network</h3>
-            <p>Every pair gets its own secret. Each session derives fresh keys before a single byte moves.</p>
+          <li class="proof proof--wire reveal">
+            <div class="wire" aria-hidden="true">
+              <p class="wire__plain"><svg class="i"><use href="assets/icons.svg#file"/></svg>Lease draft.pdf <span data-wire-chunk>chunk 7 of 10</span></p>
+              <div class="wire__frame" data-wire>
+                <span class="seg seg--seq"><b>seq</b><code data-wire-seq>0000000000000007</code></span>
+                <span class="seg seg--nonce"><b>nonce</b><code data-scramble="24">a91f03c7e2b45d6608f1c3e9</code></span>
+                <span class="seg seg--cipher"><b>ciphertext</b><code data-scramble="40">7be0c2194fd35a8e61b0c97d2ef4a3816c05d97b</code></span>
+                <span class="seg seg--tag"><b>tag</b><code data-scramble="32">5c8e1a7f30d4b62e9fa1c0573e8d24b6</code></span>
+              </div>
+            </div>
+            <div class="proof__text">
+              <h3>Encrypted before it leaves.</h3>
+              <p>Each pair shares a 256-bit secret kept in Keychain and Android Keystore. Every session mixes in fresh randomness to derive a separate key for each direction.</p>
+              <p class="proof__spec">AES-256-GCM, HKDF-SHA256, HMAC-SHA256</p>
+            </div>
           </li>
-          <li class="fact reveal" style="--d: 80ms">
-            <svg class="i" aria-hidden="true"><use href="assets/icons.svg#cloud-slash"/></svg>
-            <h3>No account, no cloud</h3>
-            <p>No sign-up, no relay servers, no analytics, and no clipboard watching.</p>
+
+          <li class="proof proof--approve reveal" style="--d: 80ms">
+            <div class="approve" aria-hidden="true">
+              <span class="approve__qr"><svg class="i"><use href="assets/icons.svg#qr-code"/></svg><span data-countdown>5:00</span></span>
+              <p class="approve__ask">Pair with Pixel 9?</p>
+              <span class="approve__buttons"><span class="approve__btn">Reject</span><span class="approve__btn approve__btn--yes">Pair device</span></span>
+            </div>
+            <div class="proof__text">
+              <h3>Nothing joins without you.</h3>
+              <p>Your Mac checks the phone's proof, then asks. Pairing codes expire after five minutes and work once.</p>
+            </div>
           </li>
-          <li class="fact reveal" style="--d: 160ms">
-            <svg class="i" aria-hidden="true"><use href="assets/icons.svg#shield-check"/></svg>
-            <h3>Names are not identity</h3>
-            <p>A device is trusted because you approved it, not because of what it calls itself.</p>
+
+          <li class="proof proof--absent reveal">
+            <h3 class="sr-only">What DropDuo does not have</h3>
+            <ul class="absent">
+              <li style="--i: 0">Accounts</li>
+              <li style="--i: 1">Cloud relay</li>
+              <li style="--i: 2">Analytics</li>
+              <li style="--i: 3">Ads</li>
+              <li style="--i: 4">Clipboard watching</li>
+            </ul>
+            <p class="proof__note">Nothing to sign into. Nothing phoning home.</p>
           </li>
-          <li class="fact reveal" style="--d: 240ms">
-            <svg class="i" aria-hidden="true"><use href="assets/icons.svg#github-logo"/></svg>
-            <h3>Open source</h3>
-            <p>Apache-2.0. The protocol is published for review and has not had an independent audit yet.</p>
+
+          <li class="proof proof--spec reveal" style="--d: 80ms">
+            <figure class="spec">
+              <figcaption><svg class="i" aria-hidden="true"><use href="assets/icons.svg#github-logo"/></svg>protocol/SPEC.md</figcaption>
+              <pre><code><span class="spec__line">AES-256-GCM authenticates the sequence bytes as AAD.</span><span class="spec__line">Counters start at zero independently in each direction;</span><span class="spec__line">accept only the exact next sequence.</span><span class="spec__line spec__line--mark">Authentication failure closes the session.</span></code></pre>
+            </figure>
+            <div class="proof__text">
+              <h3>Read every line.</h3>
+              <p>The apps and the protocol are open source under Apache-2.0. The known limits are written down too: no independent audit yet, and no forward secrecy in v1.</p>
+              <a class="proof__link" href="https://github.com/rohit-yadavv/dropduo/blob/develop/protocol/SPEC.md">Read the protocol<svg class="i" aria-hidden="true"><use href="assets/icons.svg#arrow-right"/></svg></a>
+            </div>
           </li>
         </ul>
       </div>

@@ -647,10 +647,59 @@ a { color: inherit; text-decoration: none; }
 }
 .step__icon .i { width: 22px; height: 22px; }
 
+/* Privacy: three claims that light up as they pass the middle of the screen */
+
+.privacy { padding: 112px 0 40px; }
+
+.privacy__label {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--accent-text);
+}
+
+.claims { margin-top: 28px; border-bottom: 1px solid var(--line); }
+
+.claim {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 18rem);
+  align-items: baseline;
+  gap: 12px 48px;
+  padding: 36px 0;
+  border-top: 1px solid var(--line);
+}
+.claim__text {
+  font-size: clamp(1.625rem, 3.2vw, 2.75rem);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.04em;
+  color: var(--muted);
+  text-wrap: balance;
+}
+.claim__text b { color: var(--text); font-weight: 650; }
+.claim__detail {
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.privacy__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 32px;
+  color: var(--accent-text);
+  font-weight: 560;
+}
+.privacy__link .i { transition: transform 0.3s var(--ease); }
+.privacy__link:hover .i { transform: translateX(3px); }
+
 /* Download: one panel split like the mark, ink for Mac and cobalt for Android */
 
 .download {
-  padding: 48px 0 112px;
+  padding: 72px 0 112px;
   background:
     radial-gradient(55% 45% at 50% 55%, color-mix(in srgb, var(--cobalt) 8%, transparent), transparent 100%);
 }
@@ -900,6 +949,8 @@ a.download__version:hover { color: var(--accent-text); text-decoration: underlin
   .chip--b { right: 0; }
   .chip--c { left: 0; }
   .sends, .pair, .download { padding: 80px 0; }
+  .privacy { padding: 72px 0 16px; }
+  .claim { grid-template-columns: 1fr; padding: 28px 0; }
   .pair__grid { grid-template-columns: 1fr; }
   .pair__device { order: 2; }
   .phone { width: min(78%, 300px); }
@@ -973,6 +1024,11 @@ a.download__version:hover { color: var(--accent-text); text-decoration: underlin
   100% { opacity: 0; transform: scale(1.18); }
 }
 
+@keyframes claim-focus {
+  from { opacity: 0.22; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+
 @keyframes draw { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -1014,6 +1070,12 @@ a.download__version:hover { color: var(--accent-text); text-decoration: underlin
 
 
   @supports (animation-timeline: view()) {
+    .claim {
+      animation: claim-focus linear both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 50%;
+    }
+
     .steps::after {
       animation: draw linear both;
       animation-timeline: view();

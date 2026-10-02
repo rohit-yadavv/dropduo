@@ -1,7 +1,6 @@
 name: CodeQL
 on:
-  push:
-    branches: [develop, staging, master]
+  # Scan proposed merges and the default branch weekly, without a second scan on pushes.
   pull_request:
     branches: [develop, staging, master]
   schedule:

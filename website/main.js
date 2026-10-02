@@ -54,6 +54,115 @@
     });
   }
 
+  // Things you send: the item nearest the middle of the viewport plays on the stage.
+  const stage = document.querySelector("[data-stage]");
+  const sends = [...document.querySelectorAll(".send")];
+  if (stage && sends.length) {
+    const track = stage.querySelector("[data-track]");
+    const token = stage.querySelector("[data-token]");
+    const fill = stage.querySelector("[data-fill]");
+    const icon = stage.querySelector("[data-token-icon]");
+    const nameEl = stage.querySelector("[data-stage-name]");
+    const sizeEl = stage.querySelector("[data-stage-size]");
+    const statusEl = stage.querySelector("[data-stage-status]");
+    const howEl = stage.querySelector("[data-stage-how]");
+    const ends = {
+      mac: stage.querySelector('[data-end="mac"]'),
+      android: stage.querySelector('[data-end="android"]'),
+    };
+    let active = null;
+    let visible = false;
+    let run = 0;
+    let timers = [];
+    let animations = [];
+
+    const clear = () => {
+      timers.forEach(clearTimeout);
+      timers = [];
+      animations.forEach((a) => a.cancel());
+      animations = [];
+      track.classList.remove("is-broken");
+    };
+    const later = (ms, fn) => timers.push(setTimeout(fn, ms));
+    const status = (text, quiet = false) => {
+      statusEl.textContent = text;
+      statusEl.classList.toggle("is-quiet", quiet);
+    };
+
+    const play = () => {
+      clear();
+      const id = ++run;
+      const item = active.dataset;
+      const toAndroid = item.dir === "m2a";
+      const resume = item.mode === "resume";
+      const receiver = toAndroid ? ends.android : ends.mac;
+      const distance = Math.max(0, track.clientWidth - token.offsetWidth);
+      const at = (p) => `translateX(${((toAndroid ? p : 1 - p) * distance).toFixed(1)}px)`;
+      fill.style.transformOrigin = toAndroid ? "left" : "right";
+
+      if (reduceMotion.matches) {
+        token.style.transform = at(1);
+        fill.style.transform = "scaleX(1)";
+        status("Received and verified");
+        return;
+      }
+
+      const stops = resume ? [[0, 0], [0.38, 0.46], [0.66, 0.46], [1, 1]] : [[0, 0], [1, 1]];
+      const duration = resume ? 4200 : 1700;
+      const easing = "cubic-bezier(0.65, 0, 0.35, 1)";
+      const options = { duration, easing: resume ? "linear" : easing, fill: "forwards" };
+      animations = [
+        token.animate(stops.map(([offset, p]) => ({ offset, transform: at(p), easing })), options),
+        fill.animate(stops.map(([offset, p]) => ({ offset, transform: `scaleX(${p})`, easing })), options),
+      ];
+      status("Sending", true);
+      if (resume) {
+        later(duration * 0.38, () => { track.classList.add("is-broken"); status("Wi-Fi dropped", true); });
+        later(duration * 0.52, () => status("Retry"));
+        later(duration * 0.66, () => { track.classList.remove("is-broken"); status("Resuming from 46%", true); });
+      }
+      animations[0].finished.then(() => {
+        if (id !== run) return;
+        receiver.classList.remove("is-receiving");
+        void receiver.offsetWidth; // restart the ring animation
+        receiver.classList.add("is-receiving");
+        status("Received and verified");
+        later(2200, () => { if (id === run && visible) play(); });
+      }).catch(() => { /* cancelled by a newer run */ });
+    };
+
+    const select = (li) => {
+      if (li === active) return;
+      active?.classList.remove("is-active");
+      active = li;
+      li.classList.add("is-active");
+      const item = li.dataset;
+      stage.dataset.dir = item.dir;
+      icon.setAttribute("href", `assets/icons.svg#${item.icon}`);
+      nameEl.textContent = item.name;
+      sizeEl.textContent = item.size;
+      howEl.textContent = item.how;
+      if (visible) play();
+    };
+
+    const centre = new IntersectionObserver((entries) => {
+      for (const entry of entries) if (entry.isIntersecting) select(entry.target);
+    }, { rootMargin: "-45% 0px -45% 0px" });
+    sends.forEach((li) => {
+      centre.observe(li);
+      li.addEventListener("click", () => select(li));
+      li.addEventListener("focus", () => select(li));
+    });
+
+    new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      if (visible) play();
+      else clear();
+    }).observe(stage);
+
+    select(sends[0]);
+  }
+
   // Suggest the visitor's platform. User agents are a hint, so both stay visible.
   const ua = navigator.userAgent;
   const isAndroid = /Android/i.test(ua);

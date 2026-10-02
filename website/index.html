@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#0D0E10" media="(prefers-color-scheme: dark)">
   <meta property="og:type" content="website">
   <meta property="og:title" content="DropDuo">
-  <meta property="og:description" content="Mac to phone. Phone to Mac. Files, photos, links and text over your local network.">
+  <meta property="og:description" content="Mac to Android. Android to Mac. Files, photos, links and text over your local network.">
   <meta property="og:image" content="assets/brand/dropduo-icon.png">
   <link rel="icon" href="assets/brand/dropduo-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/brand/dropduo-icon.png">
@@ -60,8 +60,8 @@
       <div class="wrap hero__grid">
         <div class="hero__copy">
           <h1 class="hero__title">
-            <span class="line"><span class="line__in">Mac to phone.</span></span>
-            <span class="line line--cobalt"><span class="line__in">Phone to Mac.</span></span>
+            <span class="line"><span class="line__in">Mac to Android.</span></span>
+            <span class="line line--cobalt"><span class="line__in">Android to Mac.</span></span>
           </h1>
           <p class="hero__sub enter" style="--d: 360ms">Files, photos, links and text, straight across your local network. Pair once. No account, no cloud.</p>
           <div class="hero__ctas enter" style="--d: 480ms">
@@ -92,43 +92,64 @@
       </div>
     </section>
 
-    <section class="features" aria-labelledby="features-title">
-      <div class="wrap">
-        <h2 class="section-title reveal" id="features-title">Built for the things you actually send.</h2>
-        <div class="bento">
-          <article class="cell cell--share reveal">
-            <svg class="cell__glyph" aria-hidden="true"><use href="assets/icons.svg#share-network"/></svg>
-            <div class="cell__body">
-              <h3>Share from any Android app</h3>
-              <p>DropDuo lives in the Android share sheet. Photos, PDFs, a link from your browser: tap Share, pick DropDuo, it lands on your Mac.</p>
+    <section class="sends" aria-labelledby="sends-title">
+      <div class="wrap sends__grid">
+        <div class="sends__list">
+          <h2 class="section-title reveal" id="sends-title">Built for the things you actually send.</h2>
+          <ol>
+            <li class="send is-active" tabindex="0" data-dir="a2m" data-icon="image" data-name="IMG_2048.heic" data-size="4.2 MB" data-how="Android share sheet">
+              <span class="send__dir"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-android"/></svg><span class="sr-only">Android to Mac</span><svg class="i send__arrow" aria-hidden="true"><use href="assets/icons.svg#arrow-right"/></svg><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-apple"/></svg></span>
+              <h3>The photo you just took.</h3>
+              <p>Share it from Photos or any other app. It lands on your Mac as the original file, not a compressed copy.</p>
+            </li>
+            <li class="send" tabindex="0" data-dir="m2a" data-icon="file" data-name="Lease draft.pdf" data-size="1.8 MB" data-how="Drag onto the window">
+              <span class="send__dir"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-apple"/></svg><span class="sr-only">Mac to Android</span><svg class="i send__arrow" aria-hidden="true"><use href="assets/icons.svg#arrow-right"/></svg><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-android"/></svg></span>
+              <h3>The PDF you need on your phone.</h3>
+              <p>Drag it onto DropDuo on your Mac, or choose Send files. Your phone has it a moment later.</p>
+            </li>
+            <li class="send" tabindex="0" data-dir="a2m" data-icon="link" data-name="maps.app.goo.gl" data-size="Link" data-how="Shared on purpose">
+              <span class="send__dir"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-android"/></svg><span class="sr-only">Android to Mac</span><svg class="i send__arrow" aria-hidden="true"><use href="assets/icons.svg#arrow-right"/></svg><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-apple"/></svg></span>
+              <h3>The link you found on the bus.</h3>
+              <p>Links and notes move only when you send them. DropDuo never watches your clipboard.</p>
+            </li>
+            <li class="send" tabindex="0" data-dir="m2a" data-icon="text-aa" data-name="Wi-Fi password" data-size="Text" data-how="Send text">
+              <span class="send__dir"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-apple"/></svg><span class="sr-only">Mac to Android</span><svg class="i send__arrow" aria-hidden="true"><use href="assets/icons.svg#arrow-right"/></svg><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-android"/></svg></span>
+              <h3>The Wi-Fi password, typed once.</h3>
+              <p>Type or paste it on your Mac and choose Send text. Copy it on your phone from Recent.</p>
+            </li>
+            <li class="send" tabindex="0" data-dir="a2m" data-icon="film-strip" data-name="Trip to Kasol.mov" data-size="2.4 GB" data-how="Resumes after a retry" data-mode="resume">
+              <span class="send__dir"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-android"/></svg><span class="sr-only">Android to Mac</span><svg class="i send__arrow" aria-hidden="true"><use href="assets/icons.svg#arrow-right"/></svg><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-apple"/></svg></span>
+              <h3>The long video, even when Wi-Fi drops.</h3>
+              <p>Retry an interrupted transfer and it continues from where it stopped. Files appear only after an integrity check.</p>
+            </li>
+          </ol>
+        </div>
+
+        <div class="stage" data-stage aria-hidden="true">
+          <div class="stage__panel">
+            <div class="stage__row">
+              <div class="end" data-end="mac">
+                <span class="end__disc"><svg><use href="assets/icons.svg#brand-apple"/></svg></span>
+                <span class="end__name">Mac</span>
+              </div>
+              <div class="track" data-track>
+                <span class="track__line"></span>
+                <span class="track__fill" data-fill></span>
+                <span class="token" data-token>
+                  <span class="token__card"><svg class="i"><use data-token-icon href="assets/icons.svg#image"/></svg></span>
+                </span>
+              </div>
+              <div class="end" data-end="android">
+                <span class="end__disc end__disc--android"><svg><use href="assets/icons.svg#brand-android"/></svg></span>
+                <span class="end__name">Android</span>
+              </div>
             </div>
-          </article>
-          <article class="cell cell--drop reveal" style="--d: 80ms">
-            <svg class="cell__icon" aria-hidden="true"><use href="assets/icons.svg#cursor-click"/></svg>
-            <h3>Drag onto your Mac</h3>
-            <p>Drop files on the window, or send from the menu bar.</p>
-          </article>
-          <article class="cell cell--media reveal" style="--d: 160ms">
-            <svg class="cell__icon" aria-hidden="true"><use href="assets/icons.svg#image"/></svg>
-            <h3>Full-quality originals</h3>
-            <p>Photos and videos arrive as the original files, not compressed previews.</p>
-          </article>
-          <article class="cell cell--text reveal">
-            <svg class="cell__icon" aria-hidden="true"><use href="assets/icons.svg#text-aa"/></svg>
-            <h3>Text, only on purpose</h3>
-            <p>Links and notes are sent when you share them. DropDuo never watches your clipboard.</p>
-          </article>
-          <article class="cell cell--resume reveal" style="--d: 80ms">
-            <div class="cell__row">
-              <svg class="cell__icon" aria-hidden="true"><use href="assets/icons.svg#arrow-counter-clockwise"/></svg>
-              <h3>Picks up where it stopped</h3>
+            <div class="stage__meta">
+              <p class="stage__file"><span data-stage-name>IMG_2048.heic</span> <span class="stage__size" data-stage-size>4.2 MB</span></p>
+              <p class="stage__status" data-stage-status>Ready</p>
             </div>
-            <p>Watch progress, cancel anytime, and retry an interrupted transfer without starting over. Files appear only after an integrity check.</p>
-            <div class="transfer" aria-hidden="true">
-              <span class="transfer__name">Trip to Kasol.mov</span>
-              <span class="transfer__line"><span class="transfer__fill"></span></span>
-            </div>
-          </article>
+            <p class="stage__how" data-stage-how>Android share sheet</p>
+          </div>
         </div>
       </div>
     </section>

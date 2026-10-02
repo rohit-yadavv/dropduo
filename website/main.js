@@ -192,43 +192,6 @@
     select(sends[0]);
   }
 
-  // Privacy proofs: fresh random bytes per frame, and the pairing code countdown.
-  // Both run only while visible and never with reduced motion.
-  const wire = document.querySelector("[data-wire]");
-  const countdown = document.querySelector("[data-countdown]");
-  const whileVisible = (el, start) => {
-    if (!el) return;
-    let stop = null;
-    new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !reduceMotion.matches && !stop) stop = start();
-      else if (!entry.isIntersecting && stop) { stop(); stop = null; }
-    }).observe(el);
-  };
-  const hex = (n) => Array.from(crypto.getRandomValues(new Uint8Array(Math.ceil(n / 2))), (b) => b.toString(16).padStart(2, "0")).join("").slice(0, n);
-
-  whileVisible(wire, () => {
-    const fields = [...wire.querySelectorAll("[data-scramble]")];
-    const seq = wire.querySelector("[data-wire-seq]");
-    const chunk = document.querySelector("[data-wire-chunk]");
-    let n = 7;
-    const id = setInterval(() => {
-      n = n % 10 + 1;
-      seq.textContent = n.toString(16).padStart(16, "0");
-      chunk.textContent = `chunk ${n} of 10`;
-      for (const field of fields) field.textContent = hex(Number(field.dataset.scramble));
-    }, 900);
-    return () => clearInterval(id);
-  });
-
-  whileVisible(countdown, () => {
-    let left = 300;
-    const id = setInterval(() => {
-      left = left > 0 ? left - 1 : 300;
-      countdown.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
-    }, 1000);
-    return () => clearInterval(id);
-  });
-
   // Suggest the visitor's platform. User agents are a hint, so both stay visible.
   const ua = navigator.userAgent;
   const isAndroid = /Android/i.test(ua);

@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased — 0.1.0-alpha.1
+## Unreleased
+
+## 0.1.0-alpha.1
 
 - Add Apple Silicon and Intel Mac development downloads, repair hosted SDK/resource-bundle setup, and include download checksums.
 - Add tag-validated release drafts, optional distribution signing/notarization, shared version metadata, workflow guard checks, CodeQL, dependency review, and Dependabot configuration.

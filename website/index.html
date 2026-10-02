@@ -54,20 +54,20 @@
         <span class="brand__tile"><svg aria-hidden="true"><use href="#dd-mark"/></svg></span>
         <span class="brand__name">DropDuo</span>
       </a>
-      <nav aria-label="Primary">
+      <nav class="nav__primary" aria-label="Primary">
         <ul class="nav__links">
           <li><a href="#pair">How it works</a></li>
           <li><a href="#privacy">Privacy</a></li>
-          <li class="nav__gh"><a href="https://github.com/rohit-yadavv/dropduo" aria-label="DropDuo on GitHub"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#github-logo"/></svg><span>GitHub</span></a></li>
-          <li class="nav__theme">
-            <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme">
-              <svg class="i theme-toggle__moon" aria-hidden="true"><use href="assets/icons.svg#moon"/></svg>
-              <svg class="i theme-toggle__sun" aria-hidden="true"><use href="assets/icons.svg#sun"/></svg>
-            </button>
-          </li>
-          <li><a class="btn btn--small btn--primary" href="#download">Download</a></li>
+          <li><a href="https://github.com/rohit-yadavv/dropduo"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#github-logo"/></svg>GitHub</a></li>
         </ul>
       </nav>
+      <div class="nav__actions">
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme">
+          <svg class="i theme-toggle__moon" aria-hidden="true"><use href="assets/icons.svg#moon"/></svg>
+          <svg class="i theme-toggle__sun" aria-hidden="true"><use href="assets/icons.svg#sun"/></svg>
+        </button>
+        <a class="btn btn--small btn--primary" href="#download">Download</a>
+      </div>
     </div>
   </header>
 
@@ -122,16 +122,6 @@
               <span class="send__dir"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-apple"/></svg><span class="sr-only">Mac to Android</span><svg class="i send__arrow" aria-hidden="true"><use href="assets/icons.svg#arrow-right"/></svg><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-android"/></svg></span>
               <h3>The PDF you need on your phone.</h3>
               <p>Drag it onto DropDuo on your Mac, or choose Send files. Your phone has it a moment later.</p>
-            </li>
-            <li class="send" tabindex="0" data-dir="a2m" data-icon="link" data-name="maps.app.goo.gl" data-size="Link" data-how="Shared on purpose">
-              <span class="send__dir"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-android"/></svg><span class="sr-only">Android to Mac</span><svg class="i send__arrow" aria-hidden="true"><use href="assets/icons.svg#arrow-right"/></svg><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-apple"/></svg></span>
-              <h3>The link you found on the bus.</h3>
-              <p>Links and notes move only when you send them. DropDuo never watches your clipboard.</p>
-            </li>
-            <li class="send" tabindex="0" data-dir="m2a" data-icon="text-aa" data-name="Wi-Fi password" data-size="Text" data-how="Send text">
-              <span class="send__dir"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-apple"/></svg><span class="sr-only">Mac to Android</span><svg class="i send__arrow" aria-hidden="true"><use href="assets/icons.svg#arrow-right"/></svg><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-android"/></svg></span>
-              <h3>The Wi-Fi password, typed once.</h3>
-              <p>Type or paste it on your Mac and choose Send text. Copy it on your phone from Recent.</p>
             </li>
             <li class="send" tabindex="0" data-dir="a2m" data-icon="film-strip" data-name="Trip to Kasol.mov" data-size="2.4 GB" data-how="Resumes after a retry" data-mode="resume">
               <span class="send__dir"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-android"/></svg><span class="sr-only">Android to Mac</span><svg class="i send__arrow" aria-hidden="true"><use href="assets/icons.svg#arrow-right"/></svg><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-apple"/></svg></span>
@@ -220,7 +210,7 @@
           <li class="fact reveal" style="--d: 80ms">
             <svg class="i" aria-hidden="true"><use href="assets/icons.svg#cloud-slash"/></svg>
             <h3>No account, no cloud</h3>
-            <p>No sign-up, no relay servers, no ads, no analytics. Nothing to log into.</p>
+            <p>No sign-up, no relay servers, no analytics, and no clipboard watching.</p>
           </li>
           <li class="fact reveal" style="--d: 160ms">
             <svg class="i" aria-hidden="true"><use href="assets/icons.svg#shield-check"/></svg>

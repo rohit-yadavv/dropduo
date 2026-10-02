@@ -588,7 +588,7 @@ a { color: inherit; text-decoration: none; }
 .platform__head { display: flex; align-items: center; gap: 18px; }
 .platform__head h3 { font-size: 1.375rem; font-weight: 640; letter-spacing: -0.025em; }
 .platform__req { color: var(--muted); font-size: 0.9375rem; }
-.platform__logo { width: 44px; height: 44px; flex: none; }
+.platform__logo { width: 40px; height: 40px; flex: none; color: var(--text); }
 .platform__logo--android { color: #3DDC84; }
 
 .platform__actions { display: flex; flex-wrap: wrap; gap: 10px; }

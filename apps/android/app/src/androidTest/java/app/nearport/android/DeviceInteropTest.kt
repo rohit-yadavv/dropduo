@@ -31,11 +31,12 @@ class DeviceInteropTest {
         val peer = AppState.engine ?: error("No peer")
         peer.sendFile(source, "33333333-3333-4333-8333-333333333333")
         peer.sendText("Android to Mac text")
-        while (AppState.ui.value.history.none { it.direction == "Received" && it.text == "Mac to Android text" } && System.currentTimeMillis() < deadline) Thread.sleep(100)
+        while (AppState.ui.value.history.none { it.direction == "Received" && it.text == "Interop complete" } && System.currentTimeMillis() < deadline) Thread.sleep(100)
         val file = AppState.ui.value.history.firstOrNull { it.id == "22222222-2222-4222-8222-222222222222" && it.state == "Complete" }
         assertNotNull("Mac file received", file)
         assertEquals(Wire.hash(source), Wire.hash(File(file!!.path!!)))
         assertTrue(AppState.ui.value.history.any { it.text == "Mac to Android text" })
+        assertTrue("Swift verified both directions before disconnect", AppState.ui.value.history.any { it.text == "Interop complete" })
         AppState.setReceiving(false); assertFalse(peer.receivingEnabled)
         AppState.setReceiving(true)
         source.delete()

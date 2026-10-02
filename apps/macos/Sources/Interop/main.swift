@@ -62,6 +62,11 @@ func fixture() throws {
             try await engine.sendFile(source, id: outboundID)
             try await engine.sendText("Mac to Android text")
             sent = true; finishIfReady()
+            let deadline = Date().addingTimeInterval(30)
+            while !(received && textReceived), Date() < deadline { try await Task.sleep(nanoseconds: 10_000_000) }
+            guard received && textReceived else { throw PortError.invalid("Interop receive deadline exceeded") }
+            finishIfReady()
+            try await engine.sendText("Interop complete")
             _ = try await receive.value
         } catch { print("Interop: " + error.localizedDescription); await engine.stop(); receive.cancel() }
     }

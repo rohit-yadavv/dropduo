@@ -195,8 +195,9 @@ public actor PeerEngine {
                     try await channel.send(Message("ack", id: id, offset: next))
                     event(PeerEvent(id: id, name: offer.name!, direction: "Received", state: "Receiving", progress: Double(next)/Double(max(1, offer.size!))))
                 case "finish":
-                    guard let offer = incoming.removeValue(forKey: id) else { throw PortError.invalid("Unknown transfer") }
+                    guard let offer = incoming[id] else { throw PortError.invalid("Unknown transfer") }
                     let file = try inbox.finish(offer)
+                    incoming.removeValue(forKey: id)
                     try await channel.send(Message("complete", id: id))
                     event(PeerEvent(id: id, name: offer.name!, direction: "Received", state: "Complete", progress: 1, path: file.path))
                 case "text":
@@ -205,7 +206,10 @@ public actor PeerEngine {
                     try await channel.send(Message("complete", id: id))
                 default: throw PortError.invalid("Unsupported message")
                 }
-            } catch { incoming.removeValue(forKey: id); try await channel.send(Message("error", id: id, error: error.localizedDescription)) }
+            } catch {
+                if let offer = incoming.removeValue(forKey: id) { event(PeerEvent(id: id, name: offer.name!, direction: "Received", state: "Interrupted", error: error.localizedDescription)) }
+                try await channel.send(Message("error", id: id, error: error.localizedDescription))
+            }
         }
     }
 }

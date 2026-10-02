@@ -117,8 +117,8 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
                         event(PeerEvent(id, offer.name!!, "Received", "Receiving", next.toDouble()/maxOf(1L, offer.size!!)))
                     }
                     "finish" -> {
-                        val offer = incoming.remove(id) ?: error("Unknown transfer")
-                        val file = inbox.finish(offer); channel.send(Message("complete", id))
+                        val offer = incoming[id] ?: error("Unknown transfer")
+                        val file = inbox.finish(offer); incoming.remove(id); channel.send(Message("complete", id))
                         event(PeerEvent(id, offer.name!!, "Received", "Complete", 1.0, file.path))
                     }
                     "text" -> {
@@ -127,7 +127,10 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
                     }
                     else -> error("Unsupported message")
                 }
-            } catch (error: Exception) { incoming.remove(id); channel.send(Message("error", id, error = error.message ?: "Transfer failed")) }
+            } catch (error: Exception) {
+                incoming.remove(id)?.let { event(PeerEvent(id, it.name!!, "Received", "Interrupted", error = error.message)) }
+                channel.send(Message("error", id, error = error.message ?: "Transfer failed"))
+            }
         }
     }
 }

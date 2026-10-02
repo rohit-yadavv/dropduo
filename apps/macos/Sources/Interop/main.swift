@@ -32,7 +32,7 @@ func fixture() throws {
         try JSONSerialization.data(withJSONObject: ["hash": hash, "size": bytes.count]).write(to: directory.appendingPathComponent("expected.json"))
         server.lookup = { [weak self] hello in
             guard let self else { throw PortError.invalid("Test stopped") }
-            let secret = await self.secret
+            let secret = self.secret
             guard hello.pairID == self.pairID, Wire.verify(hello.proof, key: secret, text: hello.transcript) else { throw PortError.invalid("Authentication failed") }
             return secret
         }
@@ -40,8 +40,8 @@ func fixture() throws {
         server.onReady = { [weak self] port in Task { @MainActor in
             guard let self else { return }
             let ticket = Ticket(pairID: self.pairID, host: "127.0.0.1", port: port, secret: self.secret.base64EncodedString(), name: "Interop Mac", expires: Int64(Date().timeIntervalSince1970) + 300)
-            try ticket.code().write(to: self.directory.appendingPathComponent("ticket.txt"), atomically: true, encoding: .utf8)
-            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: self.directory.appendingPathComponent("ticket.txt").path)
+            do { try ticket.code().write(to: self.directory.appendingPathComponent("ticket.txt"), atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: self.directory.appendingPathComponent("ticket.txt").path) } catch { print("Failed to write test ticket") }
         } }
         server.onPeer = { [weak self] _, _, channel in
             guard let self else { return }; await self.run(channel, source: source, inbox: inbox, expectedHash: hash)
@@ -70,7 +70,7 @@ func fixture() throws {
     }
 }
 if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "serve" {
-    let host = await InteropHost(directory: URL(fileURLWithPath: CommandLine.arguments[2]))
-    try await host.start()
+    let host = InteropHost(directory: URL(fileURLWithPath: CommandLine.arguments[2]))
+    try host.start()
     try await Task.sleep(nanoseconds: 300_000_000_000)
 } else { try fixture() }

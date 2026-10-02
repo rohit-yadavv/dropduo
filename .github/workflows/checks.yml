@@ -12,10 +12,11 @@ jobs:
       - uses: actions/checkout@v4
       - run: ./scripts/check macos
       - run: ./scripts/build-macos
+      - run: ditto -c -k --sequesterRsrc --keepParent dist/Nearport.app dist/Nearport-macos-development.zip
       - uses: actions/upload-artifact@v4
         with:
           name: nearport-macos-development
-          path: dist/Nearport.app
+          path: dist/Nearport-macos-development.zip
   android:
     runs-on: ubuntu-latest
     steps:

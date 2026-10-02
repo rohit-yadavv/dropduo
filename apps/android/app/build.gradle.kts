@@ -2,12 +2,15 @@ plugins { id("com.android.application"); kotlin("android"); id("org.jetbrains.ko
 android {
     namespace = "app.nearport.android"
     compileSdk = 36
-    defaultConfig { applicationId = "app.nearport.android"; minSdk = 29; targetSdk = 36; versionCode = 1; versionName = "0.1.0-alpha.1" }
+    defaultConfig { applicationId = "app.nearport.android"; minSdk = 29; targetSdk = 36; versionCode = 1; versionName = "0.1.0-alpha.1"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
     buildFeatures { compose = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
 }
 kotlin { jvmToolchain(17) }
 dependencies {
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:core:1.6.1")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
     implementation(project(":core"))
     implementation("com.google.code.gson:gson:2.11.0")
     implementation(platform("androidx.compose:compose-bom:2025.08.01"))

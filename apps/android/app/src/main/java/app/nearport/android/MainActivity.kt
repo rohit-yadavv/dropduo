@@ -107,7 +107,7 @@ private fun kotlinx.coroutines.CoroutineScope.launchIo(block: suspend () -> Unit
                                 Text("You can also select content in another app and choose Share → Nearport.", style = MaterialTheme.typography.bodySmall)
                             } }
                             OutlinedTextField(value = text, onValueChange = { text = it }, label = { Text("Link or text") }, modifier = Modifier.fillMaxWidth(), minLines = 3)
-                            Button(onClick = { AppState.sendText(text); text = "" }, enabled = state.connected && text.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Send text") }
+                            Button(onClick = { AppState.sendText(text) { text = "" } }, enabled = state.connected && text.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Send text") }
                         }
                         state.history.firstOrNull()?.let { TransferCard(it, onSave, onOpen) }
                     }

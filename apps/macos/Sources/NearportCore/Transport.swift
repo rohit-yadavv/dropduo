@@ -102,14 +102,20 @@ public actor PeerEngine {
     }
     public func setReceiving(_ enabled: Bool) { receivingEnabled = enabled }
     public func run() async throws {
-        defer { alive = false }
+        defer {
+            alive = false
+            for offer in incoming.values { event(PeerEvent(id: offer.id!, name: offer.name!, direction: "Received", state: "Interrupted", error: "Connection interrupted; sender can retry")) }
+            incoming.removeAll()
+        }
         while alive { try await handle(channel.receive()) }
     }
     public func stop() async { alive = false; await channel.close() }
     public func cancel(_ id: String) async {
+        guard active.contains(id) || incoming[id] != nil else { return }
         cancelled.insert(id); incoming.removeValue(forKey: id); try? inbox.cancel(id)
         try? await channel.send(Message("cancel", id: id))
         event(PeerEvent(id: id, name: "Transfer", direction: "", state: "Cancelled"))
+        if !active.contains(id) { cancelled.remove(id) }
     }
     private func wait(_ id: String) async throws -> Message {
         let deadline = Date().addingTimeInterval(60)
@@ -129,8 +135,12 @@ public actor PeerEngine {
         do {
             let name = file.lastPathComponent
             event(PeerEvent(id: id, name: name, direction: "Sent", state: "Preparing"))
+            let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
+            guard attributes[.type] as? FileAttributeType == .typeRegular, let number = attributes[.size] as? NSNumber,
+                  number.int64Value <= Wire.maxFile else { throw PortError.invalid("Choose a regular file up to 32 GiB") }
+            let size = number.int64Value
             let hash = try await Task.detached { try Wire.hash(file) }.value
-            let size = (try FileManager.default.attributesOfItem(atPath: file.path)[.size] as! NSNumber).int64Value
+            if cancelled.contains(id) { throw PortError.invalid("Transfer cancelled") }
             let offer = Message("offer", id: id, name: name, size: size, sha256: hash)
             try Inbox.validate(offer); try await channel.send(offer)
             let response = try await wait(id)
@@ -169,6 +179,7 @@ public actor PeerEngine {
             guard active.contains(id) || incoming[id] != nil else { return }
             cancelled.insert(id); incoming.removeValue(forKey: id); try? inbox.cancel(id)
             event(PeerEvent(id: id, name: "Transfer", direction: "", state: "Cancelled"))
+            if !active.contains(id) { cancelled.remove(id) }
         default:
             do {
                 switch message.type {

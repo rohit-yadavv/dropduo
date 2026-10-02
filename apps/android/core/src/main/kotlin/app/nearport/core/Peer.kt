@@ -44,11 +44,12 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
     private val active = ConcurrentHashMap.newKeySet<String>()
     @Volatile var receivingEnabled = true
     @Volatile private var alive = true
-    fun run() { try { while (alive) handle(channel.receive()) } finally { alive = false; channel.close() } }
+    fun run() { try { while (alive) handle(channel.receive()) } finally { alive = false; incoming.values.forEach { event(PeerEvent(it.id!!, it.name!!, "Received", "Interrupted", error = "Connection interrupted; sender can retry")) }; incoming.clear(); channel.close() } }
     override fun close() { alive = false; channel.close() }
     fun cancel(id: String) {
+        if (!active.contains(id) && !incoming.containsKey(id)) return
         cancelled.add(id); incoming.remove(id); runCatching { inbox.cancel(id) }; runCatching { channel.send(Message("cancel", id)) }
-        event(PeerEvent(id, "Transfer", "", "Cancelled"))
+        event(PeerEvent(id, "Transfer", "", "Cancelled")); if (!active.contains(id)) cancelled.remove(id)
     }
     private fun wait(id: String): Message {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(60)
@@ -64,7 +65,9 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
         cancelled.remove(id); responses[id] = LinkedBlockingQueue(8)
         try {
             event(PeerEvent(id, displayName, "Sent", "Preparing"))
+            require(file.isFile && file.length() <= Wire.MAX_FILE) { "Choose a regular file up to 32 GiB" }
             val size = file.length(); val offer = Message("offer", id, displayName, size, Wire.hash(file))
+            check(!cancelled.contains(id)) { "Transfer cancelled" }
             Inbox.validate(offer); channel.send(offer)
             val reply = wait(id)
             check(reply.type == "accept" && reply.offset != null && reply.offset in 0..size) { "Invalid resume response" }
@@ -99,7 +102,7 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
         require(UUID.fromString(id).toString().equals(id, true)) { "Invalid message ID" }
         when (message.type) {
             "accept", "ack", "complete", "error" -> responses[id]?.offer(message)
-            "cancel" -> { cancelled.add(id); incoming.remove(id); inbox.cancel(id); event(PeerEvent(id, "Transfer", "", "Cancelled")) }
+            "cancel" -> { if (active.contains(id) || incoming.containsKey(id)) { cancelled.add(id); incoming.remove(id); inbox.cancel(id); event(PeerEvent(id, "Transfer", "", "Cancelled")); if (!active.contains(id)) cancelled.remove(id) } }
             else -> try {
                 when (message.type) {
                     "offer" -> {
@@ -124,7 +127,7 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
                     }
                     else -> error("Unsupported message")
                 }
-            } catch (error: Exception) { channel.send(Message("error", id, error = error.message ?: "Transfer failed")) }
+            } catch (error: Exception) { incoming.remove(id); channel.send(Message("error", id, error = error.message ?: "Transfer failed")) }
         }
     }
 }

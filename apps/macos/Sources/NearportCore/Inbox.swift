@@ -25,7 +25,7 @@ public final class Inbox {
         try Self.validate(offer)
         let metadata = try url(offer.id!, ".json"), part = try url(offer.id!, ".part")
         if fm.fileExists(atPath: destination(offer).path) {
-            guard try Wire.hash(destination(offer)) == offer.sha256 else { throw PortError.invalid("Completed file changed") }
+            guard (try fm.attributesOfItem(atPath: destination(offer).path)[.size] as? NSNumber)?.int64Value == offer.size, try Wire.hash(destination(offer)) == offer.sha256 else { throw PortError.invalid("Completed file changed") }
             return offer.size!
         }
         if let bytes = try? Data(contentsOf: metadata) {
@@ -49,7 +49,9 @@ public final class Inbox {
     }
     public func finish(_ offer: Message) throws -> URL {
         let target = destination(offer)
-        if fm.fileExists(atPath: target.path) { return target }
+        if fm.fileExists(atPath: target.path) {
+            guard (try fm.attributesOfItem(atPath: target.path)[.size] as? NSNumber)?.int64Value == offer.size, try Wire.hash(target) == offer.sha256 else { throw PortError.invalid("Completed file changed") }; return target
+        }
         let part = try url(offer.id!, ".part")
         let size = (try fm.attributesOfItem(atPath: part.path)[.size] as? NSNumber)?.int64Value
         guard size == offer.size, try Wire.hash(part) == offer.sha256 else {

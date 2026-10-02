@@ -20,7 +20,7 @@ class Inbox(val root: File) {
     fun destination(offer: Message) = File(root, "${offer.id}-${offer.name}")
     @Synchronized fun prepare(offer: Message): Long {
         validate(offer)
-        if (destination(offer).exists()) { require(Wire.hash(destination(offer)) == offer.sha256) { "Completed file changed" }; return offer.size!! }
+        if (destination(offer).exists()) { require(destination(offer).length() == offer.size && Wire.hash(destination(offer)) == offer.sha256) { "Completed file changed" }; return offer.size!! }
         val meta = part(offer.id!!, ".json"); val file = part(offer.id, ".part")
         if (meta.exists()) {
             val old = Wire.gson.fromJson(meta.readText(), Message::class.java)
@@ -39,7 +39,7 @@ class Inbox(val root: File) {
         return offset + data.size
     }
     @Synchronized fun finish(offer: Message): File {
-        val target = destination(offer); if (target.exists()) return target
+        val target = destination(offer); if (target.exists()) { require(target.length() == offer.size && Wire.hash(target) == offer.sha256) { "Completed file changed" }; return target }
         val file = part(offer.id!!, ".part")
         if (file.length() != offer.size || Wire.hash(file) != offer.sha256) { cancel(offer.id); error("Integrity verification failed; retry the file") }
         require(file.renameTo(target)) { "Could not save received file" }; part(offer.id, ".json").delete(); return target

@@ -2,6 +2,9 @@
 set -eu
 cd "$(dirname "$0")/.."
 scope=${1:-all}
+if [ -z "${ANDROID_HOME:-}" ] && [ -d "$HOME/Library/Android/sdk" ]; then
+  ANDROID_HOME="$HOME/Library/Android/sdk"; export ANDROID_HOME
+fi
 case "$scope" in
   macos) swift run --package-path apps/macos CoreChecks; swift build --package-path apps/macos --product Nearport ;;
   android) ./apps/android/gradlew -p apps/android :core:test :app:assembleDebug :app:lintDebug --console=plain ;;

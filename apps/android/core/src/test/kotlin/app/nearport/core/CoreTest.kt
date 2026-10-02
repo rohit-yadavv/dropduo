@@ -34,4 +34,21 @@ class CoreTest {
             assertTrue(runCatching { inbox.prepare(offer.copy(size = -1)) }.isFailure)
         } finally { dir.deleteRecursively() }
     }
+    @Test fun emptyFilesIdempotenceCancellationAndFramingLimits() {
+        val dir = Files.createTempDirectory("nearport-edge").toFile()
+        try {
+            val source = File(dir, "empty").apply { writeBytes(byteArrayOf()) }
+            val offer = Message("offer", UUID.randomUUID().toString(), "empty.txt", 0, Wire.hash(source))
+            val inbox = Inbox(dir)
+            assertEquals(0L, inbox.prepare(offer)); val target = inbox.finish(offer)
+            assertEquals(target, inbox.finish(offer)); assertEquals(0L, inbox.prepare(offer))
+            assertTrue(runCatching { inbox.prepare(offer.copy(size = 1)) }.isFailure)
+            val other = offer.copy(id = UUID.randomUUID().toString()); inbox.prepare(other); inbox.cancel(other.id!!)
+            assertEquals(0L, inbox.prepare(other))
+            val bad = java.io.ByteArrayOutputStream().also { java.io.DataOutputStream(it).writeInt(Wire.MAX_FRAME + 1) }
+            assertTrue(runCatching { Wire.readFrame(java.io.DataInputStream(bad.toByteArray().inputStream())) }.isFailure)
+            assertTrue(runCatching { FrameCipher(ByteArray(32)).open(ByteArray(35)) }.isFailure)
+        } finally { dir.deleteRecursively() }
+    }
+
 }

@@ -22,6 +22,8 @@ object AppState {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     @Volatile var ticket: Ticket? = null
     @Volatile var engine: PeerEngine? = null
+    private val importing = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val cancelledImports = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private val sending = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private val pendingPair = java.util.concurrent.atomic.AtomicBoolean(false)
     private val pairingGate = Any()
@@ -49,7 +51,8 @@ object AppState {
     fun pairConfirmed(value: Ticket) {
         synchronized(pairingGate) { if (ticket?.pairID != value.pairID) return; secure.save(value); pendingPair.set(false) }
     }
-    fun pairFailed() {
+    fun pairFailed(attempted: Ticket) {
+        if (ticket?.pairID != attempted.pairID) return
         if (pendingPair.compareAndSet(true, false)) {
             ticket = runCatching { secure.load() }.getOrNull()
             update { it.copy(device = ticket?.name, status = "Pairing failed. Generate a new code and try again.") }
@@ -75,12 +78,14 @@ object AppState {
         runCatching { val temp = File(context.filesDir, "history.tmp"); temp.writeText(Wire.gson.toJson(history)); check(temp.renameTo(historyFile())) }
             .onFailure { error("Could not save transfer history") }
     }
-    fun sendText(text: String) { scope.launch { try { val peer = engine ?: throw IllegalStateException("Mac is offline. Connect first."); peer.sendText(text) } catch (e: Exception) { error(e.message ?: "Could not send text") } } }
+    fun sendText(text: String, onSuccess: () -> Unit = {}) { scope.launch { try { val peer = engine ?: throw IllegalStateException("Mac is offline. Connect first."); peer.sendText(text); withContext(Dispatchers.Main) { onSuccess() } } catch (e: Exception) { error(e.message ?: "Could not send text") } } }
     fun importAndSend(uris: List<Uri>) {
         scope.launch {
             for (uri in uris) {
                 val id = UUID.randomUUID().toString()
                 var file: File? = null
+                var imported = false
+                importing.add(id)
                 try {
                     var name = "Shared file"
                     context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) name = it.getString(0) ?: name }
@@ -88,12 +93,17 @@ object AppState {
                     record(PeerEvent(id, name, "Sent", "Preparing", path = file.path))
                     context.contentResolver.openInputStream(uri)?.use { source -> file.outputStream().use { out ->
                         val buffer = ByteArray(Wire.CHUNK_SIZE); var total = 0L
-                        while (true) { val n = source.read(buffer); if (n < 0) break; total += n; require(total <= Wire.MAX_FILE && context.filesDir.usableSpace > n + 1024*1024) { "Not enough space or file too large" }; out.write(buffer, 0, n) }
+                        while (true) { check(!cancelledImports.contains(id)) { "Transfer cancelled" }; val n = source.read(buffer); if (n < 0) break; total += n; require(total <= Wire.MAX_FILE && context.filesDir.usableSpace > n + 1024*1024) { "Not enough space or file too large" }; out.write(buffer, 0, n) }
                     } } ?: throw IllegalStateException("Could not read selected file")
+                    check(!cancelledImports.contains(id)) { "Transfer cancelled" }
+                    imported = true
                     sendStored(id, name, file)
                 } catch (e: Exception) {
-                    record(PeerEvent(id, "Shared file", "Sent", "Interrupted", path = file?.path, error = e.message)); error(e.message ?: "Could not send file")
-                }
+                    if (!imported) file?.delete()
+                    val cancelled = cancelledImports.contains(id) || ui.value.history.firstOrNull { it.id == id }?.state == "Cancelled"
+                    record(PeerEvent(id, "Shared file", "Sent", if (cancelled) "Cancelled" else "Interrupted", path = if (imported) file?.path else null, error = e.message))
+                    if (!cancelled) error(e.message ?: "Could not send file")
+                } finally { importing.remove(id); cancelledImports.remove(id) }
             }
         }
     }
@@ -103,7 +113,10 @@ object AppState {
         finally { sending.remove(id) }
     }
     fun retry(row: Transfer) { scope.launch { try { val file = File(row.path ?: throw IllegalStateException("Source unavailable")); require(file.exists()) { "Source unavailable. Share it again." }; sendStored(row.id, row.name, file) } catch (e: Exception) { error(e.message ?: "Retry failed") } } }
-    fun cancel(row: Transfer) { scope.launch { engine?.cancel(row.id); if (row.direction == "Sent") row.path?.let { File(it).delete() } } }
-    fun clearHistory() { synchronized(this) { val active = ui.value.history.filter { it.state in listOf("Preparing", "Sending", "Receiving") }; ui.value = ui.value.copy(history = active); saveHistory(active) } }
+    fun cancel(row: Transfer) {
+        if (importing.contains(row.id)) cancelledImports.add(row.id)
+        scope.launch { engine?.cancel(row.id); if (row.direction == "Sent" && !importing.contains(row.id)) row.path?.let { File(it).delete() }; record(PeerEvent(row.id, row.name, row.direction, "Cancelled")) }
+    }
+    fun clearHistory() { synchronized(this) { ui.value.history.filter { it.direction == "Sent" && it.state !in listOf("Preparing", "Sending", "Receiving") }.forEach { row -> row.path?.let { path -> val file = File(path); if (file.parentFile == File(context.filesDir, "outgoing")) file.delete() } }; val active = ui.value.history.filter { it.state in listOf("Preparing", "Sending", "Receiving") }; ui.value = ui.value.copy(history = active); saveHistory(active) } }
     fun inbox() = File(context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS), "Nearport").apply { mkdirs() }
 }

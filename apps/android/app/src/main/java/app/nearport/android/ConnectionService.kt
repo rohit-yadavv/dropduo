@@ -44,7 +44,7 @@ class ConnectionService : Service() {
                     AppState.engine = peer; AppState.update { it.copy(connected = true, device = ticket.name, status = "Connected to ${ticket.name}") }
                     peer.run()
                 } catch (e: Exception) {
-                    if (running) { AppState.pairFailed(); AppState.update { it.copy(connected = false, status = "Mac isn't reachable. Reconnecting…") } }
+                    if (running) { AppState.pairFailed(ticket); AppState.update { it.copy(connected = false, status = "Mac isn't reachable. Reconnecting…") } }
                 } finally { AppState.engine?.close(); AppState.engine = null; AppState.update { it.copy(connected = false) } }
             }
             try { Thread.sleep(4000) } catch (_: InterruptedException) { break }

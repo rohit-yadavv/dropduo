@@ -66,7 +66,7 @@ struct Transfer: Codable, Identifiable {
             var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
             if getnameinfo(address, socklen_t(address.pointee.sa_len), &host, socklen_t(host.count), nil, 0, NI_NUMERICHOST) == 0 { result.append(String(cString: host)) }
         }
-        return Array(Set(result)).sorted()
+        var seen = Set<String>(); return result.filter { seen.insert($0).inserted }
     }
     private func authenticate(_ hello: Hello) async throws -> Data {
         if let device = devices.first(where: { $0.id == hello.pairID }), let secret = SecureStore.load(device.id) {
@@ -81,6 +81,7 @@ struct Transfer: Codable, Identifiable {
         alert.addButton(withTitle: "Pair device"); alert.addButton(withTitle: "Reject")
         NSApp.activate(ignoringOtherApps: true)
         guard alert.runModal() == .alertFirstButtonReturn else { throw PortError.invalid("Pairing declined") }
+        guard ticket.expires > Int64(Date().timeIntervalSince1970), pending?.pairID == ticket.pairID else { throw PortError.invalid("Pairing expired; generate a new code") }
         try SecureStore.save(secret, id: hello.pairID)
         devices.append(Device(id: hello.pairID, name: hello.name)); save(devices, "devices.json")
         selected = hello.pairID; pending = nil; self.ticket = nil; return secret
@@ -127,5 +128,5 @@ struct Transfer: Codable, Identifiable {
         if selected == device.id { selected = devices.first?.id ?? "" }
     }
     func persistSettings() { UserDefaults.standard.set(receiving, forKey: "nearport.receiving") }
-    func clearHistory() { transfers.removeAll(); save(transfers, "history.json") }
+    func clearHistory() { transfers.removeAll { !["Preparing", "Sending", "Receiving"].contains($0.state) }; save(transfers, "history.json") }
 }

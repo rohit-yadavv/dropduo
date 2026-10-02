@@ -1,5 +1,15 @@
 # Download DropDuo
 
+Install DropDuo on both your Mac and Android phone to share selected files, photos, videos, text, and links directly over your local network. Pair once; use Mac drag and drop or Android **Share → DropDuo** for later transfers. No account or cloud upload is required.
+
+**Available now: development alpha builds for testers.** No public release has been published yet. Start with [development downloads](#development-downloads-available-now), then follow the [first-transfer walkthrough](usage.md). Read the [comparison](comparison.md) if you're deciding whether DropDuo fits your devices.
+
+| Requirement | Supported |
+| --- | --- |
+| Mac | macOS 14+, Apple Silicon or Intel |
+| Phone | Android 10+ |
+| Connection | Same reachable local network; internet access is not required for sharing |
+
 ## Published versions
 
 Use [GitHub Releases](https://github.com/rohit-yadavv/dropduo/releases). Published releases have downloadable Mac ZIPs and an Android APK under **Assets**. GitHub's **Source code** ZIP is for developers; it does not contain installed apps. No published version exists yet; use development downloads until the first release is published.

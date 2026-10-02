@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Rewrite the product introduction and user guides around everyday Mac–Android sharing; add a sourced competitor comparison, FAQ, and documentation index.
 - Add an animated, dependency-free product website with platform-aware Mac and Android downloads from the latest published release, plus a GitHub Pages workflow.
 - Reduce redundant CI runs: build/quality checks on develop and master pushes plus PRs, and CodeQL on PRs and weekly. Preserve all tests, platform coverage, and release automation.
 

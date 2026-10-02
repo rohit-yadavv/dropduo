@@ -1,0 +1,14 @@
+name: Release preflight
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require production branch
+        run: test "$GITHUB_REF" = refs/heads/master
+      - uses: actions/checkout@v4
+      - name: Release requirements
+        run: cat docs/releases.md

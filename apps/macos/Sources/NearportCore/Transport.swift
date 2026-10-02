@@ -1,19 +1,23 @@
 import Foundation
 import Network
 
+private final class StartGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var finished = false
+    func claim() -> Bool { lock.lock(); defer { lock.unlock() }; if finished { return false }; finished = true; return true }
+}
 public final class FramedConnection: @unchecked Sendable {
     public let connection: NWConnection
     private let queue = DispatchQueue(label: "app.nearport.connection")
     public init(_ connection: NWConnection) { self.connection = connection }
     public func start() async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            var finished = false
+            let gate = StartGate()
             connection.stateUpdateHandler = { state in
-                guard !finished else { return }
                 switch state {
-                case .ready: finished = true; continuation.resume()
-                case .failed(let error): finished = true; continuation.resume(throwing: error)
-                case .cancelled: finished = true; continuation.resume(throwing: PortError.invalid("Connection closed"))
+                case .ready: if gate.claim() { continuation.resume() }
+                case .failed(let error): if gate.claim() { continuation.resume(throwing: error) }
+                case .cancelled: if gate.claim() { continuation.resume(throwing: PortError.invalid("Connection closed")) }
                 default: break
                 }
             }
@@ -51,13 +55,17 @@ public actor SecureChannel {
     private let framed: FramedConnection
     private var sender: FrameCipher
     private var receiver: FrameCipher
+    private var sendTail: Task<Void, Error>?
     public init(framed: FramedConnection, sendKey: Data, receiveKey: Data) {
         self.framed = framed; sender = FrameCipher(key: sendKey); receiver = FrameCipher(key: receiveKey)
     }
     public func send(_ message: Message) async throws {
         let frame = try sender.seal(JSONEncoder().encode(message))
-        // NWConnection enqueues content synchronously in order, before awaiting completion.
-        try await framed.send(frame)
+        let previous = sendTail
+        let connection = framed
+        let write = Task { try await previous?.value; try await connection.send(frame) }
+        sendTail = write
+        try await write.value
     }
     public func receive() async throws -> Message {
         let frame = try await framed.receive()
@@ -117,7 +125,7 @@ public actor PeerEngine {
     }
     public func sendFile(_ file: URL, id: String = UUID().uuidString) async throws {
         guard !active.contains(id), active.count < 4 else { throw PortError.invalid("Transfer already active") }
-        active.insert(id); cancelled.remove(id); responses.removeValue(forKey: id); defer { active.remove(id) }
+        active.insert(id); cancelled.remove(id); responses.removeValue(forKey: id); defer { active.remove(id); cancelled.remove(id); responses.removeValue(forKey: id) }
         do {
             let name = file.lastPathComponent
             event(PeerEvent(id: id, name: name, direction: "Sent", state: "Preparing"))
@@ -148,6 +156,7 @@ public actor PeerEngine {
     public func sendText(_ text: String) async throws {
         guard !text.isEmpty, text.utf8.count <= 64_000 else { throw PortError.invalid("Text must be between 1 and 64000 bytes") }
         let id = UUID().uuidString
+        active.insert(id); defer { active.remove(id); responses.removeValue(forKey: id) }
         try await channel.send(Message("text", id: id, text: text))
         guard try await wait(id).type == "complete" else { throw PortError.invalid("Text was not confirmed") }
         event(PeerEvent(id: id, name: "Text", direction: "Sent", state: "Complete", progress: 1, text: text))
@@ -155,8 +164,9 @@ public actor PeerEngine {
     private func handle(_ message: Message) async throws {
         guard let id = message.id, UUID(uuidString: id) != nil else { throw PortError.invalid("Invalid message ID") }
         switch message.type {
-        case "accept", "ack", "complete", "error": responses[id] = message
+        case "accept", "ack", "complete", "error": if active.contains(id) { responses[id] = message }
         case "cancel":
+            guard active.contains(id) || incoming[id] != nil else { return }
             cancelled.insert(id); incoming.removeValue(forKey: id); try? inbox.cancel(id)
             event(PeerEvent(id: id, name: "Transfer", direction: "", state: "Cancelled"))
         default:
@@ -184,7 +194,7 @@ public actor PeerEngine {
                     try await channel.send(Message("complete", id: id))
                 default: throw PortError.invalid("Unsupported message")
                 }
-            } catch { try await channel.send(Message("error", id: id, error: error.localizedDescription)) }
+            } catch { incoming.removeValue(forKey: id); try await channel.send(Message("error", id: id, error: error.localizedDescription)) }
         }
     }
 }

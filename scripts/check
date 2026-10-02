@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+cd "$(dirname "$0")/.."
+scope=${1:-all}
+case "$scope" in
+  macos) swift run --package-path apps/macos CoreChecks; swift build --package-path apps/macos --product Nearport ;;
+  android) ./apps/android/gradlew -p apps/android :core:test :app:assembleDebug :app:lintDebug --console=plain ;;
+  protocol) swift run --package-path apps/macos CoreChecks; ./apps/android/gradlew -p apps/android :core:test --console=plain; ./scripts/interop ;;
+  all) "$0" macos; "$0" android; ./scripts/interop ;;
+  *) echo 'Usage: scripts/check [macos|android|protocol|all]' >&2; exit 2 ;;
+esac

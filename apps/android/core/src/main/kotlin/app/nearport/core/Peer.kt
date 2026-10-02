@@ -61,7 +61,7 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
     }
     fun sendFile(file: File, id: String = UUID.randomUUID().toString(), displayName: String = file.name) {
         check(active.size < 4 && active.add(id)) { "Transfer already active" }
-        cancelled.remove(id); responses[id] = LinkedBlockingQueue()
+        cancelled.remove(id); responses[id] = LinkedBlockingQueue(8)
         try {
             event(PeerEvent(id, displayName, "Sent", "Preparing"))
             val size = file.length(); val offer = Message("offer", id, displayName, size, Wire.hash(file))
@@ -84,11 +84,11 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
             event(PeerEvent(id, displayName, "Sent", "Complete", 1.0, file.path))
         } catch (error: Exception) {
             event(PeerEvent(id, displayName, "Sent", if (cancelled.contains(id)) "Cancelled" else "Interrupted", path = file.path, error = error.message)); throw error
-        } finally { active.remove(id); responses.remove(id) }
+        } finally { active.remove(id); cancelled.remove(id); responses.remove(id) }
     }
     fun sendText(text: String) {
         require(text.isNotEmpty() && text.toByteArray().size <= 64000) { "Text must be between 1 and 64000 bytes" }
-        val id = UUID.randomUUID().toString(); responses[id] = LinkedBlockingQueue()
+        val id = UUID.randomUUID().toString(); responses[id] = LinkedBlockingQueue(8)
         try {
             channel.send(Message("text", id, text = text)); check(wait(id).type == "complete") { "Text was not confirmed" }
             event(PeerEvent(id, "Text", "Sent", "Complete", 1.0, text = text))

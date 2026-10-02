@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+cd "$(dirname "$0")/.."
+configuration=${1:-release}
+swift build --package-path apps/macos -c "$configuration" --product Nearport
+bin=$(swift build --package-path apps/macos -c "$configuration" --show-bin-path)
+app="dist/Nearport.app"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+cp "$bin/Nearport" "$app/Contents/MacOS/Nearport"
+cp apps/macos/Resources/Info.plist "$app/Contents/Info.plist"
+codesign --force --sign "${NEARPORT_SIGN_IDENTITY:--}" "$app"
+printf 'Built %s (%s signing).\n' "$app" "${NEARPORT_SIGN_IDENTITY:-development ad-hoc}"

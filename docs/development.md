@@ -38,14 +38,14 @@ No release credentials are needed for development. Distribution requires maintai
 
 ## Website
 
-`website/` is the static download page: plain HTML, CSS and JavaScript with no build dependencies. It reads the newest published GitHub release in the browser and links its Mac and Android assets, falling back to the releases page. Preview it with:
+`apps/web/` is the static download page: plain HTML, CSS and JavaScript with no build dependencies. It reads the newest published GitHub release in the browser and links its Mac and Android assets, falling back to the releases page. Preview it with:
 
 ```sh
-./scripts/check website           # assemble dist/website and verify local references
-python3 -m http.server 4173 -d dist/website
+./scripts/check web               # assemble dist/web and verify local references
+python3 -m http.server 4173 -d dist/web
 ```
 
-`.github/workflows/website.yml` deploys `master` to GitHub Pages. A maintainer must first set **Settings → Pages → Source** to **GitHub Actions**. See [website/README.md](../website/README.md) for assets and licenses.
+`.github/workflows/web.yml` deploys `master` to GitHub Pages. A maintainer must first set **Settings → Pages → Source** to **GitHub Actions**. See [apps/web/README.md](../apps/web/README.md) for assets and licenses.
 
 ## Icon assets
 

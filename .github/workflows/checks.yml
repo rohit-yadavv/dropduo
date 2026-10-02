@@ -3,41 +3,83 @@ on:
   push:
     branches: [develop, staging, master]
   pull_request:
+    branches: [develop, staging, master]
+  workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   macos:
-    runs-on: macos-15
+    name: macOS (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: macos-15, arch: arm64}
+          - {runner: macos-15-intel, arch: x86_64}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
       - run: ./scripts/check macos
       - run: ./scripts/build-macos
-      - run: ditto -c -k --sequesterRsrc --keepParent dist/DropDuo.app dist/DropDuo-macos-development.zip
-      - uses: actions/upload-artifact@v4
+      - name: Verify and archive
+        env: {ARCH: "${{ matrix.arch }}"}
+        run: |
+          codesign --verify --deep --strict dist/DropDuo.app
+          ditto -c -k --sequesterRsrc --keepParent dist/DropDuo.app "dist/DropDuo-macos-${ARCH}-development.zip"
+          cd dist
+          shasum -a 256 "DropDuo-macos-${ARCH}-development.zip" > "DropDuo-macos-${ARCH}-development.zip.sha256"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: dropduo-macos-development
-          path: dist/DropDuo-macos-development.zip
+          name: dropduo-macos-${{ matrix.arch }}-development
+          path: |
+            dist/*.zip
+            dist/*.sha256
+          if-no-files-found: error
+          retention-days: 30
   android:
-    runs-on: ubuntu-latest
+    name: Android
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: ./.github/actions/setup-android
       - run: ./scripts/check android
-      - uses: actions/upload-artifact@v4
+      - name: Prepare download
+        run: |
+          mkdir -p dist
+          cp apps/android/app/build/outputs/apk/debug/app-debug.apk dist/DropDuo-android-development.apk
+          cd dist
+          sha256sum DropDuo-android-development.apk > DropDuo-android-development.apk.sha256
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: dropduo-android-debug
-          path: apps/android/app/build/outputs/apk/debug/app-debug.apk
+          name: dropduo-android-development
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload Android reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: android-reports
+          path: |
+            apps/android/core/build/reports/tests/
+            apps/android/app/build/reports/lint-results-debug.*
+          retention-days: 14
   interoperability:
+    name: Swift / JVM interoperability
     runs-on: macos-15
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with: {distribution: temurin, java-version: '17'}
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       - run: ./scripts/interop

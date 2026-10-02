@@ -133,7 +133,7 @@ private fun kotlinx.coroutines.CoroutineScope.launchIo(block: suspend () -> Unit
                         HorizontalDivider()
                         Text("Received files stay in DropDuo's app storage. Use Save a copy to keep them in a folder you choose. Uninstalling DropDuo removes its stored files.", style = MaterialTheme.typography.bodySmall)
                         TextButton(onClick = AppState::clearHistory) { Text("Clear recent history") }
-                        Text("0.1.0 alpha · Local network only\nNo accounts. No analytics.", style = MaterialTheme.typography.bodySmall)
+                        Text("${BuildConfig.VERSION_NAME} · Local network only\nNo accounts. No analytics.", style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }

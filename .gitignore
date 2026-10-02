@@ -9,6 +9,8 @@ local.properties
 DerivedData/
 dist/
 .artifacts/
+__pycache__/
+*.pyc
 *.log
 *.keystore
 *.jks

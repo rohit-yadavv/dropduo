@@ -12,10 +12,16 @@ Recorded 2026-10-02 during local development. Check the Git log for the associat
 | Android emulator integration | Passed on API 37: actual foreground service, Android Keystore pairing, authenticated Swift connection, file/text exchange, receiving toggle. |
 | Native UI inspection | Android first-run screenshot inspected; Mac first-run accessibility tree inspected. Mac screenshot blocked by host screen-recording permission. |
 
-Not yet verified: production Mac pairing approval/rejection with a physical phone, camera QR scanning, physical LAN multicast discovery, long screen lock, vendor battery policies, sleep/wake, network switching, large-file endurance, VoiceOver/TalkBack, signed/notarized distribution, independent security review. No hosted CI run has been claimed.
+Not yet verified: production Mac pairing approval/rejection with a physical phone, camera QR scanning, physical LAN multicast discovery, long screen lock, vendor battery policies, sleep/wake, network switching, large-file endurance, VoiceOver/TalkBack, signed/notarized distribution, independent security review.
 
 Run the repeatable commands in [development](development.md), then record physical-device results against [testing](testing.md). Resume tests seeded partial data; do not describe them as verified recovery from every possible network interruption.
 
 ## DropDuo rename verification
 
 On 2026-10-02 the core checks, native builds, Android lint, Swift/JVM interoperability, and Android emulator foreground-service/Keystore integration passed again using DropDuo application IDs and protocol namespaces. The shared cryptographic fixture was regenerated for the new domain separators. Earlier working-name alpha pairings are incompatible; both devices must install DropDuo and pair again.
+
+## Hosted CI
+
+On 2026-10-02, [Checks run 36987826448](https://github.com/rohit-yadavv/dropduo/actions/runs/36987826448) at commit `4facb44` passed Android tests/build/lint, Apple Silicon Mac tests/packaging, Intel Mac tests/packaging, signature validation, and Swift/JVM interoperability. It uploaded all three development downloads and Android reports. The initial run at `8b6ff02` had failed because the Android setup action requested obsolete SDK `tools` and the Mac resource bundle layout differed between Swift toolchains; both were corrected. This hosted result does not verify real-phone behavior or production signing.
+
+The release draft and signing/notarization paths require a prepared version tag from master. No public release or real-credential distribution run has been performed.

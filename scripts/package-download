@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+"""Package an already-built platform artifact with checksum and source metadata."""
+import hashlib
+import json
+import platform
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+root = Path(__file__).resolve().parent.parent
+target, mode = sys.argv[1:3]
+if mode not in ("development", "distribution") or target not in ("macos", "android"):
+    sys.exit("Usage: scripts/package-download [macos|android] [development|distribution]")
+version = dict(line.split("=", 1) for line in (root / "version.properties").read_text().splitlines() if "=" in line)
+dirty = bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=root, text=True))
+if mode == "distribution" and dirty:
+    sys.exit("Distribution assets must be built from a clean source checkout.")
+out = root / "dist/release"
+out.mkdir(parents=True, exist_ok=True)
+suffix = "-development" if mode == "development" else ""
+name = f"DropDuo-v{version['versionName']}-{target}"
+if target == "macos":
+    name += "-" + platform.machine()
+    artifact = out / (name + suffix + ".zip")
+    subprocess.run(["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", str(root / "dist/DropDuo.app"), str(artifact)], check=True)
+else:
+    kind = "debug" if mode == "development" else "release"
+    artifact = out / (name + suffix + ".apk")
+    shutil.copy2(root / f"apps/android/app/build/outputs/apk/{kind}/app-{kind}.apk", artifact)
+digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+(out / (artifact.name + ".sha256")).write_text(f"{digest}  {artifact.name}\n")
+metadata = {"version": version['versionName'], "build": int(version['versionCode']), "mode": mode,
+            "platform": target, "architecture": platform.machine() if target == "macos" else "android",
+            "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(),
+            "dirty": dirty,
+            "artifact": artifact.name, "sha256": digest}
+(out / (artifact.name + ".json")).write_text(json.dumps(metadata, indent=2) + "\n")
+print(artifact.name)

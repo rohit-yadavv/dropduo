@@ -133,7 +133,7 @@ struct MainView: View {
             Text("Files are stored in Downloads/DropDuo, separated by device. History keeps the latest 100 transfers; clearing it does not delete files.").font(.callout).foregroundStyle(.secondary)
             Button("Clear recent history") { model.clearHistory() }
             Divider()
-            Text("DropDuo 0.1.0 alpha").bold()
+            Text("DropDuo \(Bundle.main.object(forInfoDictionaryKey: "DropDuoVersion") as? String ?? "development")").bold()
             Text("Local network only. No accounts. No analytics. Mac sleep pauses availability.").foregroundStyle(.secondary)
         }.padding(24).background(.background, in: RoundedRectangle(cornerRadius: 16))
     }

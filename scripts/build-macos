@@ -8,6 +8,17 @@ app="dist/DropDuo.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin/DropDuo" "$app/Contents/MacOS/DropDuo"
 cp apps/macos/Resources/Info.plist "$app/Contents/Info.plist"
+python3 - "$app/Contents/Info.plist" <<'PY'
+import plistlib, sys
+from pathlib import Path
+version = dict(line.split('=', 1) for line in Path('version.properties').read_text().splitlines() if '=' in line)
+path = Path(sys.argv[1])
+info = plistlib.loads(path.read_bytes())
+info['CFBundleShortVersionString'] = version['versionName'].split('-', 1)[0]
+info['CFBundleVersion'] = version['versionCode']
+info['DropDuoVersion'] = version['versionName']
+path.write_bytes(plistlib.dumps(info))
+PY
 cp apps/macos/Resources/DropDuo.icns "$app/Contents/Resources/DropDuo.icns"
 # Bundle.module searches the app's Resources directory first.
 resource_bundle="$app/Contents/Resources/DropDuo_DropDuo.bundle"
@@ -22,5 +33,9 @@ else
 fi
 cp apps/macos/Resources/BundleInfo.plist "$resource_bundle/Contents/Info.plist"
 codesign --force --sign "${DROPDUO_SIGN_IDENTITY:--}" "$resource_bundle"
-codesign --force --sign "${DROPDUO_SIGN_IDENTITY:--}" "$app"
+if [ "${DROPDUO_SIGN_IDENTITY:--}" = '-' ]; then
+  codesign --force --sign - "$app"
+else
+  codesign --force --options runtime --timestamp --sign "$DROPDUO_SIGN_IDENTITY" "$app"
+fi
 printf 'Built %s (%s signing).\n' "$app" "${DROPDUO_SIGN_IDENTITY:-development ad-hoc}"

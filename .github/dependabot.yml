@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule: {interval: weekly}
+    open-pull-requests-limit: 5
+    commit-message: {prefix: chore}
+    groups:
+      actions: {patterns: ['*']}
+  - package-ecosystem: gradle
+    directory: /apps/android
+    target-branch: develop
+    schedule: {interval: weekly}
+    open-pull-requests-limit: 5
+    commit-message: {prefix: chore}
+    groups:
+      kotlin: {patterns: ['org.jetbrains.kotlin*']}
+      compose: {patterns: ['androidx.compose*']}

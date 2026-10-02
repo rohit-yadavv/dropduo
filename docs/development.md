@@ -19,11 +19,14 @@ Run from the repository root:
 ./scripts/interop                # real Swift/JVM socket interoperability
 ./scripts/check all              # all the above
 ./scripts/build-macos            # release configuration; development ad-hoc signing
+python3 -m unittest discover -s scripts/tests -v # release metadata guards
 open dist/DropDuo.app
 ./apps/android/gradlew -p apps/android :app:assembleDebug
 ```
 
 Use `./scripts/build-macos debug` for a debug app bundle. Install the Android debug APK from `apps/android/app/build/outputs/apk/debug/app-debug.apk` through your normal development workflow.
+
+`version.properties` is the shared version name and build number. Android reads it during configuration; Mac packaging stamps it into the app Info.plist. Release checks require the matching version tag and released changelog heading. CI/release workflows and signing setup are documented in [releases](releases.md).
 
 To verify the real Android service and Keystore, start a **disposable Android emulator**, then run `./scripts/check-emulator`. This installs debug and test APKs, grants notification permission, uses a synthetic pairing ticket, and transfers test files against a Swift host. It refuses physical devices. The test removes its pairing and received test files on success; a failed run may leave synthetic state. It does not test the camera or physical Wi-Fi discovery.
 

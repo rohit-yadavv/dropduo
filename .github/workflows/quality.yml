@@ -1,0 +1,29 @@
+name: Repository quality
+on:
+  push:
+    branches: [develop, staging, master]
+  pull_request:
+    branches: [develop, staging, master]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  automation:
+    name: Workflow and release checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {persist-credentials: false}
+      - name: Install pinned workflow linter
+        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+      - run: "$(go env GOPATH)/bin/actionlint"
+      - name: Release metadata guard tests
+        run: python3 -m unittest discover -s scripts/tests -v
+      - name: Shell syntax
+        run: |
+          bash -n scripts/macos-distribution
+          sh -n scripts/build-macos scripts/check scripts/interop scripts/check-emulator

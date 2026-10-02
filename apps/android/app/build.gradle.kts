@@ -1,9 +1,24 @@
+import java.util.Properties
+
 plugins { id("com.android.application"); kotlin("android"); id("org.jetbrains.kotlin.plugin.compose") }
+val releaseVersion = Properties().apply {
+    rootProject.file("../../version.properties").inputStream().use { load(it) }
+}
+val signingPath = providers.environmentVariable("DROPDUO_ANDROID_KEYSTORE").orNull
 android {
     namespace = "app.dropduo.android"
     compileSdk = 36
-    defaultConfig { applicationId = "app.dropduo.android"; minSdk = 29; targetSdk = 36; versionCode = 1; versionName = "0.1.0-alpha.1"; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
-    buildFeatures { compose = true }
+    defaultConfig { applicationId = "app.dropduo.android"; minSdk = 29; targetSdk = 36; versionCode = releaseVersion.getProperty("versionCode").toInt(); versionName = releaseVersion.getProperty("versionName"); testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
+    buildFeatures { compose = true; buildConfig = true }
+    if (signingPath != null) {
+        signingConfigs.create("distribution") {
+            storeFile = file(signingPath)
+            storePassword = providers.environmentVariable("DROPDUO_ANDROID_STORE_PASSWORD").get()
+            keyAlias = providers.environmentVariable("DROPDUO_ANDROID_KEY_ALIAS").get()
+            keyPassword = providers.environmentVariable("DROPDUO_ANDROID_KEY_PASSWORD").get()
+        }
+        buildTypes.getByName("release").signingConfig = signingConfigs.getByName("distribution")
+    }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
 }
 kotlin { jvmToolchain(17) }

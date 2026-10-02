@@ -6,6 +6,11 @@ on:
     branches: [develop, staging, master]
   workflow_dispatch:
   workflow_call:
+    inputs:
+      ref:
+        description: Exact release tag to test when called by Release
+        type: string
+        default: ''
 permissions:
   contents: read
 concurrency:
@@ -24,7 +29,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: {persist-credentials: false}
+        with: {ref: "${{ inputs.ref }}", persist-credentials: false}
       - run: ./scripts/check macos
       - run: ./scripts/build-macos
       - name: Verify and archive
@@ -48,7 +53,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: {persist-credentials: false}
+        with: {ref: "${{ inputs.ref }}", persist-credentials: false}
       - uses: ./.github/actions/setup-android
       - run: ./scripts/check android
       - name: Prepare download
@@ -78,7 +83,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: {persist-credentials: false}
+        with: {ref: "${{ inputs.ref }}", persist-credentials: false}
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with: {distribution: temurin, java-version: '17'}
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0

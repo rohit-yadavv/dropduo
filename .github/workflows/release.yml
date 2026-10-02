@@ -1,14 +1,176 @@
-name: Release preflight
+name: Release
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag from master (for example v0.1.0-alpha.1)
+        required: true
+        type: string
+      mode:
+        description: Development prerelease or signed distribution
+        required: true
+        default: development
+        type: choice
+        options: [development, distribution]
 permissions:
   contents: read
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 jobs:
   gate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.metadata.outputs.tag }}
+      mode: ${{ steps.metadata.outputs.mode }}
+      prerelease: ${{ steps.metadata.outputs.prerelease }}
     steps:
-      - name: Require production branch
-        run: test "$GITHUB_REF" = refs/heads/master
-      - uses: actions/checkout@v4
-      - name: Release requirements
-        run: cat docs/releases.md
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: false
+      - id: metadata
+        name: Validate tag, production ancestry, versions and changelog
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+          MODE: ${{ inputs.mode || (contains(github.ref_name, '-') && 'development' || 'distribution') }}
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$ ]] || exit 1
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$TAG^{commit}")"
+          git fetch --no-tags origin master:refs/remotes/origin/master
+          git merge-base --is-ancestor HEAD origin/master
+          ./scripts/check-release "$TAG" "$MODE"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          if [[ "$TAG" == *-* ]]; then echo 'prerelease=true' >> "$GITHUB_OUTPUT"; else echo 'prerelease=false' >> "$GITHUB_OUTPUT"; fi
+  checks:
+    needs: gate
+    uses: ./.github/workflows/checks.yml
+    with:
+      ref: ${{ needs.gate.outputs.tag }}
+  macos:
+    needs: [gate, checks]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: macos-15, arch: arm64}
+          - {runner: macos-15-intel, arch: x86_64}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {ref: "${{ needs.gate.outputs.tag }}", persist-credentials: false}
+      - name: Import Developer ID into ephemeral keychain
+        if: needs.gate.outputs.mode == 'distribution'
+        env:
+          MAC_CERTIFICATE_BASE64: ${{ secrets.MAC_CERTIFICATE_BASE64 }}
+          MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          DROPDUO_SIGN_IDENTITY: ${{ secrets.MAC_SIGN_IDENTITY }}
+        run: ./scripts/macos-distribution install
+      - name: Build development app
+        if: needs.gate.outputs.mode == 'development'
+        run: ./scripts/build-macos
+      - name: Build signed app
+        if: needs.gate.outputs.mode == 'distribution'
+        env:
+          DROPDUO_SIGN_IDENTITY: ${{ secrets.MAC_SIGN_IDENTITY }}
+        run: ./scripts/build-macos
+      - name: Notarize, staple and assess
+        if: needs.gate.outputs.mode == 'distribution'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: ./scripts/macos-distribution notarize
+      - name: Verify and package
+        env: {MODE: "${{ needs.gate.outputs.mode }}"}
+        run: |
+          codesign --verify --deep --strict dist/DropDuo.app
+          ./scripts/package-download macos "$MODE"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-macos-${{ matrix.arch }}
+          path: dist/release/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Remove temporary credentials
+        if: always() && needs.gate.outputs.mode == 'distribution'
+        run: ./scripts/macos-distribution cleanup
+  android:
+    needs: [gate, checks]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {ref: "${{ needs.gate.outputs.tag }}", persist-credentials: false}
+      - uses: ./.github/actions/setup-android
+      - name: Development APK
+        if: needs.gate.outputs.mode == 'development'
+        run: ./apps/android/gradlew -p apps/android :app:assembleDebug --console=plain
+      - name: Signed release APK
+        if: needs.gate.outputs.mode == 'distribution'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          DROPDUO_ANDROID_KEYSTORE: ${{ runner.temp }}/dropduo-release.jks
+          DROPDUO_ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          DROPDUO_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          DROPDUO_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import base64, os
+          from pathlib import Path
+          for name in ['ANDROID_KEYSTORE_BASE64', 'DROPDUO_ANDROID_STORE_PASSWORD', 'DROPDUO_ANDROID_KEY_ALIAS', 'DROPDUO_ANDROID_KEY_PASSWORD']:
+              if not os.environ.get(name):
+                  raise SystemExit('Missing signing configuration: ' + name)
+          path = Path(os.environ['DROPDUO_ANDROID_KEYSTORE'])
+          path.write_bytes(base64.b64decode(os.environ['ANDROID_KEYSTORE_BASE64'], validate=True))
+          path.chmod(0o600)
+          PY
+          ./apps/android/gradlew -p apps/android :app:assembleRelease --no-daemon --console=plain
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose apps/android/app/build/outputs/apk/release/app-release.apk
+      - name: Package
+        env: {MODE: "${{ needs.gate.outputs.mode }}"}
+        run: ./scripts/package-download android "$MODE"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-android
+          path: dist/release/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Remove temporary keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/dropduo-release.jks"
+  draft:
+    needs: [gate, checks, macos, android]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: {ref: "${{ needs.gate.outputs.tag }}", persist-credentials: false}
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: release-*
+          path: dist/release
+          merge-multiple: true
+      - name: Assemble checksums, notices and release notes
+        env:
+          TAG: ${{ needs.gate.outputs.tag }}
+          MODE: ${{ needs.gate.outputs.mode }}
+        run: python3 scripts/release-notes.py
+      - name: Create draft only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.gate.outputs.tag }}
+          PRERELEASE: ${{ needs.gate.outputs.prerelease }}
+        run: |
+          args=(--draft --verify-tag --title "DropDuo $TAG" --notes-file dist/release-notes.md)
+          if [[ "$PRERELEASE" == 'true' ]]; then args+=(--prerelease); fi
+          # Never overwrite a release or assets from an earlier run.
+          gh release create "$TAG" dist/release/* "${args[@]}"

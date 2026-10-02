@@ -2,13 +2,22 @@
 
 <img src="branding/dropduo-icon.png" alt="DropDuo double-D icon" width="96" height="96">
 
+[![Checks](https://github.com/rohit-yadavv/dropduo/actions/workflows/checks.yml/badge.svg?branch=develop)](https://github.com/rohit-yadavv/dropduo/actions/workflows/checks.yml)
+[![CodeQL](https://github.com/rohit-yadavv/dropduo/actions/workflows/security.yml/badge.svg?branch=develop)](https://github.com/rohit-yadavv/dropduo/actions/workflows/security.yml)
+
 Native, private sharing between your Mac and Android phone. Pair once; send files, photos, videos, links, and text over your local network.
 
 **Status: working development alpha, not a signed public release.** Independently implemented; no Flitdrop or LocalSend code is used. No account, cloud file storage, advertising, or analytics. macOS 14+ and Android 10+.
 
 ## Try it
 
-Prerequisites: macOS with Swift 6 and a macOS SDK, Java 17, Android SDK platform 36. See [development](docs/development.md) for setup.
+**Download apps:** [published releases](https://github.com/rohit-yadavv/dropduo/releases) · [development builds](https://github.com/rohit-yadavv/dropduo/actions/workflows/checks.yml) · [installation guide](docs/downloads.md).
+
+No published release exists yet. For development builds, sign into GitHub, select a successful **Checks** run and download your platform from **Artifacts**: Apple Silicon Mac (`arm64`), Intel Mac (`x86_64`), or Android. These are development builds; Mac downloads are not notarized and Android debug signing keys may change. See the installation guide before upgrading. CI artifacts expire after 30 days.
+
+Maintainers: [how to prepare, sign and publish a release](docs/releases.md).
+
+To build from source: macOS with Swift 6 and a macOS SDK, Java 17, Android SDK platform 36. See [development](docs/development.md) for setup.
 
 ```sh
 ./scripts/doctor

@@ -36,7 +36,7 @@ One feature/fix per PR. Explain what, why, and impact; link an issue when applic
 
 ## Versions and releases
 
-Tags: vMAJOR.MINOR.PATCH. Breaking change → major; feature → minor; fix → patch. Pre-release builds use v0.1.0-alpha.N. Merge staging into master, create the version tag, push the tag, publish/deploy from master only. Example commands: `git tag v1.0.0`, `git push origin v1.0.0`. The release preflight checks the production branch; public signing and asset publishing are not yet automated.
+Tags: vMAJOR.MINOR.PATCH. Breaking change → major; feature → minor; fix → patch. Pre-release builds use v0.1.0-alpha.N. Merge staging into master, create an annotated version tag, push the tag, publish/deploy from master only. Example commands: `git tag -a v1.0.0 -m "DropDuo 1.0.0"`, `git push origin v1.0.0`. The Release workflow validates master ancestry, app versions and changelog; checks/builds all platforms and prepares a draft. Stable versions require signed distribution mode and configured credentials. A maintainer reviews and publishes the draft. See [release guide](releases.md).
 
 ## Hosted protections
 

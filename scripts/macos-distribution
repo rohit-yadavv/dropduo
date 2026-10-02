@@ -1,0 +1,41 @@
+#!/bin/bash
+# GitHub-hosted release runners only. Never touches a contributor's real keychain.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+: "${RUNNER_TEMP:?This helper requires an ephemeral GitHub runner}"
+task_keychain="$RUNNER_TEMP/dropduo-signing.keychain-db"
+case "${1:-}" in
+  install)
+    : "${MAC_CERTIFICATE_BASE64:?Missing Developer ID certificate}"
+    : "${MAC_CERTIFICATE_PASSWORD:?Missing certificate password}"
+    : "${DROPDUO_SIGN_IDENTITY:?Missing Developer ID identity}"
+    case "$DROPDUO_SIGN_IDENTITY" in 'Developer ID Application:'*) ;; *) echo 'Use a Developer ID Application identity.' >&2; exit 1 ;; esac
+    python3 - <<'PY'
+import base64, os
+from pathlib import Path
+path = Path(os.environ['RUNNER_TEMP']) / 'dropduo-certificate.p12'
+path.write_bytes(base64.b64decode(os.environ['MAC_CERTIFICATE_BASE64'], validate=True))
+path.chmod(0o600)
+PY
+    task_keychain_password=$(openssl rand -base64 32)
+    security create-keychain -p "$task_keychain_password" "$task_keychain"
+    security set-keychain-settings -lut 21600 "$task_keychain"
+    security unlock-keychain -p "$task_keychain_password" "$task_keychain"
+    security import "$RUNNER_TEMP/dropduo-certificate.p12" -P "$MAC_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$task_keychain"
+    security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$task_keychain_password" "$task_keychain" >/dev/null
+    security list-keychains -d user -s "$task_keychain" "$HOME/Library/Keychains/login.keychain-db"
+    ;;
+  notarize)
+    : "${APPLE_ID:?Missing Apple ID}" "${APPLE_APP_PASSWORD:?Missing Apple app-specific password}" "${APPLE_TEAM_ID:?Missing Apple team ID}"
+    ditto -c -k --keepParent dist/DropDuo.app "$RUNNER_TEMP/dropduo-notarize.zip"
+    xcrun notarytool submit "$RUNNER_TEMP/dropduo-notarize.zip" --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+    xcrun stapler staple dist/DropDuo.app
+    xcrun stapler validate dist/DropDuo.app
+    spctl --assess --type execute --verbose=2 dist/DropDuo.app
+    ;;
+  cleanup)
+    if [ -f "$task_keychain" ]; then security delete-keychain "$task_keychain"; fi
+    rm -f "$RUNNER_TEMP/dropduo-certificate.p12" "$RUNNER_TEMP/dropduo-notarize.zip"
+    ;;
+  *) echo 'Usage: scripts/macos-distribution [install|notarize|cleanup]' >&2; exit 2 ;;
+esac

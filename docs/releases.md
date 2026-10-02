@@ -4,7 +4,20 @@ Users download published apps from [GitHub Releases](https://github.com/rohit-ya
 
 ## What is automated
 
-`checks.yml` tests and packages both Mac architectures, builds/lints Android, and runs Swift/JVM interoperability on pushes, PRs, or manual runs. `quality.yml` validates workflow syntax, shell syntax and release guards. `security.yml` runs CodeQL for Swift and Java/Kotlin on pushes, PRs and weekly. Dependency review checks PRs; Dependabot opens weekly update PRs for GitHub Actions and Gradle dependencies. Actions are pinned to full commit SHAs and workflows grant permissions per job. No dependency or security change auto-merges.
+`checks.yml` tests and packages both Mac architectures, builds/lints Android, and runs Swift/JVM interoperability. `quality.yml` validates workflow syntax, shell syntax and release guards. `security.yml` runs CodeQL for Swift and Java/Kotlin. The trigger schedule avoids repeating checks on every branch:
+
+| Event | Build and quality checks | CodeQL | Dependency review |
+| --- | --- | --- | --- |
+| Push to `develop` or `master` | Yes | No | No |
+| Push to `staging` | No; its incoming PR validates the proposed merge | No | No |
+| PR targeting `develop`, `staging`, or `master` | Yes | Yes | Yes |
+| Weekly schedule | No | Yes, on the default branch | No |
+| Manual run | Selected workflow | Available | No |
+| Version tag | Release reruns build checks on the exact tag | No separate tag scan | No |
+
+Direct `develop` push checks support solo development, and `master` push checks validate the final production commit. A promotion PR from `develop` can still show both push and PR build results: the PR validates its combined code with the target branch. CodeQL runs on PRs and weekly rather than duplicating each push scan. No tests or platform coverage have been removed.
+
+Dependency review checks PRs; Dependabot opens weekly update PRs for GitHub Actions and Gradle dependencies. Actions are pinned to full commit SHAs and workflows grant permissions per job. No dependency or security change auto-merges.
 
 `release.yml` runs when a `v*` tag is pushed, or when a maintainer selects an existing tag using **Actions → Release → Run workflow**. It verifies the tag is an actual tag, is reachable from `master`, matches the app version, and has a released changelog section. It reruns checks on that exact tag, builds three platform assets, verifies checksums/consistent source commits, and creates a draft with notices and notes. Existing releases are never overwritten. It does not create tags, merge branches, publish to app stores, or publish the draft automatically.
 

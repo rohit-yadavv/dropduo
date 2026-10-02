@@ -1,7 +1,8 @@
 name: Repository quality
 on:
+  # Staging is validated by its incoming PR; keep solo development and production checks.
   push:
-    branches: [develop, staging, master]
+    branches: [develop, master]
   pull_request:
     branches: [develop, staging, master]
   workflow_dispatch:

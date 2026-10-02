@@ -53,6 +53,9 @@ expectEqual(try inbox.prepare(offer), 0)
 let finished = try inbox.finish(offer)
 expectEqual(try inbox.prepare(offer), 0)
 expectEqual(try inbox.finish(offer), finished)
+expectThrows(try inbox.append(offer, offset: Int64.max, data: Data([1])))
+var longName = offer; longName.name = String(repeating: "a", count: 219)
+expectThrows(try inbox.prepare(longName))
 var wrong = offer; wrong.size = 1
 expectThrows(try inbox.prepare(wrong))
 var paused = offer; paused.id = UUID().uuidString

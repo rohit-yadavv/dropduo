@@ -41,6 +41,8 @@ class CoreTest {
             val offer = Message("offer", UUID.randomUUID().toString(), "empty.txt", 0, Wire.hash(source))
             val inbox = Inbox(dir)
             assertEquals(0L, inbox.prepare(offer)); val target = inbox.finish(offer)
+            assertTrue(runCatching { inbox.append(offer, Long.MAX_VALUE, byteArrayOf(1)) }.isFailure)
+            assertTrue(runCatching { inbox.prepare(offer.copy(name = "a".repeat(219))) }.isFailure)
             assertEquals(target, inbox.finish(offer)); assertEquals(0L, inbox.prepare(offer))
             assertTrue(runCatching { inbox.prepare(offer.copy(size = 1)) }.isFailure)
             val other = offer.copy(id = UUID.randomUUID().toString()); inbox.prepare(other); inbox.cancel(other.id!!)

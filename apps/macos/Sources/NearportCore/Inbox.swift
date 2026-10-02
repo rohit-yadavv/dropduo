@@ -10,7 +10,7 @@ public final class Inbox {
     }
     public static func validate(_ offer: Message) throws {
         guard let id = offer.id, UUID(uuidString: id) != nil, let name = offer.name, !name.isEmpty,
-            name != ".", name != "..", name.utf8.count <= 240,
+            name != ".", name != "..", name.utf8.count <= 218,
             !name.contains("/"), !name.contains("\\"), !name.unicodeScalars.contains(where: { $0.value < 32 }),
             let size = offer.size, size >= 0, size <= Wire.maxFile,
             let hash = offer.sha256, hash.count == 64, hash.allSatisfy({ "0123456789abcdef".contains($0) })
@@ -24,8 +24,9 @@ public final class Inbox {
     public func prepare(_ offer: Message) throws -> Int64 {
         try Self.validate(offer)
         let metadata = try url(offer.id!, ".json"), part = try url(offer.id!, ".part")
-        if fm.fileExists(atPath: destination(offer).path) {
-            guard (try fm.attributesOfItem(atPath: destination(offer).path)[.size] as? NSNumber)?.int64Value == offer.size, try Wire.hash(destination(offer)) == offer.sha256 else { throw PortError.invalid("Completed file changed") }
+        let target = destination(offer)
+        if fm.fileExists(atPath: target.path) {
+            guard (try fm.attributesOfItem(atPath: target.path)[.size] as? NSNumber)?.int64Value == offer.size, try Wire.hash(target) == offer.sha256 else { throw PortError.invalid("Completed file changed") }
             return offer.size!
         }
         if let bytes = try? Data(contentsOf: metadata) {
@@ -40,7 +41,7 @@ public final class Inbox {
         return offset
     }
     public func append(_ offer: Message, offset: Int64, data: Data) throws -> Int64 {
-        guard data.count <= Wire.chunkSize, !data.isEmpty, offset >= 0, offset + Int64(data.count) <= offer.size! else { throw PortError.invalid("Invalid chunk") }
+        guard data.count <= Wire.chunkSize, !data.isEmpty, offset >= 0, offset <= offer.size!, Int64(data.count) <= offer.size! - offset else { throw PortError.invalid("Invalid chunk") }
         let part = try url(offer.id!, ".part")
         let handle = try FileHandle(forWritingTo: part); defer { try? handle.close() }
         guard try handle.seekToEnd() == UInt64(offset) else { throw PortError.invalid("Chunk offset mismatch") }

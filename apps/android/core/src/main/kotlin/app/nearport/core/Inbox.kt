@@ -9,7 +9,7 @@ class Inbox(val root: File) {
     companion object {
         fun validate(offer: Message) {
             require(offer.id != null && UUID.fromString(offer.id).toString().equals(offer.id, true)) { "Invalid transfer ID" }
-            require(!offer.name.isNullOrEmpty() && offer.name != "." && offer.name != ".." && offer.name.toByteArray().size <= 240 &&
+            require(!offer.name.isNullOrEmpty() && offer.name != "." && offer.name != ".." && offer.name.toByteArray().size <= 218 &&
                 !offer.name.contains('/') && !offer.name.contains('\\') && offer.name.none { it.code < 32 }) { "Invalid filename" }
             require(offer.size != null && offer.size in 0..Wire.MAX_FILE && offer.sha256?.matches(Regex("[0-9a-f]{64}")) == true) { "Invalid file metadata" }
         }
@@ -20,19 +20,21 @@ class Inbox(val root: File) {
     fun destination(offer: Message) = File(root, "${offer.id}-${offer.name}")
     @Synchronized fun prepare(offer: Message): Long {
         validate(offer)
-        if (destination(offer).exists()) { require(destination(offer).length() == offer.size && Wire.hash(destination(offer)) == offer.sha256) { "Completed file changed" }; return offer.size!! }
+        val target = destination(offer)
+        if (target.exists()) { require(target.length() == offer.size && Wire.hash(target) == offer.sha256) { "Completed file changed" }; return offer.size!! }
         val meta = part(offer.id!!, ".json"); val file = part(offer.id, ".part")
         if (meta.exists()) {
             val old = Wire.gson.fromJson(meta.readText(), Message::class.java)
             require(old.name == offer.name && old.size == offer.size && old.sha256 == offer.sha256) { "Resume metadata mismatch" }
         } else meta.writeText(Wire.gson.toJson(offer))
         if (!file.exists()) file.createNewFile()
-        require(file.length() <= offer.size!!) { "Invalid partial size" }
-        require(offer.size - file.length() < root.usableSpace) { "Not enough storage" }
-        return file.length()
+        val offset = file.length()
+        require(offset <= offer.size!!) { "Invalid partial size" }
+        require(offer.size - offset < root.usableSpace) { "Not enough storage" }
+        return offset
     }
     @Synchronized fun append(offer: Message, offset: Long, data: ByteArray): Long {
-        require(data.isNotEmpty() && data.size <= Wire.CHUNK_SIZE && offset >= 0 && offset + data.size <= offer.size!!) { "Invalid chunk" }
+        require(data.isNotEmpty() && data.size <= Wire.CHUNK_SIZE && offset >= 0 && offset <= offer.size!! && data.size <= offer.size - offset) { "Invalid chunk" }
         RandomAccessFile(part(offer.id!!, ".part"), "rw").use {
             require(it.length() == offset) { "Chunk offset mismatch" }; it.seek(offset); it.write(data); it.fd.sync()
         }

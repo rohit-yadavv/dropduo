@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application android:name=".DropDuoApplication" android:allowBackup="false" android:dataExtractionRules="@xml/backup_rules" android:label="DropDuo"
-        android:icon="@drawable/ic_dropduo" android:theme="@style/AppTheme" android:supportsRtl="true">
+        android:icon="@mipmap/ic_launcher" android:theme="@style/AppTheme" android:supportsRtl="true">
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop">
             <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
             <intent-filter><action android:name="android.intent.action.SEND" /><category android:name="android.intent.category.DEFAULT" /><data android:mimeType="*/*" /></intent-filter>

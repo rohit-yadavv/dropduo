@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -87,7 +88,11 @@ private fun kotlinx.coroutines.CoroutineScope.launchIo(block: suspend () -> Unit
             } }
         }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                Text("DropDuo", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Image(painterResource(R.drawable.ic_dropduo), contentDescription = null,
+                        modifier = Modifier.size(40.dp).background(Color.White, RoundedCornerShape(10.dp)).padding(3.dp))
+                    Text("DropDuo", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                }
                 Text(when (tab) { "Recent" -> "What moved between your devices."; "Device" -> "Pair once. Keep sharing."; else -> "Your phone and Mac. A little closer." }, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 ConnectionCard(state, onConnect)
                 when (tab) {

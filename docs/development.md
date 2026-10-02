@@ -31,4 +31,8 @@ To verify the real Android service and Keystore, start a **disposable Android em
 
 Read component AGENTS.md before editing. Swift core and Kotlin core must agree with `protocol/SPEC.md` and shared fixtures. Never commit local SDK paths, received files, pairing credentials, or signing keys. Build output belongs in ignored directories.
 
-No release credentials are needed for development. Distribution requires maintainer-owned signing and notarization, described in [releases](releases.md). GitHub workflows are present but have not been executed on a hosted repository. There is no configured remote or hosted branch protection yet.
+No release credentials are needed for development. Distribution requires maintainer-owned signing and notarization, described in [releases](releases.md). GitHub workflows are included; verify their hosted results before release. Branch protection must be configured in GitHub; the workflow files alone do not enable it.
+
+## Icon assets
+
+The approved double-D icon uses ink, cobalt, and pure white. See [branding](../branding/README.md) for editable source and exports. Run `./scripts/generate-branding` on macOS to regenerate SVGs, Android vectors, Mac PNG resources, and ICNS after changing `branding/mark.json`. Exported assets are committed, so normal app builds need no graphics tooling.

@@ -9,9 +9,9 @@ import DropDuoCore
     var body: some Scene {
         WindowGroup("DropDuo", id: "main") { MainView(model: model).frame(minWidth: 760, minHeight: 580) }
             .defaultSize(width: 900, height: 660)
-        MenuBarExtra("DropDuo", systemImage: "arrow.up.arrow.down.circle") {
+        MenuBarExtra {
             MenuContent(model: model)
-        }
+        } label: { Image(nsImage: Brand.menuIcon).accessibilityLabel("DropDuo") }
     }
 }
 struct MenuContent: View {
@@ -30,7 +30,7 @@ struct MainView: View {
     var body: some View {
         NavigationSplitView {
             VStack(alignment: .leading, spacing: 24) {
-                HStack(spacing: 10) { Image(systemName: "arrow.up.arrow.down.circle.fill").font(.system(size: 32)).foregroundStyle(.blue); Text("DropDuo").font(.title2.bold()) }
+                HStack(spacing: 10) { Image("DropDuoMark", bundle: .module).resizable().frame(width: 36, height: 36).accessibilityHidden(true); Text("DropDuo").font(.title2.bold()) }
                 List(selection: $model.route) {
                     Label("Share", systemImage: "paperplane").tag("Share")
                     Label("Devices", systemImage: "iphone.and.arrow.forward").tag("Devices")

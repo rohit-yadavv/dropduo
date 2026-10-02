@@ -19,7 +19,7 @@ class ConnectionService : Service() {
         notifications.createNotificationChannel(NotificationChannel("connection", "Device connection", NotificationManager.IMPORTANCE_LOW))
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val stop = PendingIntent.getService(this, 1, Intent(this, ConnectionService::class.java).setAction("stop"), PendingIntent.FLAG_IMMUTABLE)
-        val notification = Notification.Builder(this, "connection").setSmallIcon(app.dropduo.android.R.drawable.ic_dropduo)
+        val notification = Notification.Builder(this, "connection").setSmallIcon(app.dropduo.android.R.drawable.ic_dropduo_notification)
             .setContentTitle("DropDuo is ready to share").setContentText("Local device connection is active. Tap to manage.")
             .setContentIntent(open).setOngoing(true).addAction(Notification.Action.Builder(null, "Disconnect", stop).build()).build()
         startForeground(1, notification)

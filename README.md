@@ -1,5 +1,7 @@
 # DropDuo
 
+<img src="branding/dropduo-icon.png" alt="DropDuo double-D icon" width="96" height="96">
+
 Native, private sharing between your Mac and Android phone. Pair once; send files, photos, videos, links, and text over your local network.
 
 **Status: working development alpha, not a signed public release.** Independently implemented; no Flitdrop or LocalSend code is used. No account, cloud file storage, advertising, or analytics. macOS 14+ and Android 10+.
@@ -39,6 +41,7 @@ Start with [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md), and [Git 
 | `protocol` | Versioned wire specification and shared crypto fixtures |
 | `docs` | Product scope, architecture, decisions, usage, verification |
 | `scripts` | Repeatable checks, interoperability tests, packaging |
+| `branding` | Editable icon geometry, palette, SVG and platform export guide |
 
 Read [validation evidence](docs/validation.md) before treating the alpha as release-ready. Physical-phone LAN, camera, sleep, accessibility, and battery behavior still need the [manual release matrix](docs/testing.md). The custom protocol has not received an independent security audit.
 

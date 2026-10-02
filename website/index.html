@@ -210,7 +210,7 @@
       <div class="wrap">
         <div class="download__head">
           <h2 class="section-title reveal" id="download-title">Install both. Pair once.</h2>
-          <p class="download__version reveal" data-release-status>Checking the latest release</p>
+          <a class="download__version reveal" data-release-status href="https://github.com/rohit-yadavv/dropduo/releases">Checking the latest release</a>
         </div>
 
         <div class="download__body" data-release-state="loading">
@@ -226,10 +226,7 @@
               </div>
               <div class="half__skeleton" aria-hidden="true"><span></span><span></span></div>
               <p class="half__soon" data-soon>Signed build arrives with the first public release.</p>
-              <div class="half__notes">
-                <p>Apple menu, then About This Mac. M1 or newer is Apple silicon.</p>
-                <p data-dev-note hidden>This build is not notarized yet. On first launch, open System Settings, Privacy &amp; Security, then choose Open Anyway.</p>
-              </div>
+              <a class="half__help" data-dev-note hidden href="https://github.com/rohit-yadavv/dropduo/blob/develop/docs/downloads.md#install">Mac won't open it?</a>
             </article>
 
             <span class="duo__tile" aria-hidden="true"><svg><use href="#dd-mark"/></svg></span>
@@ -240,14 +237,14 @@
               <h3>DropDuo for Android</h3>
               <p class="half__req">Android 10 or later</p>
               <div class="half__actions" data-ready>
-                <a class="dl dl--solid" data-asset="android" href="https://github.com/rohit-yadavv/dropduo/releases"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#download-simple"/></svg>Download APK<small data-size="android"></small></a>
+                <div class="qr" data-qr hidden>
+                  <div class="qr__code" data-qr-code></div>
+                  <p class="qr__text">Scan with your phone to download.<a data-asset="android" href="https://github.com/rohit-yadavv/dropduo/releases">Or download the APK<small data-size="android"></small></a></p>
+                </div>
+                <a class="dl dl--solid" data-asset="android" data-apk-button href="https://github.com/rohit-yadavv/dropduo/releases"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#download-simple"/></svg>Download APK<small data-size="android"></small></a>
               </div>
               <div class="half__skeleton" aria-hidden="true"><span></span></div>
               <p class="half__soon" data-soon>Signed build arrives with the first public release.</p>
-              <div class="half__notes">
-                <p>Open the APK on your phone and allow installs from your browser once.</p>
-                <p data-dev-note hidden>Development build: an update may need a reinstall. Save received files first.</p>
-              </div>
             </article>
           </div>
 
@@ -259,11 +256,6 @@
               <a class="btn btn--ghost" href="https://github.com/rohit-yadavv/dropduo/releases"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#github-logo"/></svg>Watch releases</a>
             </div>
           </div>
-
-          <p class="fineprint">
-            <span data-release-notes>Every release includes SHA256 checksums.</span>
-            <a href="https://github.com/rohit-yadavv/dropduo/blob/develop/docs/downloads.md">Installation guide</a>
-          </p>
         </div>
       </div>
     </section>

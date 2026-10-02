@@ -209,7 +209,6 @@
   // DropDuo-vVERSION-macos-arm64[-development].zip, -macos-x86_64, -android.apk
   const platforms = document.querySelector("[data-release-state]");
   const status = document.querySelector("[data-release-status]");
-  const notes = document.querySelector("[data-release-notes]");
   const patterns = {
     "mac-arm64": /-macos-arm64(-development)?\.zip$/i,
     "mac-x86_64": /-macos-x86_64(-development)?\.zip$/i,
@@ -225,6 +224,44 @@
     return usable.find((release) => !release.prerelease) || usable[0] || null;
   };
 
+  // On a computer, offer the APK as a QR code so the phone downloads it directly.
+  const wantsQr = finePointer.matches && !isAndroid && !/iPhone|iPad/i.test(ua);
+  const loadQrLibrary = () => new Promise((resolve, reject) => {
+    if (window.qrcode) return resolve(window.qrcode);
+    const script = document.createElement("script");
+    script.src = "assets/vendor/qrcode.js";
+    script.onload = () => resolve(window.qrcode);
+    script.onerror = reject;
+    document.head.append(script);
+  });
+  const showQr = async (url) => {
+    if (!wantsQr) return;
+    try {
+      const qrcode = await loadQrLibrary();
+      // Level H tolerates the app tile covering the centre modules.
+      const qr = qrcode(0, "H");
+      qr.addData(url);
+      qr.make();
+      const n = qr.getModuleCount();
+      const hole = Math.ceil(n * 0.24) | 1;
+      const start = (n - hole) / 2;
+      let d = "";
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+          const inHole = r >= start - 1 && r < start + hole + 1 && c >= start - 1 && c < start + hole + 1;
+          if (qr.isDark(r, c) && !inHole) d += `M${c} ${r}h1v1h-1z`;
+        }
+      }
+      const svg = `<svg viewBox="0 0 ${n} ${n}" role="img" aria-label="QR code that downloads DropDuo for Android" shape-rendering="crispEdges">`
+        + `<path fill="#202124" d="${d}"/>`
+        + `<rect x="${start}" y="${start}" width="${hole}" height="${hole}" rx="${hole * 0.215}" fill="#fff"/>`
+        + `<svg x="${start}" y="${start}" width="${hole}" height="${hole}"><use href="#dd-mark"/></svg></svg>`;
+      document.querySelector("[data-qr-code]").innerHTML = svg;
+      document.querySelector("[data-qr]").hidden = false;
+      document.querySelector("[data-apk-button]").hidden = true;
+    } catch { /* The download button stays as the fallback. */ }
+  };
+
   const render = (release) => {
     if (!release) {
       setState("pending");
@@ -232,23 +269,20 @@
       return;
     }
     let development = false;
+    let apk = null;
     for (const [key, pattern] of Object.entries(patterns)) {
       const asset = release.assets.find((a) => pattern.test(a.name));
-      const link = document.querySelector(`[data-asset="${key}"]`);
-      if (!link) continue;
-      link.href = asset ? asset.url : release.page;
-      const size = document.querySelector(`[data-size="${key}"]`);
-      if (asset && size && asset.size) size.textContent = formatSize(asset.size);
+      if (key === "android") apk = asset;
+      document.querySelectorAll(`[data-asset="${key}"]`).forEach((link) => { link.href = asset ? asset.url : release.page; });
+      if (asset?.size) document.querySelectorAll(`[data-size="${key}"]`).forEach((size) => { size.textContent = formatSize(asset.size); });
       if (asset && /-development\./i.test(asset.name)) development = true;
     }
-    // Development builds are ad-hoc signed (Mac) and debug-signed (Android); say so.
+    // Development builds are ad-hoc signed on Mac, so explain Gatekeeper's prompt.
     document.querySelectorAll("[data-dev-note]").forEach((note) => { note.hidden = !development; });
     const version = release.tag.replace(/^v/, "");
     status.textContent = release.prerelease ? `v${version}, pre-release` : `v${version}`;
-    const notesLink = document.createElement("a");
-    notesLink.href = release.page;
-    notesLink.textContent = "Release notes and checksums";
-    notes.replaceChildren(notesLink);
+    status.href = release.page;
+    if (apk) showQr(apk.url);
     setState("ready");
   };
 

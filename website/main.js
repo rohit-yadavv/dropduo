@@ -4,7 +4,7 @@
 
   const REPO = "rohit-yadavv/dropduo";
   const RELEASES_PAGE = `https://github.com/${REPO}/releases`;
-  const CACHE_KEY = "dropduo:release:v1";
+  const CACHE_KEY = "dropduo:release:v2";
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   // Theme: the head script applies the initial value; this keeps it in sync.
@@ -200,14 +200,14 @@
   if (platform) {
     const label = document.querySelector("[data-platform-label]");
     label.textContent = platform === "android" ? "Download for Android" : "Download for Mac";
-    const card = document.querySelector(`[data-platform="${platform}"]`);
-    card.classList.add("is-suggested");
-    if (platform === "android") card.parentElement.prepend(card);
+    const half = document.querySelector(`[data-platform="${platform}"]`);
+    half.classList.add("is-suggested");
+    if (platform === "android") half.parentElement.classList.add("duo--android-first");
   }
 
   // Release assets. Published names follow docs/downloads.md:
   // DropDuo-vVERSION-macos-arm64[-development].zip, -macos-x86_64, -android.apk
-  const platforms = document.querySelector(".platforms");
+  const platforms = document.querySelector("[data-release-state]");
   const status = document.querySelector("[data-release-status]");
   const notes = document.querySelector("[data-release-notes]");
   const patterns = {
@@ -215,6 +215,8 @@
     "mac-x86_64": /-macos-x86_64(-development)?\.zip$/i,
     android: /-android(-development)?\.apk$/i,
   };
+
+  const formatSize = (bytes) => bytes >= 1e6 ? `${(bytes / 1e6).toFixed(bytes >= 1e7 ? 0 : 1)} MB` : `${Math.max(1, Math.round(bytes / 1e3))} KB`;
 
   const setState = (state) => platforms.setAttribute("data-release-state", state);
 
@@ -229,14 +231,20 @@
       status.textContent = "Coming soon";
       return;
     }
+    let development = false;
     for (const [key, pattern] of Object.entries(patterns)) {
       const asset = release.assets.find((a) => pattern.test(a.name));
       const link = document.querySelector(`[data-asset="${key}"]`);
       if (!link) continue;
       link.href = asset ? asset.url : release.page;
+      const size = document.querySelector(`[data-size="${key}"]`);
+      if (asset && size && asset.size) size.textContent = formatSize(asset.size);
+      if (asset && /-development\./i.test(asset.name)) development = true;
     }
+    // Development builds are ad-hoc signed (Mac) and debug-signed (Android); say so.
+    document.querySelectorAll("[data-dev-note]").forEach((note) => { note.hidden = !development; });
     const version = release.tag.replace(/^v/, "");
-    status.textContent = release.prerelease ? `Version ${version}, pre-release` : `Version ${version}`;
+    status.textContent = release.prerelease ? `v${version}, pre-release` : `v${version}`;
     const notesLink = document.createElement("a");
     notesLink.href = release.page;
     notesLink.textContent = "Release notes and checksums";
@@ -269,7 +277,7 @@
         tag: picked.tag_name,
         prerelease: picked.prerelease,
         page: picked.html_url || RELEASES_PAGE,
-        assets: picked.assets.map((a) => ({ name: a.name, url: a.browser_download_url })),
+        assets: picked.assets.map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size })),
       };
       try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), release })); } catch { /* ignore */ }
       render(release);

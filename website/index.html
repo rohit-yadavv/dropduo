@@ -208,73 +208,76 @@
 
     <section class="download" id="download" aria-labelledby="download-title">
       <div class="wrap">
-        <p class="eyebrow reveal" data-release-status>Checking the latest release</p>
-        <h2 class="section-title reveal" id="download-title">Get both apps.</h2>
+        <div class="download__head">
+          <h2 class="section-title reveal" id="download-title">Install both. Pair once.</h2>
+          <p class="download__version reveal" data-release-status>Checking the latest release</p>
+        </div>
 
-        <div class="platforms" data-release-state="loading">
-          <article class="platform reveal" data-platform="mac">
-            <div class="platform__head">
-              <svg class="platform__logo" aria-hidden="true"><use href="assets/icons.svg#brand-apple"/></svg>
-              <div>
-                <h3>DropDuo for Mac</h3>
-                <p class="platform__req">macOS 14 Sonoma or later</p>
+        <div class="download__body" data-release-state="loading">
+          <div class="duo reveal">
+            <article class="half half--mac" data-platform="mac">
+              <span class="half__here">This device</span>
+              <svg class="half__logo" aria-hidden="true"><use href="assets/icons.svg#brand-apple"/></svg>
+              <h3>DropDuo for Mac</h3>
+              <p class="half__req">macOS 14 Sonoma or later</p>
+              <div class="half__actions" data-ready>
+                <a class="dl dl--solid" data-asset="mac-arm64" href="https://github.com/rohit-yadavv/dropduo/releases"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#download-simple"/></svg>Apple silicon<small data-size="mac-arm64"></small></a>
+                <a class="dl dl--outline" data-asset="mac-x86_64" href="https://github.com/rohit-yadavv/dropduo/releases">Intel<small data-size="mac-x86_64"></small></a>
               </div>
-            </div>
-            <div class="platform__actions" data-ready>
-              <a class="btn btn--primary" data-asset="mac-arm64" href="https://github.com/rohit-yadavv/dropduo/releases">
-                <svg class="i" aria-hidden="true"><use href="assets/icons.svg#download-simple"/></svg>Apple silicon
-              </a>
-              <a class="btn btn--ghost" data-asset="mac-x86_64" href="https://github.com/rohit-yadavv/dropduo/releases">Intel</a>
-            </div>
-            <div class="platform__skeleton" aria-hidden="true"><span></span><span></span></div>
-            <p class="platform__soon" data-soon>Signed build arrives with the first public release.</p>
-            <p class="platform__note">Not sure which Mac you have? Apple menu, then About This Mac. M1 or newer means Apple silicon.</p>
-          </article>
+              <div class="half__skeleton" aria-hidden="true"><span></span><span></span></div>
+              <p class="half__soon" data-soon>Signed build arrives with the first public release.</p>
+              <div class="half__notes">
+                <p>Apple menu, then About This Mac. M1 or newer is Apple silicon.</p>
+                <p data-dev-note hidden>This build is not notarized yet. On first launch, open System Settings, Privacy &amp; Security, then choose Open Anyway.</p>
+              </div>
+            </article>
 
-          <article class="platform reveal" style="--d: 80ms" data-platform="android">
-            <div class="platform__head">
-              <svg class="platform__logo platform__logo--android" aria-hidden="true"><use href="assets/icons.svg#brand-android"/></svg>
-              <div>
-                <h3>DropDuo for Android</h3>
-                <p class="platform__req">Android 10 or later</p>
+            <span class="duo__tile" aria-hidden="true"><svg><use href="#dd-mark"/></svg></span>
+
+            <article class="half half--android" data-platform="android">
+              <span class="half__here">This device</span>
+              <svg class="half__logo" aria-hidden="true"><use href="assets/icons.svg#brand-android"/></svg>
+              <h3>DropDuo for Android</h3>
+              <p class="half__req">Android 10 or later</p>
+              <div class="half__actions" data-ready>
+                <a class="dl dl--solid" data-asset="android" href="https://github.com/rohit-yadavv/dropduo/releases"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#download-simple"/></svg>Download APK<small data-size="android"></small></a>
               </div>
-            </div>
-            <div class="platform__actions" data-ready>
-              <a class="btn btn--primary" data-asset="android" href="https://github.com/rohit-yadavv/dropduo/releases">
-                <svg class="i" aria-hidden="true"><use href="assets/icons.svg#download-simple"/></svg>Download APK
-              </a>
-            </div>
-            <div class="platform__skeleton" aria-hidden="true"><span></span></div>
-            <p class="platform__soon" data-soon>Signed build arrives with the first public release.</p>
-            <p class="platform__note">Open the APK on your phone. Android will ask you to allow installs from your browser once.</p>
-          </article>
+              <div class="half__skeleton" aria-hidden="true"><span></span></div>
+              <p class="half__soon" data-soon>Signed build arrives with the first public release.</p>
+              <div class="half__notes">
+                <p>Open the APK on your phone and allow installs from your browser once.</p>
+                <p data-dev-note hidden>Development build: an update may need a reinstall. Save received files first.</p>
+              </div>
+            </article>
+          </div>
 
           <div class="pending" data-pending>
             <h3>The first public release is on its way.</h3>
             <p>Until it ships, testers can try development builds from GitHub. Watch the repository to hear when signed releases land.</p>
             <div class="pending__actions">
               <a class="btn btn--primary" href="https://github.com/rohit-yadavv/dropduo/blob/develop/docs/downloads.md#development-downloads-available-now">Development builds</a>
-              <a class="btn btn--ghost" href="https://github.com/rohit-yadavv/dropduo/releases">
-                <svg class="i" aria-hidden="true"><use href="assets/icons.svg#github-logo"/></svg>Watch releases
-              </a>
+              <a class="btn btn--ghost" href="https://github.com/rohit-yadavv/dropduo/releases"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#github-logo"/></svg>Watch releases</a>
             </div>
           </div>
-        </div>
 
-        <p class="fineprint reveal">
-          <span data-release-notes>Every release includes SHA256 checksums.</span>
-          <a href="https://github.com/rohit-yadavv/dropduo/blob/develop/docs/downloads.md">Installation guide</a>
-        </p>
+          <p class="fineprint">
+            <span data-release-notes>Every release includes SHA256 checksums.</span>
+            <a href="https://github.com/rohit-yadavv/dropduo/blob/develop/docs/downloads.md">Installation guide</a>
+          </p>
+        </div>
       </div>
     </section>
   </main>
 
   <footer class="footer">
     <div class="wrap footer__inner">
-      <a class="brand" href="#top" aria-label="DropDuo home">
-        <span class="brand__tile"><svg aria-hidden="true"><use href="#dd-mark"/></svg></span>
-        <span class="brand__name">DropDuo</span>
-      </a>
+      <div class="footer__brand">
+        <a class="brand" href="#top" aria-label="DropDuo home">
+          <span class="brand__tile"><svg aria-hidden="true"><use href="#dd-mark"/></svg></span>
+          <span class="brand__name">DropDuo</span>
+        </a>
+        <p>Mac to Android. Android to Mac.</p>
+      </div>
       <ul class="footer__links">
         <li><a href="https://github.com/rohit-yadavv/dropduo">Source code</a></li>
         <li><a href="https://github.com/rohit-yadavv/dropduo/blob/develop/docs/usage.md">Using DropDuo</a></li>

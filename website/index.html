@@ -201,20 +201,43 @@
 
     <section class="privacy" id="privacy" aria-labelledby="privacy-title">
       <div class="wrap">
-        <h2 class="privacy__label reveal" id="privacy-title">Privacy</h2>
-        <ul class="claims">
-          <li class="claim">
-            <p class="claim__text"><b>Encrypted</b> on your own network.</p>
-            <p class="claim__detail">AES-256-GCM, with a separate key for each direction.</p>
-          </li>
-          <li class="claim">
-            <p class="claim__text"><b>Approved</b> by you, device by device.</p>
-            <p class="claim__detail">Pairing codes expire in five minutes and work once.</p>
-          </li>
-          <li class="claim">
-            <p class="claim__text"><b>No account,</b> no cloud, no analytics.</p>
-            <p class="claim__detail">Nothing to sign into. Nothing phoning home.</p>
-          </li>
+        <h2 class="section-title privacy__title reveal" id="privacy-title">Nothing in between.</h2>
+        <p class="privacy__lede reveal">Files go straight from one device to the other over your own network.</p>
+
+        <figure class="route reveal">
+          <svg class="route__svg" viewBox="0 0 720 330" role="img" aria-labelledby="route-desc">
+            <desc id="route-desc">Your Mac and Android phone connect directly over your local network through an encrypted link. No cloud or relay server sits in between.</desc>
+            <!-- The road not taken: dashed paths up to a crossed-out cloud. -->
+            <path class="route__detour" d="M110 196 C 110 110, 230 76, 314 76"/>
+            <path class="route__detour" d="M610 196 C 610 110, 490 76, 406 76"/>
+            <circle class="route__cloud" cx="360" cy="76" r="44"/>
+            <use href="assets/icons.svg#cloud-slash" class="route__cloud-icon" x="338" y="54" width="44" height="44"/>
+            <text class="route__note" x="360" y="150" text-anchor="middle">No cloud. No relay.</text>
+
+            <!-- The direct, encrypted link. -->
+            <line class="route__glow" x1="162" y1="250" x2="558" y2="250"/>
+            <line class="route__link" x1="162" y1="250" x2="558" y2="250"/>
+            <g class="route__packets">
+              <circle class="packet packet--right" cx="170" cy="250" r="5"/>
+              <circle class="packet packet--right packet--late" cx="170" cy="250" r="5"/>
+              <circle class="packet packet--left" cx="550" cy="250" r="5"/>
+              <circle class="packet packet--left packet--late" cx="550" cy="250" r="5"/>
+            </g>
+            <circle class="route__lock" cx="360" cy="250" r="28"/>
+            <use href="assets/icons.svg#lock-key" class="route__lock-icon" x="345" y="235" width="30" height="30"/>
+            <text class="route__note" x="360" y="312" text-anchor="middle">Your network only</text>
+
+            <circle class="route__device" cx="110" cy="250" r="52"/>
+            <use href="assets/icons.svg#brand-apple" class="route__apple" x="88" y="226" width="44" height="44"/>
+            <circle class="route__device" cx="610" cy="250" r="52"/>
+            <use href="assets/icons.svg#brand-android" class="route__android" x="586" y="226" width="48" height="48"/>
+          </svg>
+        </figure>
+
+        <ul class="assurances">
+          <li class="reveal"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#lock-key"/></svg><span><b>Encrypted</b> with a separate key each way</span></li>
+          <li class="reveal" style="--d: 60ms"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#shield-check"/></svg><span><b>You approve</b> every new device</span></li>
+          <li class="reveal" style="--d: 120ms"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#eye-slash"/></svg><span><b>No account</b>, ads or analytics</span></li>
         </ul>
         <a class="privacy__link reveal" href="https://github.com/rohit-yadavv/dropduo/blob/develop/protocol/SPEC.md">Open source. Read the protocol<svg class="i" aria-hidden="true"><use href="assets/icons.svg#arrow-right"/></svg></a>
       </div>

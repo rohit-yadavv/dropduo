@@ -647,49 +647,54 @@ a { color: inherit; text-decoration: none; }
 }
 .step__icon .i { width: 22px; height: 22px; }
 
-/* Privacy: three claims that light up as they pass the middle of the screen */
+/* Privacy: a diagram of the direct route, with the cloud detour crossed out */
 
-.privacy { padding: 112px 0 40px; }
+.privacy { padding: 112px 0 40px; text-align: center; }
+.privacy__title { margin: 0 auto; }
+.privacy__lede { max-width: 44ch; margin: 16px auto 0; font-size: 1.1875rem; color: var(--muted); text-wrap: balance; }
 
-.privacy__label {
-  font-family: var(--mono);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  color: var(--accent-text);
+.route { max-width: 760px; margin: 48px auto 0; }
+.route__svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+.route__detour {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-dasharray: 4 8;
+  stroke-linecap: round;
+  opacity: 0.45;
 }
+.route__cloud { fill: var(--surface); stroke: var(--line); stroke-width: 2; stroke-dasharray: 5 6; }
+.route__cloud-icon { color: var(--muted); }
+.route__note { fill: var(--muted); font-family: var(--mono); font-size: 15px; letter-spacing: 0.02em; }
 
-.claims { margin-top: 28px; border-bottom: 1px solid var(--line); }
+.route__glow { stroke: var(--cobalt); stroke-width: 14; stroke-linecap: round; opacity: 0.14; }
+.route__link { stroke: var(--cobalt); stroke-width: 3; stroke-linecap: round; }
+.packet { fill: var(--headline-accent); opacity: 0; }
+.route__lock { fill: var(--cobalt); }
+.route__lock-icon { color: #fff; }
 
-.claim {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 18rem);
-  align-items: baseline;
-  gap: 12px 48px;
-  padding: 36px 0;
-  border-top: 1px solid var(--line);
-}
-.claim__text {
-  font-size: clamp(1.625rem, 3.2vw, 2.75rem);
-  font-weight: 600;
-  line-height: 1.12;
-  letter-spacing: -0.04em;
+.route__device { fill: var(--surface); stroke: var(--line); stroke-width: 2; }
+.route__apple { color: var(--text); }
+.route__android { color: #3DDC84; }
+
+.assurances {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 36px;
+  margin-top: 40px;
   color: var(--muted);
-  text-wrap: balance;
 }
-.claim__text b { color: var(--text); font-weight: 650; }
-.claim__detail {
-  font-family: var(--mono);
-  font-size: 0.875rem;
-  line-height: 1.6;
-  color: var(--muted);
-}
+.assurances li { display: inline-flex; align-items: center; gap: 10px; }
+.assurances .i { width: 20px; height: 20px; color: var(--icon); }
+.assurances b { color: var(--text); font-weight: 600; }
 
 .privacy__link {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 32px;
+  margin-top: 28px;
   color: var(--accent-text);
   font-weight: 560;
 }
@@ -950,7 +955,8 @@ a.download__version:hover { color: var(--accent-text); text-decoration: underlin
   .chip--c { left: 0; }
   .sends, .pair, .download { padding: 80px 0; }
   .privacy { padding: 72px 0 16px; }
-  .claim { grid-template-columns: 1fr; padding: 28px 0; }
+  .route__note { font-size: 22px; }
+  .assurances { flex-direction: column; align-items: center; }
   .pair__grid { grid-template-columns: 1fr; }
   .pair__device { order: 2; }
   .phone { width: min(78%, 300px); }
@@ -1024,9 +1030,16 @@ a.download__version:hover { color: var(--accent-text); text-decoration: underlin
   100% { opacity: 0; transform: scale(1.18); }
 }
 
-@keyframes claim-focus {
-  from { opacity: 0.22; transform: translateY(18px); }
-  to { opacity: 1; transform: none; }
+@keyframes packet-right {
+  0% { opacity: 0; transform: translateX(0); }
+  12%, 82% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(380px); }
+}
+
+@keyframes packet-left {
+  0% { opacity: 0; transform: translateX(0); }
+  12%, 82% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-380px); }
 }
 
 @keyframes draw { from { transform: scaleY(0); } to { transform: scaleY(1); } }
@@ -1062,6 +1075,11 @@ a.download__version:hover { color: var(--accent-text); text-decoration: underlin
 
   .half__skeleton span { animation: shimmer 1.4s linear infinite; }
 
+  .packet--right { animation: packet-right 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+  .packet--left { animation: packet-left 3.4s cubic-bezier(0.45, 0, 0.55, 1) 0.9s infinite; }
+  .packet--right.packet--late { animation-delay: 1.4s; }
+  .packet--left.packet--late { animation-delay: 2.6s; }
+
   .js .duo .half { transition: transform 0.9s var(--ease), opacity 0.9s var(--ease); }
   .js .duo:not(.is-in) .half--mac { opacity: 0; transform: translateX(-28px); }
   .js .duo:not(.is-in) .half--android { opacity: 0; transform: translateX(28px); }
@@ -1070,11 +1088,6 @@ a.download__version:hover { color: var(--accent-text); text-decoration: underlin
 
 
   @supports (animation-timeline: view()) {
-    .claim {
-      animation: claim-focus linear both;
-      animation-timeline: view();
-      animation-range: entry 10% cover 50%;
-    }
 
     .steps::after {
       animation: draw linear both;

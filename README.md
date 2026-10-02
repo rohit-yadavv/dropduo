@@ -11,7 +11,7 @@ Move photos from your phone to your Mac, send a PDF back to your phone, or pass 
 [![Checks](https://github.com/rohit-yadavv/dropduo/actions/workflows/checks.yml/badge.svg?branch=develop)](https://github.com/rohit-yadavv/dropduo/actions/workflows/checks.yml)
 [![CodeQL](https://github.com/rohit-yadavv/dropduo/actions/workflows/security.yml/badge.svg?branch=develop)](https://github.com/rohit-yadavv/dropduo/actions/workflows/security.yml)
 
-**Early development alpha.** macOS 14+ on Apple Silicon or Intel, and Android 10+. There is no published release yet; [development downloads](docs/downloads.md#development-downloads-available-now) are available for testers. These builds use development signing. Physical-phone reliability, accessibility, production signing, and independent security review remain [release work](docs/validation.md).
+**Early development alpha.** macOS 14+ on Apple Silicon or Intel, and Android 10+. [The first public alpha](https://github.com/rohit-yadavv/dropduo/releases/tag/v0.1.0-alpha.1) is available for testers; choose your [Mac and Android downloads](docs/downloads.md). These builds use development signing. Physical-phone reliability, accessibility, production signing, and independent security review remain [release work](docs/validation.md).
 
 ## Why use DropDuo?
 

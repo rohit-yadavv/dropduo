@@ -62,6 +62,6 @@ The v1 protocol caps a file at **32 GiB**. This is a protocol ceiling, not a tes
 
 Sessions authenticate paired devices and encrypt transfers using standard cryptographic primitives. You can pause receiving or revoke local trust. The protocol hasn't received an independent security audit and has no forward secrecy in v1. Received files aren't automatically safe to open or execute. Read the [security design](security.md); report vulnerabilities through [SECURITY.md](../SECURITY.md).
 
-## Can I install a finished public release today?
+## Can I download it today?
 
-No public release has been published yet. Testers can use [development downloads](downloads.md). These use ad-hoc Mac signing without notarization and Android debug signing. Signing identities can change between Android development builds, preventing an in-place upgrade. Public distribution and real-device validation are tracked in the [roadmap](roadmap.md).
+Yes: [0.1.0-alpha.1](https://github.com/rohit-yadavv/dropduo/releases/tag/v0.1.0-alpha.1) is a public development alpha for testers. Choose your apps in the [download guide](downloads.md). It is not a finished stable release. These use ad-hoc Mac signing without notarization and Android debug signing. Signing identities can change between Android development builds, preventing an in-place upgrade. Public distribution and real-device validation are tracked in the [roadmap](roadmap.md).

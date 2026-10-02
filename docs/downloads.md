@@ -2,7 +2,7 @@
 
 Install DropDuo on both your Mac and Android phone to share selected files, photos, videos, text, and links directly over your local network. Pair once; use Mac drag and drop or Android **Share → DropDuo** for later transfers. No account or cloud upload is required.
 
-**Available now: development alpha builds for testers.** No public release has been published yet. Start with [development downloads](#development-downloads-available-now), then follow the [first-transfer walkthrough](usage.md). Read the [comparison](comparison.md) if you're deciding whether DropDuo fits your devices.
+**Available now: [0.1.0-alpha.1](https://github.com/rohit-yadavv/dropduo/releases/tag/v0.1.0-alpha.1), a public development prerelease for testers.** Download your Mac ZIP and Android APK below, then follow the [first-transfer walkthrough](usage.md). Read the [comparison](comparison.md) if you're deciding whether DropDuo fits your devices.
 
 | Requirement | Supported |
 | --- | --- |
@@ -12,17 +12,19 @@ Install DropDuo on both your Mac and Android phone to share selected files, phot
 
 ## Published versions
 
-Use [GitHub Releases](https://github.com/rohit-yadavv/dropduo/releases). Published releases have downloadable Mac ZIPs and an Android APK under **Assets**. GitHub's **Source code** ZIP is for developers; it does not contain installed apps. No published version exists yet; use development downloads until the first release is published.
+Use [GitHub Releases](https://github.com/rohit-yadavv/dropduo/releases). Published releases have downloadable Mac ZIPs and an Android APK under **Assets**. GitHub's **Source code** ZIP is for developers; it does not contain installed apps. The current public version is **0.1.0-alpha.1**, with development signing and outstanding physical-device validation. No GitHub account is needed to download its assets.
 
 | Device | File |
 | --- | --- |
-| Apple Silicon Mac (M1 or newer) | `DropDuo-vVERSION-macos-arm64.zip` |
-| Intel Mac | `DropDuo-vVERSION-macos-x86_64.zip` |
-| Android 10+ | `DropDuo-vVERSION-android.apk` |
+| Apple Silicon Mac (M1 or newer) | [Download arm64 ZIP](https://github.com/rohit-yadavv/dropduo/releases/download/v0.1.0-alpha.1/DropDuo-v0.1.0-alpha.1-macos-arm64-development.zip) |
+| Intel Mac | [Download Intel ZIP](https://github.com/rohit-yadavv/dropduo/releases/download/v0.1.0-alpha.1/DropDuo-v0.1.0-alpha.1-macos-x86_64-development.zip) |
+| Android 10+ | [Download Android APK](https://github.com/rohit-yadavv/dropduo/releases/download/v0.1.0-alpha.1/DropDuo-v0.1.0-alpha.1-android-development.apk) |
 
-Development prereleases add `-development` before the extension. Release pages include `SHA256SUMS`, per-file checksums, build metadata, license and dependency notices. On a Mac, run `shasum -a 256 -c SHA256SUMS` in the folder containing all three downloads. To verify one download alone, use its `.sha256` file instead.
+These prerelease filenames include `-development` before the extension. Release pages include `SHA256SUMS`, per-file checksums, build metadata, license and dependency notices. On a Mac, run `shasum -a 256 -c SHA256SUMS` in the folder containing all three downloads. To verify one download alone, use its `.sha256` file instead.
 
 ## Development downloads available now
+
+For newer untagged development builds, use CI artifacts instead of the public alpha:
 
 1. Sign into GitHub and open [Checks](https://github.com/rohit-yadavv/dropduo/actions/workflows/checks.yml).
 2. Choose a successful run for `develop`; check its commit and date.

@@ -20,7 +20,9 @@ jobs:
         with: {persist-credentials: false}
       - name: Install pinned workflow linter
         run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-      - run: "$(go env GOPATH)/bin/actionlint"
+      - name: Lint workflows
+        run: |
+          "$(go env GOPATH)/bin/actionlint"
       - name: Release metadata guard tests
         run: python3 -m unittest discover -s scripts/tests -v
       - name: Shell syntax

@@ -1,17 +1,17 @@
-name: Website
+name: Web
 on:
   # The public site follows production; build-only runs validate PRs.
   push:
     branches: [master]
-    paths: [website/**, branding/**, scripts/build-website, .github/workflows/website.yml]
+    paths: [apps/web/**, branding/**, scripts/build-web, .github/workflows/web.yml]
   pull_request:
     branches: [develop, staging, master]
-    paths: [website/**, branding/**, scripts/build-website, .github/workflows/website.yml]
+    paths: [apps/web/**, branding/**, scripts/build-web, .github/workflows/web.yml]
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: website-${{ github.ref }}
+  group: web-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   build:
@@ -22,10 +22,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {persist-credentials: false}
       - name: Assemble and check links
-        run: python3 scripts/build-website
+        run: python3 scripts/build-web
       - if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
-        with: {path: dist/website}
+        with: {path: dist/web}
   deploy:
     name: Deploy to GitHub Pages
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'

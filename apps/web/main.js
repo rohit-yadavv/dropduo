@@ -4,7 +4,7 @@
 
   const REPO = "rohit-yadavv/dropduo";
   const RELEASES_PAGE = `https://github.com/${REPO}/releases`;
-  const CACHE_KEY = "dropduo:release:v1";
+  const CACHE_KEY = "dropduo:release:v2";
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   // Theme: the head script applies the initial value; this keeps it in sync.
@@ -200,21 +200,22 @@
   if (platform) {
     const label = document.querySelector("[data-platform-label]");
     label.textContent = platform === "android" ? "Download for Android" : "Download for Mac";
-    const card = document.querySelector(`[data-platform="${platform}"]`);
-    card.classList.add("is-suggested");
-    if (platform === "android") card.parentElement.prepend(card);
+    const half = document.querySelector(`[data-platform="${platform}"]`);
+    half.classList.add("is-suggested");
+    if (platform === "android") half.parentElement.classList.add("duo--android-first");
   }
 
   // Release assets. Published names follow docs/downloads.md:
   // DropDuo-vVERSION-macos-arm64[-development].zip, -macos-x86_64, -android.apk
-  const platforms = document.querySelector(".platforms");
+  const platforms = document.querySelector("[data-release-state]");
   const status = document.querySelector("[data-release-status]");
-  const notes = document.querySelector("[data-release-notes]");
   const patterns = {
     "mac-arm64": /-macos-arm64(-development)?\.zip$/i,
     "mac-x86_64": /-macos-x86_64(-development)?\.zip$/i,
     android: /-android(-development)?\.apk$/i,
   };
+
+  const formatSize = (bytes) => bytes >= 1e6 ? `${(bytes / 1e6).toFixed(bytes >= 1e7 ? 0 : 1)} MB` : `${Math.max(1, Math.round(bytes / 1e3))} KB`;
 
   const setState = (state) => platforms.setAttribute("data-release-state", state);
 
@@ -223,24 +224,65 @@
     return usable.find((release) => !release.prerelease) || usable[0] || null;
   };
 
+  // On a computer, offer the APK as a QR code so the phone downloads it directly.
+  const wantsQr = finePointer.matches && !isAndroid && !/iPhone|iPad/i.test(ua);
+  const loadQrLibrary = () => new Promise((resolve, reject) => {
+    if (window.qrcode) return resolve(window.qrcode);
+    const script = document.createElement("script");
+    script.src = "assets/vendor/qrcode.js";
+    script.onload = () => resolve(window.qrcode);
+    script.onerror = reject;
+    document.head.append(script);
+  });
+  const showQr = async (url) => {
+    if (!wantsQr) return;
+    try {
+      const qrcode = await loadQrLibrary();
+      // Level H tolerates the app tile covering the centre modules.
+      const qr = qrcode(0, "H");
+      qr.addData(url);
+      qr.make();
+      const n = qr.getModuleCount();
+      const hole = Math.ceil(n * 0.24) | 1;
+      const start = (n - hole) / 2;
+      let d = "";
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+          const inHole = r >= start - 1 && r < start + hole + 1 && c >= start - 1 && c < start + hole + 1;
+          if (qr.isDark(r, c) && !inHole) d += `M${c} ${r}h1v1h-1z`;
+        }
+      }
+      const svg = `<svg viewBox="0 0 ${n} ${n}" role="img" aria-label="QR code that downloads DropDuo for Android" shape-rendering="crispEdges">`
+        + `<path fill="#202124" d="${d}"/>`
+        + `<rect x="${start}" y="${start}" width="${hole}" height="${hole}" rx="${hole * 0.215}" fill="#fff"/>`
+        + `<svg x="${start}" y="${start}" width="${hole}" height="${hole}"><use href="#dd-mark"/></svg></svg>`;
+      document.querySelector("[data-qr-code]").innerHTML = svg;
+      document.querySelector("[data-qr]").hidden = false;
+      document.querySelector("[data-apk-button]").hidden = true;
+    } catch { /* The download button stays as the fallback. */ }
+  };
+
   const render = (release) => {
     if (!release) {
       setState("pending");
       status.textContent = "Coming soon";
       return;
     }
+    let development = false;
+    let apk = null;
     for (const [key, pattern] of Object.entries(patterns)) {
       const asset = release.assets.find((a) => pattern.test(a.name));
-      const link = document.querySelector(`[data-asset="${key}"]`);
-      if (!link) continue;
-      link.href = asset ? asset.url : release.page;
+      if (key === "android") apk = asset;
+      document.querySelectorAll(`[data-asset="${key}"]`).forEach((link) => { link.href = asset ? asset.url : release.page; });
+      if (asset?.size) document.querySelectorAll(`[data-size="${key}"]`).forEach((size) => { size.textContent = formatSize(asset.size); });
+      if (asset && /-development\./i.test(asset.name)) development = true;
     }
+    // Development builds are ad-hoc signed on Mac, so explain Gatekeeper's prompt.
+    document.querySelectorAll("[data-dev-note]").forEach((note) => { note.hidden = !development; });
     const version = release.tag.replace(/^v/, "");
-    status.textContent = release.prerelease ? `Version ${version}, pre-release` : `Version ${version}`;
-    const notesLink = document.createElement("a");
-    notesLink.href = release.page;
-    notesLink.textContent = "Release notes and checksums";
-    notes.replaceChildren(notesLink);
+    status.textContent = release.prerelease ? `v${version}, pre-release` : `v${version}`;
+    status.href = release.page;
+    if (apk) showQr(apk.url);
     setState("ready");
   };
 
@@ -269,7 +311,7 @@
         tag: picked.tag_name,
         prerelease: picked.prerelease,
         page: picked.html_url || RELEASES_PAGE,
-        assets: picked.assets.map((a) => ({ name: a.name, url: a.browser_download_url })),
+        assets: picked.assets.map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size })),
       };
       try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), release })); } catch { /* ignore */ }
       render(release);

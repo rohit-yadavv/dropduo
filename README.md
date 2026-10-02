@@ -77,11 +77,11 @@ Developers, designers, documentation writers, and real-device testers are welcom
 | --- | --- |
 | `apps/macos` | SwiftUI app, Swift protocol library, compatibility host |
 | `apps/android` | Kotlin/Compose app, JVM protocol library, tests |
+| `apps/web` | Static download website and its licensed assets |
 | `protocol` | Versioned wire specification and shared crypto fixtures |
 | `docs` | User guides, product decisions, architecture, validation, releases |
 | `scripts` | Repeatable checks, interoperability tests, packaging |
 | `branding` | Editable icon geometry, palette, and platform exports |
-| `website` | Static download website and its licensed assets |
 
 For building from source, use [development setup](docs/development.md). For publishing downloads, use the [release guide](docs/releases.md). Find the other guides in the [documentation index](docs/README.md).
 

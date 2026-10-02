@@ -1,0 +1,19 @@
+# Build and tool state
+.DS_Store
+.build/
+build/
+.gradle/
+local.properties
+.idea/
+*.xcuserstate
+DerivedData/
+dist/
+.artifacts/
+*.log
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+.env
+.env.*
+!.env.example

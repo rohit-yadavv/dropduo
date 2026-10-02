@@ -1,0 +1,15 @@
+name: Focused feature proposal
+description: Describe a user problem and acceptance criteria
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem and proposed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: criteria
+    attributes:
+      label: Acceptance criteria and scope boundaries
+    validations:
+      required: true

@@ -1,0 +1,26 @@
+name: Bug report
+description: Report a reproducible problem
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observed and expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: App, macOS, Android versions and device models
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized evidence
+      description: Never upload secrets, pairing codes, or personal files.

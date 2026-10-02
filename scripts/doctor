@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-printf 'Nearport development prerequisites\n'
+printf 'DropDuo development prerequisites\n'
 swift --version || true
 java -version || true
 printf 'Android SDK: %s\n' "${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"

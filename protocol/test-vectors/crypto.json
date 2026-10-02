@@ -1,9 +1,9 @@
 {
   "client" : "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
-  "frame" : "AAAAAAAAAAADAwMDAwMDAwMDAwOtE2Gqplw2e2B0zkU0NoKgv2IoB3XqpOlZabivwIANKk6soUeQibg2c+ZHLzTZ",
-  "helloProof" : "MUCzFtZKcMNY+3MvoH\/tUIo1Uc89+K5OgzSo85zolLA=",
-  "key" : "yapaAZYQIwFIC7oDcU5\/RYf9WFZyCim9h+kuKBL2nJ8=",
-  "plain" : "TmVhcnBvcnQgY29tcGF0aWJpbGl0eSBmaXh0dXJl",
+  "frame" : "AAAAAAAAAAADAwMDAwMDAwMDAwOvrAIpNsUDzf\/Z+qM+kR+gGPK1UM7XcB3xSCzUJD4ThuTfXJV8Nd\/yY5LMquM=",
+  "helloProof" : "sMfO0V+jXoACBcIj3klSlcDHhl8KXzrsmhgd7Civ\/24=",
+  "key" : "6FIzutSarolrwQJtOyoXnmzp3kGgRHzlt\/bYyH\/Ymtg=",
+  "plain" : "RHJvcER1byBjb21wYXRpYmlsaXR5IGZpeHR1cmU=",
   "secret" : "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
   "server" : "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI="
 }

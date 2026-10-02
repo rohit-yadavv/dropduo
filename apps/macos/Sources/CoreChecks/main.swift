@@ -1,5 +1,5 @@
 import Foundation
-import NearportCore
+import DropDuoCore
 struct CoreTests {
     func testAuthenticatedFramesRejectReplayAndTampering() throws {
         let key = Data(repeating: 7, count: 32)

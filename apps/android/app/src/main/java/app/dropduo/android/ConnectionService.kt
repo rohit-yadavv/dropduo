@@ -1,10 +1,10 @@
-package app.nearport.android
+package app.dropduo.android
 
 import android.app.*
 import android.content.Intent
 import android.net.nsd.*
 import android.os.*
-import app.nearport.core.*
+import app.dropduo.core.*
 import java.util.concurrent.Executors
 
 class ConnectionService : Service() {
@@ -19,8 +19,8 @@ class ConnectionService : Service() {
         notifications.createNotificationChannel(NotificationChannel("connection", "Device connection", NotificationManager.IMPORTANCE_LOW))
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val stop = PendingIntent.getService(this, 1, Intent(this, ConnectionService::class.java).setAction("stop"), PendingIntent.FLAG_IMMUTABLE)
-        val notification = Notification.Builder(this, "connection").setSmallIcon(app.nearport.android.R.drawable.ic_nearport)
-            .setContentTitle("Nearport is ready to share").setContentText("Local device connection is active. Tap to manage.")
+        val notification = Notification.Builder(this, "connection").setSmallIcon(app.dropduo.android.R.drawable.ic_dropduo)
+            .setContentTitle("DropDuo is ready to share").setContentText("Local device connection is active. Tap to manage.")
             .setContentIntent(open).setOngoing(true).addAction(Notification.Action.Builder(null, "Disconnect", stop).build()).build()
         startForeground(1, notification)
         startDiscovery()
@@ -71,12 +71,12 @@ class ConnectionService : Service() {
             }
         }
         discovery = listener
-        runCatching { nsd.discoverServices("_nearport._tcp.", NsdManager.PROTOCOL_DNS_SD, listener) }
+        runCatching { nsd.discoverServices("_dropduo._tcp.", NsdManager.PROTOCOL_DNS_SD, listener) }
     }
     override fun onDestroy() {
         running = false; AppState.engine?.close(); AppState.engine = null; worker.shutdownNow()
         discovery?.let { runCatching { nsd.stopServiceDiscovery(it) } }
-        AppState.update { it.copy(connected = false, status = "Disconnected. Open Nearport to reconnect.") }
+        AppState.update { it.copy(connected = false, status = "Disconnected. Open DropDuo to reconnect.") }
         super.onDestroy()
     }
 }

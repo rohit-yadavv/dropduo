@@ -15,10 +15,10 @@ public final class PortServer: @unchecked Sendable {
     private var listener: NWListener?
     private let budget = ConnectionBudget()
     public init() {}
-    public func start(port: UInt16 = 53318, serviceName: String = "Nearport") throws {
+    public func start(port: UInt16 = 53318, serviceName: String = "DropDuo") throws {
         let listener = try NWListener(using: .tcp, on: NWEndpoint.Port(rawValue: port)!)
         self.listener = listener
-        listener.service = NWListener.Service(name: serviceName, type: "_nearport._tcp")
+        listener.service = NWListener.Service(name: serviceName, type: "_dropduo._tcp")
         listener.stateUpdateHandler = { [weak self, weak listener] state in
             if case .ready = state { self?.onReady(Int(listener?.port?.rawValue ?? port)) }
             if case let .failed(error) = state { self?.onError(error.localizedDescription) }
@@ -37,7 +37,7 @@ public final class PortServer: @unchecked Sendable {
                     let secret = try await self.lookup(hello)
                     guard Wire.verify(hello.proof, key: secret, text: hello.transcript) else { throw PortError.invalid("Authentication failed") }
                     let server = Wire.random(32), serverNonce = server.base64EncodedString()
-                    let proof = Wire.hmac(secret, "nearport/1/welcome|\(hello.pairID)|\(hello.nonce)|\(serverNonce)")
+                    let proof = Wire.hmac(secret, "dropduo/1/welcome|\(hello.pairID)|\(hello.nonce)|\(serverNonce)")
                     try await framed.send(JSONEncoder().encode(Welcome(nonce: serverNonce, proof: proof)))
                     timeout.cancel()
                     let channel = SecureChannel(framed: framed,
@@ -47,7 +47,7 @@ public final class PortServer: @unchecked Sendable {
                 } catch { timeout.cancel(); framed.close(); self.onError(error.localizedDescription) }
             }
         }
-        listener.start(queue: DispatchQueue(label: "app.nearport.listener"))
+        listener.start(queue: DispatchQueue(label: "app.dropduo.listener"))
     }
     public func stop() { listener?.cancel(); listener = nil }
 }

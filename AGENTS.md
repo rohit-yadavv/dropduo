@@ -2,7 +2,7 @@
 
 ## Product
 
-Nearport v1 shares files, photos, links, and text between macOS and Android on a reachable local network. Native apps, persistent trusted pairing, no accounts or cloud. Do not add clipboard monitoring, remote control, browser clients, or extra platforms without an agreed scope change.
+DropDuo v1 shares files, photos, links, and text between macOS and Android on a reachable local network. Native apps, persistent trusted pairing, no accounts or cloud. Do not add clipboard monitoring, remote control, browser clients, or extra platforms without an agreed scope change.
 
 ## Map and authority
 

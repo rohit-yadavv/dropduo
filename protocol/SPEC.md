@@ -1,20 +1,24 @@
-# Nearport protocol v1
+# DropDuo protocol v1
+
+## Application identity
+
+DropDuo v1 uses its own pairing URI, discovery service, and cryptographic domain separators. It does not interoperate with earlier working-name alpha builds. Both devices must install DropDuo and pair again; the frame format remains version 1 within this new namespace.
 
 ## Transport and discovery
 
-Mac advertises `_nearport._tcp` (default port 53318). Android opens TCP; either peer may initiate a transfer. Discovery names/addresses are untrusted. Big-endian unsigned 32-bit length prefixes each frame; reject lengths outside 1..400000 before allocation. Handshake frames have a 4096-byte limit. UTF-8 JSON control messages; unknown protocol versions are rejected.
+Mac advertises `_dropduo._tcp` (default port 53318). Android opens TCP; either peer may initiate a transfer. Discovery names/addresses are untrusted. Big-endian unsigned 32-bit length prefixes each frame; reject lengths outside 1..400000 before allocation. Handshake frames have a 4096-byte limit. UTF-8 JSON control messages; unknown protocol versions are rejected.
 
 ## Pairing
 
-`nearport://pair/<standard-base64-JSON>` encodes version, pairID (UUID), host, port, secret (base64 32 random bytes), name, expires (Unix seconds). Ticket expires after five minutes. QR material is sensitive. Mac verifies proof before asking for approval; consume once and save the secret only on approval. Paired devices reuse their secret, not the expiry or old IP as identity. Secrets never appear in ordinary metadata or logs.
+`dropduo://pair/<standard-base64-JSON>` encodes version, pairID (UUID), host, port, secret (base64 32 random bytes), name, expires (Unix seconds). Ticket expires after five minutes. QR material is sensitive. Mac verifies proof before asking for approval; consume once and save the secret only on approval. Paired devices reuse their secret, not the expiry or old IP as identity. Secrets never appear in ordinary metadata or logs.
 
 ## Session authentication
 
-Android hello: `{version:1,pairID,name,nonce,proof}`. Client nonce is 32 fresh random bytes in base64. Proof is base64 HMAC-SHA256(secret, UTF-8 `nearport/1/hello|pairID|nonce|name`).
+Android hello: `{version:1,pairID,name,nonce,proof}`. Client nonce is 32 fresh random bytes in base64. Proof is base64 HMAC-SHA256(secret, UTF-8 `dropduo/1/hello|pairID|nonce|name`).
 
-Mac welcome: `{version:1,nonce,proof}`. Server nonce is 32 fresh random bytes. Proof authenticates `nearport/1/welcome|pairID|clientNonceBase64|serverNonceBase64`.
+Mac welcome: `{version:1,nonce,proof}`. Server nonce is 32 fresh random bytes. Proof authenticates `dropduo/1/welcome|pairID|clientNonceBase64|serverNonceBase64`.
 
-HKDF-SHA256 uses secret as IKM, concatenated raw client/server nonces as salt, and UTF-8 `nearport/1/c2s` / `nearport/1/s2c` as info. Output is separate 32-byte directional keys.
+HKDF-SHA256 uses secret as IKM, concatenated raw client/server nonces as salt, and UTF-8 `dropduo/1/c2s` / `dropduo/1/s2c` as info. Output is separate 32-byte directional keys.
 
 ## Encryption
 

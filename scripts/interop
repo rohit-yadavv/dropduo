@@ -1,11 +1,11 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-swift build --package-path apps/macos --product nearport-interop
+swift build --package-path apps/macos --product dropduo-interop
 bin=$(swift build --package-path apps/macos --show-bin-path)
 mkdir -p .artifacts
 work=$(mktemp -d "$PWD/.artifacts/interop.XXXXXX")
-"$bin/nearport-interop" serve "$work" > "$work/server.log" 2>&1 &
+"$bin/dropduo-interop" serve "$work" > "$work/server.log" 2>&1 &
 server_pid=$!
 trap 'kill "$server_pid" 2>/dev/null || true; rm -rf "$work"' EXIT INT TERM
 attempt=0
@@ -14,6 +14,6 @@ while [ ! -f "$work/ticket.txt" ]; do
   attempt=$((attempt + 1)); [ "$attempt" -lt 100 ] || { cat "$work/server.log"; exit 1; }
   sleep 0.1
 done
-./apps/android/gradlew -p apps/android :core:test --tests app.nearport.core.InteropTest -Dnearport.interop="$work" --rerun-tasks --console=plain
+./apps/android/gradlew -p apps/android :core:test --tests app.dropduo.core.InteropTest -Ddropduo.interop="$work" --rerun-tasks --console=plain
 cat "$work/passed.txt"
 printf '\n'

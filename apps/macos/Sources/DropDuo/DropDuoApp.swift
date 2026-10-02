@@ -2,14 +2,14 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 import CoreImage.CIFilterBuiltins
-import NearportCore
+import DropDuoCore
 
-@main struct NearportApp: App {
+@main struct DropDuoApp: App {
     @StateObject private var model = AppModel()
     var body: some Scene {
-        WindowGroup("Nearport", id: "main") { MainView(model: model).frame(minWidth: 760, minHeight: 580) }
+        WindowGroup("DropDuo", id: "main") { MainView(model: model).frame(minWidth: 760, minHeight: 580) }
             .defaultSize(width: 900, height: 660)
-        MenuBarExtra("Nearport", systemImage: "arrow.up.arrow.down.circle") {
+        MenuBarExtra("DropDuo", systemImage: "arrow.up.arrow.down.circle") {
             MenuContent(model: model)
         }
     }
@@ -19,10 +19,10 @@ struct MenuContent: View {
     @Environment(\.openWindow) private var openWindow
     var body: some View {
         Text(model.online.isEmpty ? "No phone connected" : "Phone connected")
-        Button("Open Nearport") { openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true) }
+        Button("Open DropDuo") { openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true) }
         Button("Send files…") { model.chooseFiles() }.disabled(model.online.isEmpty)
         Button("Open received files") { NSWorkspace.shared.open(model.inboxRoot) }
-        Divider(); Button("Quit Nearport") { NSApp.terminate(nil) }
+        Divider(); Button("Quit DropDuo") { NSApp.terminate(nil) }
     }
 }
 struct MainView: View {
@@ -30,7 +30,7 @@ struct MainView: View {
     var body: some View {
         NavigationSplitView {
             VStack(alignment: .leading, spacing: 24) {
-                HStack(spacing: 10) { Image(systemName: "arrow.up.arrow.down.circle.fill").font(.system(size: 32)).foregroundStyle(.blue); Text("Nearport").font(.title2.bold()) }
+                HStack(spacing: 10) { Image(systemName: "arrow.up.arrow.down.circle.fill").font(.system(size: 32)).foregroundStyle(.blue); Text("DropDuo").font(.title2.bold()) }
                 List(selection: $model.route) {
                     Label("Share", systemImage: "paperplane").tag("Share")
                     Label("Devices", systemImage: "iphone.and.arrow.forward").tag("Devices")
@@ -53,7 +53,7 @@ struct MainView: View {
                 }.padding(30)
             }.background(Color(nsColor: .windowBackgroundColor))
         }
-        .alert("Nearport", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("OK") { model.error = nil } } message: { Text(model.error ?? "") }
+        .alert("DropDuo", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("OK") { model.error = nil } } message: { Text(model.error ?? "") }
         .confirmationDialog("Forget this device?", isPresented: Binding(get: { model.confirmation != nil }, set: { if !$0 { model.confirmation = nil } })) {
             if let device = model.confirmation { Button("Forget \(device.name)", role: .destructive) { model.forget(device); model.confirmation = nil } }
         } message: { Text("It will need to pair again before sharing.") }
@@ -66,7 +66,7 @@ struct MainView: View {
             if model.devices.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
                     Label("Start with your phone", systemImage: "iphone").font(.title3.bold())
-                    Text("Install Nearport on Android, then scan the code on your Mac. Both devices need the same local network.").foregroundStyle(.secondary)
+                    Text("Install DropDuo on Android, then scan the code on your Mac. Both devices need the same local network.").foregroundStyle(.secondary)
                     Button("Pair a device") { model.route = "Devices"; model.makeTicket() }.buttonStyle(.borderedProminent)
                 }.padding(24).frame(maxWidth: .infinity, alignment: .leading).background(.blue.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
             } else {
@@ -96,7 +96,7 @@ struct MainView: View {
             if let ticket = model.ticket, let code = try? ticket.code() {
                 VStack(spacing: 14) {
                     if let image = qr(code) { Image(nsImage: image).interpolation(.none).resizable().frame(width: 230, height: 230).padding(12).background(.white, in: RoundedRectangle(cornerRadius: 12)).accessibilityLabel("Pairing QR code") }
-                    Text("Scan with Nearport on Android").font(.headline)
+                    Text("Scan with DropDuo on Android").font(.headline)
                     Text("Expires in 5 minutes. Keep this code private.").font(.caption).foregroundStyle(.secondary)
                     Picker("Network address", selection: Binding(get: { ticket.host }, set: { model.useAddress($0) })) { ForEach(model.localAddresses(), id: \.self) { Text($0).tag($0) } }.frame(maxWidth: 300)
                     Button("Copy pairing code") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(code, forType: .string) }
@@ -130,10 +130,10 @@ struct MainView: View {
             Toggle("Accept files and text from paired devices", isOn: $model.receiving).onChange(of: model.receiving) { _, _ in model.persistSettings() }
             Text("Only devices you approve can connect. Pausing receiving keeps pairing intact.").foregroundStyle(.secondary)
             Button("Open received files") { NSWorkspace.shared.open(model.inboxRoot) }
-            Text("Files are stored in Downloads/Nearport, separated by device. History keeps the latest 100 transfers; clearing it does not delete files.").font(.callout).foregroundStyle(.secondary)
+            Text("Files are stored in Downloads/DropDuo, separated by device. History keeps the latest 100 transfers; clearing it does not delete files.").font(.callout).foregroundStyle(.secondary)
             Button("Clear recent history") { model.clearHistory() }
             Divider()
-            Text("Nearport 0.1.0 alpha").bold()
+            Text("DropDuo 0.1.0 alpha").bold()
             Text("Local network only. No accounts. No analytics. Mac sleep pauses availability.").foregroundStyle(.secondary)
         }.padding(24).background(.background, in: RoundedRectangle(cornerRadius: 16))
     }

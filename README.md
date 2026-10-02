@@ -1,4 +1,4 @@
-# Nearport
+# DropDuo
 
 Native, private sharing between your Mac and Android phone. Pair once; send files, photos, videos, links, and text over your local network.
 
@@ -12,11 +12,11 @@ Prerequisites: macOS with Swift 6 and a macOS SDK, Java 17, Android SDK platform
 ./scripts/doctor
 ./scripts/check all
 ./scripts/build-macos
-open dist/Nearport.app
+open dist/DropDuo.app
 ./apps/android/gradlew -p apps/android :app:assembleDebug
 ```
 
-Install `apps/android/app/build/outputs/apk/debug/app-debug.apk` on your Android phone. Put both devices on the same reachable Wi-Fi, open Nearport on the Mac, choose **Pair a device**, scan its QR code on Android, and approve the connection on the Mac. See [usage](docs/usage.md) and [troubleshooting](docs/troubleshooting.md).
+Install `apps/android/app/build/outputs/apk/debug/app-debug.apk` on your Android phone. Put both devices on the same reachable Wi-Fi, open DropDuo on the Mac, choose **Pair a device**, scan its QR code on Android, and approve the connection on the Mac. See [usage](docs/usage.md) and [troubleshooting](docs/troubleshooting.md).
 
 ## What works
 

@@ -8,7 +8,7 @@ private final class StartGate: @unchecked Sendable {
 }
 public final class FramedConnection: @unchecked Sendable {
     public let connection: NWConnection
-    private let queue = DispatchQueue(label: "app.nearport.connection")
+    private let queue = DispatchQueue(label: "app.dropduo.connection")
     public init(_ connection: NWConnection) { self.connection = connection }
     public func start() async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in

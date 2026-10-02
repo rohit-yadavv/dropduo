@@ -15,3 +15,7 @@ Recorded 2026-10-02 during local development. Check the Git log for the associat
 Not yet verified: production Mac pairing approval/rejection with a physical phone, camera QR scanning, physical LAN multicast discovery, long screen lock, vendor battery policies, sleep/wake, network switching, large-file endurance, VoiceOver/TalkBack, signed/notarized distribution, independent security review. No hosted CI run has been claimed.
 
 Run the repeatable commands in [development](development.md), then record physical-device results against [testing](testing.md). Resume tests seeded partial data; do not describe them as verified recovery from every possible network interruption.
+
+## DropDuo rename verification
+
+On 2026-10-02 the core checks, native builds, Android lint, Swift/JVM interoperability, and Android emulator foreground-service/Keystore integration passed again using DropDuo application IDs and protocol namespaces. The shared cryptographic fixture was regenerated for the new domain separators. Earlier working-name alpha pairings are incompatible; both devices must install DropDuo and pair again.

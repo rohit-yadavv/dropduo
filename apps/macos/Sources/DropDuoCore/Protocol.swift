@@ -24,7 +24,7 @@ public enum Wire {
     }
     public static func derive(secret: Data, client: Data, server: Data, direction: String) -> Data {
         let key = HKDF<SHA256>.deriveKey(inputKeyMaterial: SymmetricKey(data: secret), salt: client + server,
-            info: Data("nearport/1/\(direction)".utf8), outputByteCount: 32)
+            info: Data("dropduo/1/\(direction)".utf8), outputByteCount: 32)
         return key.withUnsafeBytes { Data($0) }
     }
     public static func hash(_ file: URL) throws -> String {
@@ -52,9 +52,10 @@ public struct Ticket: Codable, Equatable {
         guard version == 1, UUID(uuidString: pairID) != nil, !host.isEmpty, (1...65535).contains(port),
               Data(base64Encoded: secret)?.count == 32, name.utf8.count <= 128 else { throw PortError.invalid("Invalid pairing code") }
     }
-    public func code() throws -> String { "nearport://pair/" + (try JSONEncoder().encode(self)).base64EncodedString() }
+    public static let codePrefix = "dropduo://pair/"
+    public func code() throws -> String { Self.codePrefix + (try JSONEncoder().encode(self)).base64EncodedString() }
     public static func parse(_ code: String) throws -> Ticket {
-        guard code.hasPrefix("nearport://pair/"), code.count < 4096, let data = Data(base64Encoded: String(code.dropFirst(16))) else { throw PortError.invalid("Invalid pairing code") }
+        guard code.hasPrefix(codePrefix), code.count < 4096, let data = Data(base64Encoded: String(code.dropFirst(codePrefix.count))) else { throw PortError.invalid("Invalid pairing code") }
         let ticket = try JSONDecoder().decode(Ticket.self, from: data); try ticket.validate(); return ticket
     }
 }
@@ -65,7 +66,7 @@ public struct Hello: Codable {
     public var nonce: String
     public var proof: String
     public init(pairID: String, name: String, nonce: String, proof: String) { self.pairID = pairID; self.name = name; self.nonce = nonce; self.proof = proof }
-    public var transcript: String { "nearport/1/hello|\(pairID)|\(nonce)|\(name)" }
+    public var transcript: String { "dropduo/1/hello|\(pairID)|\(nonce)|\(name)" }
 }
 public struct Welcome: Codable {
     public var version: Int = 1

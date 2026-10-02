@@ -1,9 +1,9 @@
-package app.nearport.android
+package app.dropduo.android
 
 import android.content.Intent
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import app.nearport.core.*
+import app.dropduo.core.*
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -14,7 +14,7 @@ import java.io.File
 class DeviceInteropTest {
     @Test fun nativeServicePairingAndBidirectionalFiles() {
         val args = InstrumentationRegistry.getArguments()
-        assumeTrue("Run scripts/check-emulator", args.getString("nearport.interop") == "true")
+        assumeTrue("Run scripts/check-emulator", args.getString("dropduo.interop") == "true")
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val code = File(context.getExternalFilesDir(null), "interop-ticket.txt").readText()
         val ticket = Ticket.parse(code)

@@ -1,16 +1,16 @@
-package app.nearport.android
+package app.dropduo.android
 
 import android.app.Application
 import android.content.*
 import android.net.Uri
 import android.provider.OpenableColumns
-import app.nearport.core.*
+import app.dropduo.core.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.File
 import java.util.UUID
 
-class NearportApplication : Application() { override fun onCreate() { super.onCreate(); AppState.init(this) } }
+class DropDuoApplication : Application() { override fun onCreate() { super.onCreate(); AppState.init(this) } }
 data class Transfer(val id: String, val name: String, val direction: String, val state: String, val progress: Double = 0.0,
     val path: String? = null, val text: String? = null, val error: String? = null)
 data class UiState(val device: String? = null, val connected: Boolean = false, val status: String = "Pair your Mac to get started",
@@ -118,5 +118,5 @@ object AppState {
         scope.launch { engine?.cancel(row.id); if (row.direction == "Sent" && !importing.contains(row.id)) row.path?.let { File(it).delete() }; record(PeerEvent(row.id, row.name, row.direction, "Cancelled")) }
     }
     fun clearHistory() { synchronized(this) { ui.value.history.filter { it.direction == "Sent" && it.state !in listOf("Preparing", "Sending", "Receiving") }.forEach { row -> row.path?.let { path -> val file = File(path); if (file.parentFile == File(context.filesDir, "outgoing")) file.delete() } }; val active = ui.value.history.filter { it.state in listOf("Preparing", "Sending", "Receiving") }; ui.value = ui.value.copy(history = active); saveHistory(active) } }
-    fun inbox() = File(context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS), "Nearport").apply { mkdirs() }
+    fun inbox() = File(context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS), "DropDuo").apply { mkdirs() }
 }

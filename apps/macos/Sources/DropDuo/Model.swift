@@ -1,6 +1,6 @@
 import Foundation
 import AppKit
-import NearportCore
+import DropDuoCore
 
 struct Device: Codable, Identifiable { var id: String; var name: String }
 struct Transfer: Codable, Identifiable {
@@ -20,8 +20,8 @@ struct Transfer: Codable, Identifiable {
     @Published var receiving: Bool = true { didSet { for engine in engines.values { Task { await engine.setReceiving(receiving) } } } }
     @Published var text = ""
     @Published var route = "Share"
-    let inboxRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads/Nearport", isDirectory: true)
-    private let stateRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Nearport", isDirectory: true)
+    let inboxRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads/DropDuo", isDirectory: true)
+    private let stateRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/DropDuo", isDirectory: true)
     private let server = PortServer()
     private var engines: [String: PeerEngine] = [:]
     private var pending: Ticket?
@@ -29,12 +29,12 @@ struct Transfer: Codable, Identifiable {
     private var port = 53318
     private let hostID: String
     init() {
-        hostID = UserDefaults.standard.string(forKey: "nearport.hostID") ?? UUID().uuidString
-        UserDefaults.standard.set(hostID, forKey: "nearport.hostID")
+        hostID = UserDefaults.standard.string(forKey: "dropduo.hostID") ?? UUID().uuidString
+        UserDefaults.standard.set(hostID, forKey: "dropduo.hostID")
         try? FileManager.default.createDirectory(at: stateRoot, withIntermediateDirectories: true)
         devices = load("devices.json") ?? []; transfers = load("history.json") ?? []
         for index in transfers.indices where ["Preparing", "Sending", "Receiving"].contains(transfers[index].state) { transfers[index].state = "Interrupted" }
-        receiving = UserDefaults.standard.object(forKey: "nearport.receiving") as? Bool ?? true
+        receiving = UserDefaults.standard.object(forKey: "dropduo.receiving") as? Bool ?? true
         selected = devices.first?.id ?? ""
         server.lookup = { [weak self] hello in
             guard let self else { throw PortError.invalid("App closed") }; return try await self.authenticate(hello)
@@ -42,7 +42,7 @@ struct Transfer: Codable, Identifiable {
         server.onReady = { [weak self] port in Task { @MainActor in self?.port = port; self?.status = "Ready on your local network" } }
         server.onError = { [weak self] message in Task { @MainActor in self?.status = message } }
         server.onPeer = { [weak self] id, name, channel in await self?.connected(id: id, name: name, channel: channel) }
-        do { try server.start(serviceName: "Nearport-" + hostID) } catch { self.error = error.localizedDescription }
+        do { try server.start(serviceName: "DropDuo-" + hostID) } catch { self.error = error.localizedDescription }
     }
     private func load<T: Decodable>(_ name: String) -> T? { guard let data = try? Data(contentsOf: stateRoot.appendingPathComponent(name)) else { return nil }; return try? JSONDecoder().decode(T.self, from: data) }
     private func save<T: Encodable>(_ object: T, _ name: String) { do { try JSONEncoder().encode(object).write(to: stateRoot.appendingPathComponent(name), options: .atomic) } catch { self.error = "Could not save app state: " + error.localizedDescription } }
@@ -50,7 +50,7 @@ struct Transfer: Codable, Identifiable {
         guard let host = localAddresses().first else { error = "Connect your Mac to Wi-Fi or Ethernet first."; return }
         var ticket = Ticket(pairID: UUID().uuidString, host: host, port: port, secret: Wire.random(32).base64EncodedString(),
             name: Host.current().localizedName ?? "Mac", expires: Int64(Date().timeIntervalSince1970) + 300)
-        ticket.discoveryName = "Nearport-" + hostID
+        ticket.discoveryName = "DropDuo-" + hostID
         pending = ticket; self.ticket = ticket
     }
     func useAddress(_ address: String) { pending?.host = address; ticket = pending }
@@ -111,7 +111,7 @@ struct Transfer: Codable, Identifiable {
     }
     func chooseFiles() { let panel = NSOpenPanel(); panel.allowsMultipleSelection = true; panel.canChooseDirectories = false; if panel.runModal() == .OK { send(panel.urls) } }
     func send(_ files: [URL], retryID: String? = nil) {
-        guard let engine = engines[selected] else { error = "Your phone is offline. Open Nearport on it and connect to the same local network."; return }
+        guard let engine = engines[selected] else { error = "Your phone is offline. Open DropDuo on it and connect to the same local network."; return }
         let peer = selected
         Task { for file in files {
             let id = retryID ?? UUID().uuidString
@@ -127,6 +127,6 @@ struct Transfer: Codable, Identifiable {
         online.remove(device.id); SecureStore.remove(device.id); devices.removeAll { $0.id == device.id }; save(devices, "devices.json")
         if selected == device.id { selected = devices.first?.id ?? "" }
     }
-    func persistSettings() { UserDefaults.standard.set(receiving, forKey: "nearport.receiving") }
+    func persistSettings() { UserDefaults.standard.set(receiving, forKey: "dropduo.receiving") }
     func clearHistory() { transfers.removeAll { !["Preparing", "Sending", "Receiving"].contains($0.state) }; save(transfers, "history.json") }
 }

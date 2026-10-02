@@ -1,4 +1,4 @@
-package app.nearport.core
+package app.dropduo.core
 
 import java.io.*
 import java.net.Socket
@@ -28,7 +28,7 @@ class SecureChannel(val socket: Socket, private val sendKey: ByteArray, private 
                 val welcome = Wire.gson.fromJson(String(Wire.readFrame(input, 4096)), Welcome::class.java)
                 val server = Wire.decode(welcome.nonce)
                 require(welcome.version == 1 && server.size == 32 && Wire.verify(welcome.proof, secret,
-                    "nearport/1/welcome|${ticket.pairID}|${hello.nonce}|${welcome.nonce}")) { "Mac authentication failed" }
+                    "dropduo/1/welcome|${ticket.pairID}|${hello.nonce}|${welcome.nonce}")) { "Mac authentication failed" }
                 socket.soTimeout = 0
                 return SecureChannel(socket, Wire.derive(secret, client, server, "c2s"), Wire.derive(secret, client, server, "s2c"))
             } catch (error: Exception) { socket.close(); throw error }

@@ -1,14 +1,18 @@
-# Using Nearport
+# Using DropDuo
 
 1. Install and open both apps. Connect the Mac and Android phone to the same network; both must be able to reach each other. Guest networks often isolate devices.
 2. On Mac, choose **Devices → Pair a device**. Choose the Wi-Fi address if more than one is available. The code expires after five minutes.
 3. On Android, scan the QR or paste the pairing code. Approve the request on the Mac. Only share the code with the device you intend to trust.
-4. Select your phone on Mac and choose files, drop files, or send text. On Android, choose files in Nearport or select Nearport in another app's Share menu. Links are sent as explicit text.
-5. Keep Mac awake with Nearport running. Android shows a connection notification while its service runs. The paired phone reconnects when the Mac becomes reachable.
+4. Select your phone on Mac and choose files, drop files, or send text. On Android, choose files in DropDuo or select DropDuo in another app's Share menu. Links are sent as explicit text.
+5. Keep Mac awake with DropDuo running. Android shows a connection notification while its service runs. The paired phone reconnects when the Mac becomes reachable.
+
+## Updating from an earlier alpha
+
+DropDuo has new application identifiers and pairing credentials. Install it on both devices and pair again. Earlier alpha history and trust are not automatically migrated. Existing received files remain in their original storage locations; export important Android files before uninstalling an earlier build.
 
 ## Files and history
 
-Mac receives into `~/Downloads/Nearport/<pair ID>/`. Android receives into its app-specific external Downloads directory. Open files from Recent; use **Save copy** on Android to export them to a permanent user-selected location. Uninstalling Android deletes app-specific files.
+Mac receives into `~/Downloads/DropDuo/<pair ID>/`. Android receives into its app-specific external Downloads directory. Open files from Recent; use **Save copy** on Android to export them to a permanent user-selected location. Uninstalling Android deletes app-specific files.
 
 Recent history keeps up to 100 local entries. It does not retain deleted files or act as a backup. Text appears in history and can be copied explicitly. Received filenames include a unique transfer ID to prevent overwriting existing files.
 

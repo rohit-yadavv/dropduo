@@ -1,9 +1,9 @@
-package app.nearport.android
+package app.dropduo.android
 
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
-import app.nearport.core.*
+import app.dropduo.core.*
 import java.io.File
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -15,9 +15,9 @@ class SecureStore(context: Context) {
     private val file = File(context.filesDir, "pair.enc")
     private fun key(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        (store.getKey("nearport.pair", null) as? SecretKey)?.let { return it }
+        (store.getKey("dropduo.pair", null) as? SecretKey)?.let { return it }
         return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").run {
-            init(KeyGenParameterSpec.Builder("nearport.pair", KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+            init(KeyGenParameterSpec.Builder("dropduo.pair", KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).build()); generateKey()
         }
     }

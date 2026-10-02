@@ -19,7 +19,7 @@ Run from the repository root:
 ./scripts/interop                # real Swift/JVM socket interoperability
 ./scripts/check all              # all the above
 ./scripts/build-macos            # release configuration; development ad-hoc signing
-open dist/Nearport.app
+open dist/DropDuo.app
 ./apps/android/gradlew -p apps/android :app:assembleDebug
 ```
 

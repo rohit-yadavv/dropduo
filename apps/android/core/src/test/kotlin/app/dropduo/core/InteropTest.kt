@@ -1,4 +1,4 @@
-package app.nearport.core
+package app.dropduo.core
 
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 
 class InteropTest {
     @Test fun bidirectionalResumedTransfersWithSwift() {
-        val path = System.getProperty("nearport.interop", "")
+        val path = System.getProperty("dropduo.interop", "")
         assumeTrue("Run scripts/interop to enable the real Swift/JVM test", path.isNotEmpty())
         val dir = File(path)
         val ticket = Ticket.parse(File(dir, "ticket.txt").readText())

@@ -1,4 +1,4 @@
-package app.nearport.core
+package app.dropduo.core
 
 import com.google.gson.Gson
 import java.io.*
@@ -29,7 +29,7 @@ object Wire {
     }.getOrDefault(false)
     fun derive(secret: ByteArray, client: ByteArray, server: ByteArray, direction: String): ByteArray {
         val prk = mac(client + server, secret)
-        return mac(prk, "nearport/1/$direction".toByteArray() + byteArrayOf(1))
+        return mac(prk, "dropduo/1/$direction".toByteArray() + byteArrayOf(1))
     }
     fun hash(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
@@ -51,16 +51,16 @@ data class Ticket(val version: Int = 1, val pairID: String, val host: String, va
     fun validate() {
         require(version == 1 && UUID.fromString(pairID).toString().equals(pairID, true) && host.isNotBlank() && port in 1..65535 && Wire.decode(secret).size == 32 && name.toByteArray().size <= 128) { "Invalid pairing code" }
     }
-    fun code() = "nearport://pair/" + Wire.b64(Wire.gson.toJson(this).toByteArray())
+    fun code() = "dropduo://pair/" + Wire.b64(Wire.gson.toJson(this).toByteArray())
     companion object {
         fun parse(code: String): Ticket {
-            require(code.startsWith("nearport://pair/") && code.length < 4096) { "Invalid pairing code" }
-            return Wire.gson.fromJson(String(Wire.decode(code.removePrefix("nearport://pair/"))), Ticket::class.java).also { it.validate() }
+            require(code.startsWith("dropduo://pair/") && code.length < 4096) { "Invalid pairing code" }
+            return Wire.gson.fromJson(String(Wire.decode(code.removePrefix("dropduo://pair/"))), Ticket::class.java).also { it.validate() }
         }
     }
 }
 data class Hello(val version: Int = 1, val pairID: String, val name: String, val nonce: String, var proof: String = "") {
-    fun transcript() = "nearport/1/hello|$pairID|$nonce|$name"
+    fun transcript() = "dropduo/1/hello|$pairID|$nonce|$name"
 }
 data class Welcome(val version: Int = 1, val nonce: String, val proof: String)
 data class Message(val type: String, val id: String? = null, val name: String? = null, val size: Long? = null,

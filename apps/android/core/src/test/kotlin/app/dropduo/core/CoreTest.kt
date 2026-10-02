@@ -1,4 +1,4 @@
-package app.nearport.core
+package app.dropduo.core
 
 import org.junit.Assert.*
 import org.junit.Test
@@ -8,7 +8,7 @@ import java.util.UUID
 
 class CoreTest {
     @Test fun swiftCompatibilityAndReplay() {
-        val file = File(System.getProperty("nearport.fixtures"), "crypto.json")
+        val file = File(System.getProperty("dropduo.fixtures"), "crypto.json")
         val fixture = Wire.gson.fromJson(file.readText(), Map::class.java)
         fun field(name: String) = Wire.decode(fixture[name] as String)
         val key = Wire.derive(field("secret"), field("client"), field("server"), "c2s")
@@ -17,12 +17,12 @@ class CoreTest {
         val receiver = FrameCipher(key)
         assertArrayEquals(field("plain"), receiver.open(field("frame")))
         assertTrue(runCatching { receiver.open(field("frame")) }.isFailure)
-        assertEquals(fixture["helloProof"], Wire.hmac(field("secret"), "nearport/1/hello|fixture|nonce|Android"))
+        assertEquals(fixture["helloProof"], Wire.hmac(field("secret"), "dropduo/1/hello|fixture|nonce|Android"))
         val damaged = field("frame").also { it[it.lastIndex] = (it.last().toInt() xor 1).toByte() }
         assertTrue(runCatching { FrameCipher(key).open(damaged) }.isFailure)
     }
     @Test fun resumedFileAndPathValidation() {
-        val dir = Files.createTempDirectory("nearport-test").toFile()
+        val dir = Files.createTempDirectory("dropduo-test").toFile()
         try {
             val source = File(dir, "source").apply { writeText("abcdef") }
             val offer = Message("offer", UUID.randomUUID().toString(), "file.txt", 6, Wire.hash(source))
@@ -35,7 +35,7 @@ class CoreTest {
         } finally { dir.deleteRecursively() }
     }
     @Test fun emptyFilesIdempotenceCancellationAndFramingLimits() {
-        val dir = Files.createTempDirectory("nearport-edge").toFile()
+        val dir = Files.createTempDirectory("dropduo-edge").toFile()
         try {
             val source = File(dir, "empty").apply { writeBytes(byteArrayOf()) }
             val offer = Message("offer", UUID.randomUUID().toString(), "empty.txt", 0, Wire.hash(source))

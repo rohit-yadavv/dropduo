@@ -1,12 +1,12 @@
 // swift-tools-version: 6.0
 import PackageDescription
-let package = Package(name: "Nearport", platforms: [.macOS(.v14)], products: [
-    .library(name: "NearportCore", targets: ["NearportCore"]),
-    .executable(name: "Nearport", targets: ["Nearport"]),
-    .executable(name: "nearport-interop", targets: ["Interop"])
+let package = Package(name: "DropDuo", platforms: [.macOS(.v14)], products: [
+    .library(name: "DropDuoCore", targets: ["DropDuoCore"]),
+    .executable(name: "DropDuo", targets: ["DropDuo"]),
+    .executable(name: "dropduo-interop", targets: ["Interop"])
 ], targets: [
-    .target(name: "NearportCore"),
-    .executableTarget(name: "Nearport", dependencies: ["NearportCore"]),
-    .executableTarget(name: "Interop", dependencies: ["NearportCore"]),
-    .executableTarget(name: "CoreChecks", dependencies: ["NearportCore"])
+    .target(name: "DropDuoCore"),
+    .executableTarget(name: "DropDuo", dependencies: ["DropDuoCore"]),
+    .executableTarget(name: "Interop", dependencies: ["DropDuoCore"]),
+    .executableTarget(name: "CoreChecks", dependencies: ["DropDuoCore"])
 ], swiftLanguageModes: [.v5])

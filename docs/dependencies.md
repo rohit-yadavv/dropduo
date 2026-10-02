@@ -1,6 +1,6 @@
 # Dependency notices
 
-Nearport's own source is Apache-2.0. Dependency licenses remain their owners' licenses; confirm notices from the resolved distribution before publishing binaries.
+DropDuo's own source is Apache-2.0. Dependency licenses remain their owners' licenses; confirm notices from the resolved distribution before publishing binaries.
 
 | Component | Upstream license |
 | --- | --- |

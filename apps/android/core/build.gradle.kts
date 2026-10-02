@@ -5,5 +5,5 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
 }
 tasks.test {
-    systemProperty("nearport.interop", System.getProperty("nearport.interop", ""))
-    systemProperty("nearport.fixtures", rootProject.file("../../protocol/test-vectors").absolutePath) }
+    systemProperty("dropduo.interop", System.getProperty("dropduo.interop", ""))
+    systemProperty("dropduo.fixtures", rootProject.file("../../protocol/test-vectors").absolutePath) }

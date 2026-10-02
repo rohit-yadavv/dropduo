@@ -1,12 +1,12 @@
 import Foundation
-import NearportCore
+import DropDuoCore
 
 func fixture() throws {
     let secret = Data((0..<32).map(UInt8.init)), client = Data(repeating: 1, count: 32), server = Data(repeating: 2, count: 32)
     let key = Wire.derive(secret: secret, client: client, server: server, direction: "c2s")
     var cipher = FrameCipher(key: key)
-    let plain = Data("Nearport compatibility fixture".utf8)
-    let fixture: [String: String] = ["secret": secret.base64EncodedString(), "client": client.base64EncodedString(), "server": server.base64EncodedString(), "key": key.base64EncodedString(), "plain": plain.base64EncodedString(), "frame": try cipher.seal(plain, nonce: Data(repeating: 3, count: 12)).base64EncodedString(), "helloProof": Wire.hmac(secret, "nearport/1/hello|fixture|nonce|Android")]
+    let plain = Data("DropDuo compatibility fixture".utf8)
+    let fixture: [String: String] = ["secret": secret.base64EncodedString(), "client": client.base64EncodedString(), "server": server.base64EncodedString(), "key": key.base64EncodedString(), "plain": plain.base64EncodedString(), "frame": try cipher.seal(plain, nonce: Data(repeating: 3, count: 12)).base64EncodedString(), "helloProof": Wire.hmac(secret, "dropduo/1/hello|fixture|nonce|Android")]
     print(String(data: try JSONSerialization.data(withJSONObject: fixture, options: [.prettyPrinted, .sortedKeys]), encoding: .utf8)!)
 }
 @MainActor final class InteropHost {
@@ -46,7 +46,7 @@ func fixture() throws {
         server.onPeer = { [weak self] _, _, channel in
             guard let self else { return }; await self.run(channel, source: source, inbox: inbox, expectedHash: hash)
         }
-        try server.start(port: 0, serviceName: "Nearport-Interop")
+        try server.start(port: 0, serviceName: "DropDuo-Interop")
     }
     func run(_ channel: SecureChannel, source: URL, inbox: Inbox, expectedHash: String) async {
         let engine = PeerEngine(channel: channel, inbox: inbox) { [weak self] event in Task { @MainActor in

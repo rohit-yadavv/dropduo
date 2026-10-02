@@ -6,7 +6,7 @@ if [ -z "${ANDROID_HOME:-}" ] && [ -d "$HOME/Library/Android/sdk" ]; then
   ANDROID_HOME="$HOME/Library/Android/sdk"; export ANDROID_HOME
 fi
 case "$scope" in
-  macos) swift run --package-path apps/macos CoreChecks; swift build --package-path apps/macos --product Nearport ;;
+  macos) swift run --package-path apps/macos CoreChecks; swift build --package-path apps/macos --product DropDuo ;;
   android) ./apps/android/gradlew -p apps/android :core:test :app:assembleDebug :app:lintDebug --console=plain ;;
   protocol) swift run --package-path apps/macos CoreChecks; ./apps/android/gradlew -p apps/android :core:test --console=plain; ./scripts/interop ;;
   all) "$0" macos; "$0" android; ./scripts/interop ;;

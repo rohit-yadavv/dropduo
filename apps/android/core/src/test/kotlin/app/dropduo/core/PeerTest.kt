@@ -1,4 +1,4 @@
-package app.nearport.core
+package app.dropduo.core
 
 import org.junit.Assert.*
 import org.junit.Test
@@ -12,7 +12,7 @@ import kotlin.concurrent.thread
 
 class PeerTest {
     @Test fun invalidChunkStopsReceivingProgressAndReportsFailure() {
-        val root = Files.createTempDirectory("nearport-peer").toFile()
+        val root = Files.createTempDirectory("dropduo-peer").toFile()
         val listener = ServerSocket(0)
         val socket = Socket("127.0.0.1", listener.localPort)
         val remote = listener.accept()

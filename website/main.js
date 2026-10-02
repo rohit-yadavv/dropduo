@@ -7,6 +7,35 @@
   const CACHE_KEY = "dropduo:release:v1";
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
+  // Theme: the head script applies the initial value; this keeps it in sync.
+  const root = document.documentElement;
+  const toggle = document.querySelector("[data-theme-toggle]");
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
+  const THEME_KEY = "dropduo:theme";
+  const saved = () => {
+    try { return localStorage.getItem(THEME_KEY); } catch { return null; }
+  };
+  const applyTheme = (theme) => {
+    root.dataset.theme = theme;
+    themeMeta.content = theme === "dark" ? "#0D0E10" : "#F5F6F8";
+    toggle.setAttribute("aria-label", theme === "dark" ? "Switch to light theme" : "Switch to dark theme");
+  };
+  applyTheme(root.dataset.theme);
+  toggle.addEventListener("click", () => {
+    const next = root.dataset.theme === "dark" ? "light" : "dark";
+    try { localStorage.setItem(THEME_KEY, next); } catch { /* still switch for this visit */ }
+    if (document.startViewTransition && !reduceMotion.matches) {
+      document.startViewTransition(() => applyTheme(next));
+    } else {
+      applyTheme(next);
+    }
+  });
+  // Follow the system until the visitor picks a theme.
+  systemDark.addEventListener("change", (event) => {
+    if (!saved()) applyTheme(event.matches ? "dark" : "light");
+  });
+
   // Navigation hairline once the page has moved past the top.
   const nav = document.querySelector(".nav");
   const sentinel = document.createElement("div");

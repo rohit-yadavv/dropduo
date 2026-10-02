@@ -2,7 +2,7 @@
 
 Static landing and download page. No framework, bundler, or package install.
 
-- `index.html`, `styles.css`, `main.js`: the page. Light and dark follow the visitor's system setting; motion is disabled under `prefers-reduced-motion`.
+- `index.html`, `styles.css`, `main.js`: the page. Light and dark follow the system setting until the visitor uses the nav toggle, which is remembered in `localStorage` (`dropduo:theme`). Theme colors key off `:root[data-theme]`, set before first paint by the head script; motion is disabled under `prefers-reduced-motion`.
 - The inline mark in `index.html` mirrors `branding/mark.json`. Update both if the mark changes. `scripts/build-website` copies the generated icon files into `assets/brand/`.
 - Downloads come from the GitHub Releases API at view time. Asset names must keep the pattern in [downloads](../docs/downloads.md) (`-macos-arm64`, `-macos-x86_64`, `-android` with optional `-development`). With no published release, the page shows a pending state linking to development builds.
 - `assets/img/` holds real Android emulator screenshots (light and dark). Recapture them when the home screen changes. A Mac app screenshot is still wanted.

@@ -6,8 +6,7 @@
   <title>DropDuo: share between your Mac and Android phone</title>
   <meta name="description" content="Native apps that send files, photos, links and text between your Mac and Android phone over your local network. Pair once. No account, no cloud.">
   <meta name="color-scheme" content="light dark">
-  <meta name="theme-color" content="#F5F6F8" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0D0E10" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#F5F6F8">
   <meta property="og:type" content="website">
   <meta property="og:title" content="DropDuo">
   <meta property="og:description" content="Mac to Android. Android to Mac. Files, photos, links and text over your local network.">
@@ -16,7 +15,18 @@
   <link rel="apple-touch-icon" href="assets/brand/dropduo-icon.png">
   <link rel="preload" href="assets/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
-  <script>document.documentElement.classList.add("js")</script>
+  <script>
+    // Apply the saved or system theme before first paint to avoid a flash.
+    (() => {
+      const root = document.documentElement;
+      let saved = null;
+      try { saved = localStorage.getItem("dropduo:theme"); } catch {}
+      const dark = saved ? saved === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+      root.dataset.theme = dark ? "dark" : "light";
+      root.classList.add("js");
+      document.querySelector('meta[name="theme-color"]').content = dark ? "#0D0E10" : "#F5F6F8";
+    })();
+  </script>
   <script src="main.js" defer></script>
 </head>
 <body>
@@ -49,6 +59,12 @@
           <li><a href="#pair">How it works</a></li>
           <li><a href="#privacy">Privacy</a></li>
           <li class="nav__gh"><a href="https://github.com/rohit-yadavv/dropduo" aria-label="DropDuo on GitHub"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#github-logo"/></svg><span>GitHub</span></a></li>
+          <li class="nav__theme">
+            <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme">
+              <svg class="i theme-toggle__moon" aria-hidden="true"><use href="assets/icons.svg#moon"/></svg>
+              <svg class="i theme-toggle__sun" aria-hidden="true"><use href="assets/icons.svg#sun"/></svg>
+            </button>
+          </li>
           <li><a class="btn btn--small btn--primary" href="#download">Download</a></li>
         </ul>
       </nav>
@@ -158,10 +174,8 @@
       <div class="wrap pair__grid">
         <div class="pair__device reveal">
           <div class="phone">
-            <picture>
-              <source srcset="assets/img/android-home-dark.jpg" media="(prefers-color-scheme: dark)">
-              <img src="assets/img/android-home.jpg" width="720" height="1616" loading="lazy" decoding="async" alt="DropDuo on Android, ready to scan a pairing code from your Mac.">
-            </picture>
+            <img class="shot--light" src="assets/img/android-home.jpg" width="720" height="1616" loading="lazy" decoding="async" alt="DropDuo on Android, ready to scan a pairing code from your Mac.">
+            <img class="shot--dark" src="assets/img/android-home-dark.jpg" width="720" height="1616" loading="lazy" decoding="async" alt="DropDuo on Android, ready to scan a pairing code from your Mac.">
           </div>
         </div>
         <div class="pair__copy">

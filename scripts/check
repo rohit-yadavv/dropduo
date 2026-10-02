@@ -9,6 +9,7 @@ case "$scope" in
   macos) swift run --package-path apps/macos CoreChecks; swift build --package-path apps/macos --product DropDuo ;;
   android) ./apps/android/gradlew -p apps/android :core:test :app:assembleDebug :app:lintDebug --console=plain ;;
   protocol) swift run --package-path apps/macos CoreChecks; ./apps/android/gradlew -p apps/android :core:test --console=plain; ./scripts/interop ;;
-  all) "$0" macos; "$0" android; ./scripts/interop ;;
-  *) echo 'Usage: scripts/check [macos|android|protocol|all]' >&2; exit 2 ;;
+  website) python3 scripts/build-website ;;
+  all) "$0" macos; "$0" android; ./scripts/interop; "$0" website ;;
+  *) echo 'Usage: scripts/check [macos|android|protocol|website|all]' >&2; exit 2 ;;
 esac

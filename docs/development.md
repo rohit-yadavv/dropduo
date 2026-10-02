@@ -36,6 +36,17 @@ Read component AGENTS.md before editing. Swift core and Kotlin core must agree w
 
 No release credentials are needed for development. Distribution requires maintainer-owned signing and notarization, described in [releases](releases.md). GitHub workflows are included; verify their hosted results before release. Branch protection must be configured in GitHub; the workflow files alone do not enable it.
 
+## Website
+
+`website/` is the static download page: plain HTML, CSS and JavaScript with no build dependencies. It reads the newest published GitHub release in the browser and links its Mac and Android assets, falling back to the releases page. Preview it with:
+
+```sh
+./scripts/check website           # assemble dist/website and verify local references
+python3 -m http.server 4173 -d dist/website
+```
+
+`.github/workflows/website.yml` deploys `master` to GitHub Pages. A maintainer must first set **Settings → Pages → Source** to **GitHub Actions**. See [website/README.md](../website/README.md) for assets and licenses.
+
 ## Icon assets
 
 The approved double-D icon uses ink, cobalt, and pure white. See [branding](../branding/README.md) for editable source and exports. Run `./scripts/generate-branding` on macOS to regenerate SVGs, Android vectors, Mac PNG resources, and ICNS after changing `branding/mark.json`. Exported assets are committed, so normal app builds need no graphics tooling.

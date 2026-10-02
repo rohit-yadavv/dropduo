@@ -11,5 +11,7 @@ DropDuo's own source is Apache-2.0. Dependency licenses remain their owners' lic
 | JUnit 4 (tests) | Eclipse Public License 1.0 |
 | Gradle wrapper/build tooling | Apache-2.0 |
 | Android Gradle Plugin | Apache-2.0 |
+| Geist and Geist Mono fonts (website only) | SIL Open Font License 1.1 |
+| Phosphor Icons (website only) | MIT |
 
 Apple frameworks and Android SDK components are provided under their respective platform terms. They are not relicensed by this repository. No competitor source code or branding is bundled. Keep this list current when adding dependencies, and ship required third-party license texts with public releases.

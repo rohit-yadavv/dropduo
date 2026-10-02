@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add an animated, dependency-free product website with platform-aware Mac and Android downloads from the latest published release, plus a GitHub Pages workflow.
 - Reduce redundant CI runs: build/quality checks on develop and master pushes plus PRs, and CodeQL on PRs and weekly. Preserve all tests, platform coverage, and release automation.
 
 ## 0.1.0-alpha.1

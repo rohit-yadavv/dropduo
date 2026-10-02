@@ -51,6 +51,7 @@ Start with [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md), and [Git 
 | `docs` | Product scope, architecture, decisions, usage, verification |
 | `scripts` | Repeatable checks, interoperability tests, packaging |
 | `branding` | Editable icon geometry, palette, SVG and platform export guide |
+| `website` | Static download page deployed to GitHub Pages |
 
 Read [validation evidence](docs/validation.md) before treating the alpha as release-ready. Physical-phone LAN, camera, sleep, accessibility, and battery behavior still need the [manual release matrix](docs/testing.md). The custom protocol has not received an independent security audit.
 

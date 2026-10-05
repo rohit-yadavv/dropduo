@@ -395,6 +395,26 @@ a { color: inherit; text-decoration: none; }
   letter-spacing: -0.035em;
 }
 
+/* Demo video: always on the dark stage it was rendered for */
+
+.demo { padding: 96px 0 0; }
+
+.demo__frame {
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #06070A;
+  box-shadow: var(--shadow-lg);
+}
+
+.demo__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 /* Things you send: a list that drives a sticky transfer stage */
 
 .sends { padding: 120px 0 40px; }

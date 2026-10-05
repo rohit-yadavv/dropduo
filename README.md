@@ -8,6 +8,10 @@ Pair once, then send over your local network. Free and open source, with no acco
 
 [Download](docs/downloads.md) · [Setup guide](docs/usage.md) · [Contribute](CONTRIBUTING.md)
 
+[![DropDuo demo: a photo dropped on the Mac lands on an Android phone](apps/web/assets/video/dropduo-demo.jpg)](https://rohit-yadavv.github.io/dropduo/#demo)
+
+▶ [Watch the 30-second demo](https://rohit-yadavv.github.io/dropduo/#demo)
+
 ## Get started
 
 1. Install on both devices: **macOS 14+** (Apple Silicon or Intel) and **Android 10+**.

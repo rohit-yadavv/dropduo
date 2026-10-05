@@ -6,14 +6,14 @@
 
 1. On Mac, choose **Pair a Device** or **Show Pairing Code**.
 2. Select the Mac's Wi-Fi address if several are listed. Codes expire after five minutes; use **New Code** when needed.
-3. On Android, choose **Scan pairing code**, or **Paste a pairing code** copied from the Mac.
+3. On Android, choose **Scan pairing code**, or **Enter code instead** and paste the code copied from the Mac.
 4. Approve the intended phone on the Mac. Keep the code private.
 
 Pairing survives restarts. Reopen the apps and choose **Connect** on Android if needed. Android pairs with one Mac at a time; a Mac can pair multiple phones.
 
 ## Send files, text, or links
 
-- **Android → Mac:** select an item in another app, then **Share → DropDuo** (sometimes under **More**), or use **Share → Choose files** inside DropDuo.
+- **Android → Mac:** select an item in another app, then **Share → DropDuo** (sometimes under **More**), or tap **Files** or **Text** inside DropDuo.
 - **Mac → Android:** select your phone, drop files into the window, or use the paperclip/menu-bar **Send files…** action.
 - **Text or links:** enter or paste into the sharing field and send. Mac also supports ⌘Return; Android accepts shared text from other apps. Choose **Copy** on the receiver.
 
@@ -22,7 +22,7 @@ Transfers copy the supplied bytes without resizing or re-encoding; originals sta
 ## Files and history
 
 - **Mac:** `~/Downloads/DropDuo/<pair ID>/`. Double-click a received file or use the magnifying glass to show it in Finder. The toolbar folder and menu-bar **Open received files** open the receiving folder.
-- **Android:** app-specific external Downloads storage. Use **Recent → Open** to view or **Save a copy** to export. **Uninstalling deletes app-specific files; export important files first.**
+- **Android:** app-specific external Downloads storage. Tap an item under **Recent**, then **Open** to view it or **Save a copy** to export. **Uninstalling deletes app-specific files; export important files first.**
 
 Recent holds 100 local entries and is not a backup. Clearing history leaves completed received files intact. Filenames include a transfer ID to prevent overwrites. The protocol permits files up to 32 GiB; large-file endurance is not yet verified.
 

@@ -12,8 +12,8 @@ The current builds are an early alpha. For questions about availability, storage
 
 ## 1. Pair your phone and Mac
 
-1. On Mac, open **Devices** and generate a pairing code. First-run **Pair a device** opens this flow too.
-2. If the Mac has several network addresses, select its Wi-Fi address. The pairing code expires after five minutes.
+1. On Mac, choose **Pair a Device** at the bottom of the sidebar, or **Show Pairing Code** on first run.
+2. If the Mac has several network addresses, select its Wi-Fi address under the QR code. The code expires after five minutes; choose **New Code** if it does.
 3. On Android, choose **Scan pairing code** and scan the Mac's QR. Alternatively, use **Paste a pairing code** with the code copied from the Mac.
 4. Approve the request on the Mac for the phone you intended to connect.
 
@@ -29,19 +29,19 @@ For a photo, scan, document, or other item already open in another Android app:
 
 You can also open DropDuo's **Share** tab and choose **Choose files**.
 
-After completion, use **Recent → Show** on Mac to reveal the file in Finder. The menu-bar item **Open received files** opens the receiving folder.
+On Mac, received items appear in that phone's timeline. Double-click a file to open it, or use its magnifying-glass button to show it in Finder. The folder button in the window toolbar and the menu-bar item **Open received files** open the receiving folder.
 
 ## 3. Send from Mac to Android
 
-1. Open DropDuo's **Share** view and select your connected phone.
-2. Drop files into the drop area or use **Choose files…**. The menu-bar item **Send files…** is another way to open the picker.
+1. Open DropDuo and select your connected phone in the sidebar.
+2. Drop files anywhere in the window or use the paperclip button. The menu-bar item **Send files…** is another way to open the picker.
 3. Follow transfer progress. In Android's **Recent** tab, choose **Open** to view a received file or **Save a copy** to export it to a chosen folder.
 
 **Save a copy is important:** Android's default received files belong to DropDuo's app storage. Export files you want to keep independently of the app.
 
 ## Send a link or text
 
-On either device, enter or paste a link or text into the sharing field and choose **Send text**. On Android, you can also share supported text from another app's Share menu. On the receiver, find the item in Recent and select **Copy**.
+On either device, enter or paste a link or text into the sharing field and send it. On Mac, use the send button or ⌘Return. On Android, you can also share supported text from another app's Share menu. On the receiver, find the item in Recent (on Mac, the phone's timeline) and select **Copy**.
 
 Text is shared deliberately. DropDuo doesn't monitor or automatically synchronize your clipboard.
 
@@ -55,9 +55,9 @@ A failed file transfer retains partial receiver data. Reconnect, then choose **R
 
 ## Receiving and trusted devices
 
-On Mac, **Settings → Accept files and text from paired devices** controls receiving. On Android, use **Device → Accept files and text**. Disabling receiving keeps pairing intact but rejects new inbound transfers.
+On Mac, **DropDuo → Settings… → Accept files and text from paired devices** controls receiving. On Android, use **Device → Accept files and text**. Disabling receiving keeps pairing intact but rejects new inbound transfers.
 
-Android v1 pairs with one Mac at a time; a Mac can pair multiple Android devices. **Forget** removes local trust and closes the connection. Forget the device on both ends to remove both stored credentials; pair explicitly again when needed.
+Android v1 pairs with one Mac at a time; a Mac can pair multiple Android devices. **Forget** removes local trust and closes the connection. On Mac, it's in the device's **⋯** toolbar menu or its right-click menu in the sidebar. Forget the device on both ends to remove both stored credentials; pair explicitly again when needed.
 
 Keep Mac awake with DropDuo running. Android shows a connection notification while its foreground service runs. Mac sleep, Android force-stop, revoked permissions, or battery controls can interrupt availability. See [troubleshooting](troubleshooting.md) if a device stays offline.
 

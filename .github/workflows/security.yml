@@ -1,8 +1,8 @@
 name: CodeQL
 on:
-  # Scan proposed merges and the default branch weekly, without a second scan on pushes.
+  # Scan once before production and weekly; earlier promotion PRs carry the same code.
   pull_request:
-    branches: [develop, staging, master]
+    branches: [master]
   schedule:
     - cron: '19 5 * * 1'
   workflow_dispatch:

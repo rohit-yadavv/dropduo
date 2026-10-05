@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fix "Frame too large" when sending some large files from the Mac; Foundation JSON escaping could push a chunk past the frame limit.
+- Resume sends automatically when the devices reconnect after a dropped connection, with an option to stop resuming.
 - Simplify the README and docs; consolidate FAQ answers into the setup guide.
 - Add Mac first-launch instructions, a Settings shortcut, and public-source links.
 

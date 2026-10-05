@@ -12,7 +12,7 @@ import java.util.UUID
 
 class DropDuoApplication : Application() { override fun onCreate() { super.onCreate(); AppState.init(this) } }
 data class Transfer(val id: String, val name: String, val direction: String, val state: String, val progress: Double = 0.0,
-    val path: String? = null, val text: String? = null, val error: String? = null)
+    val path: String? = null, val text: String? = null, val error: String? = null, val autoRetry: Boolean = false)
 data class UiState(val device: String? = null, val connected: Boolean = false, val status: String = "Pair your Mac to get started",
     val receiving: Boolean = true, val history: List<Transfer> = emptyList(), val error: String? = null)
 object AppState {
@@ -32,7 +32,8 @@ object AppState {
         context = app; secure = SecureStore(app)
         ticket = runCatching { secure.load() }.getOrNull()
         val history = runCatching { Wire.gson.fromJson(historyFile().readText(), Array<Transfer>::class.java).toList() }.getOrDefault(emptyList())
-            .map { if (it.state in listOf("Preparing", "Sending", "Receiving")) it.copy(state = "Interrupted") else it }
+            // "Sending" rows finished importing, so their stored copy is complete and safe to resume.
+            .map { if (it.state in listOf("Preparing", "Sending", "Receiving")) it.copy(state = "Interrupted", autoRetry = it.direction == "Sent" && it.state == "Sending" && it.path != null) else it }
         ui.value = UiState(device = ticket?.name, history = history, receiving = app.getSharedPreferences("settings", 0).getBoolean("receiving", true))
     }
     @Synchronized fun update(transform: (UiState) -> UiState) { ui.value = transform(ui.value) }
@@ -66,10 +67,10 @@ object AppState {
         context.getSharedPreferences("settings", 0).edit().putBoolean("receiving", value).apply()
         update { it.copy(receiving = value) }
     }
-    @Synchronized fun record(event: PeerEvent) {
+    @Synchronized fun record(event: PeerEvent, autoRetry: Boolean = false) {
         val old = ui.value.history.firstOrNull { it.id == event.id }
         val row = Transfer(event.id, old?.name ?: event.name, old?.direction ?: event.direction, event.state, event.progress,
-            event.path ?: old?.path, event.text ?: old?.text, event.error)
+            event.path ?: old?.path, event.text ?: old?.text, event.error, autoRetry)
         val history = (listOf(row) + ui.value.history.filter { it.id != event.id }).take(100)
         ui.value = ui.value.copy(history = history)
         if (event.state in listOf("Complete", "Interrupted", "Cancelled")) saveHistory(history)
@@ -107,10 +108,27 @@ object AppState {
             }
         }
     }
+    /** Sends a stored copy; if the Mac is offline or the connection drops, it waits for reconnect instead of failing. */
     private fun sendStored(id: String, name: String, file: File) {
         check(sending.add(id)) { "Transfer already active" }
-        try { val peer = engine ?: throw IllegalStateException("Mac is offline. Connect and retry."); peer.sendFile(file, id, name); file.delete() }
+        var peer: PeerEngine? = null
+        try { peer = engine ?: throw Disconnected("Mac is offline"); peer.sendFile(file, id, name); file.delete() }
+        catch (e: java.io.IOException) { record(PeerEvent(id, name, "Sent", "Interrupted", path = file.path, error = "Resumes when your Mac reconnects"), autoRetry = true) }
         finally { sending.remove(id) }
+        // The Mac may have reconnected while this attempt was still failing on the old connection.
+        val current = engine
+        if (current != null && current !== peer && ui.value.history.firstOrNull { it.id == id }?.autoRetry == true) resumePending()
+    }
+    /** Called after each connection to resume files cut off by a lost connection, oldest first. */
+    fun resumePending() {
+        val rows = ui.value.history.filter { it.direction == "Sent" && it.state == "Interrupted" && it.autoRetry && it.path != null && it.id !in sending }.reversed()
+        if (rows.isNotEmpty()) scope.launch {
+            for (row in rows) try {
+                if (ui.value.history.firstOrNull { it.id == row.id }?.autoRetry != true) continue
+                val file = File(row.path!!); require(file.exists()) { "Source unavailable. Share it again." }
+                sendStored(row.id, row.name, file)
+            } catch (e: Exception) { record(PeerEvent(row.id, row.name, "Sent", "Interrupted", path = row.path, error = e.message)) }
+        }
     }
     fun retry(row: Transfer) { scope.launch { try { val file = File(row.path ?: throw IllegalStateException("Source unavailable")); require(file.exists()) { "Source unavailable. Share it again." }; sendStored(row.id, row.name, file) } catch (e: Exception) { error(e.message ?: "Retry failed") } } }
     fun cancel(row: Transfer) {

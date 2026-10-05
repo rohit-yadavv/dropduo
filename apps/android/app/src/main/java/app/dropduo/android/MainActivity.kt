@@ -168,8 +168,11 @@ private fun kotlinx.coroutines.CoroutineScope.launchIo(block: suspend () -> Unit
             if (row.state == "Complete" && row.direction == "Received" && row.path != null) Row {
                 TextButton(onClick = { onOpen(row) }) { Text("Open") }; TextButton(onClick = { onSave(row) }) { Text("Save a copy") }
             }
-            if (row.state == "Interrupted" && row.direction == "Sent" && row.path != null) TextButton(onClick = { AppState.retry(row) }) { Text("Retry") }
-            row.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            if (row.state == "Interrupted" && row.direction == "Sent" && row.path != null) Row {
+                TextButton(onClick = { AppState.retry(row) }) { Text("Retry") }
+                if (row.autoRetry) TextButton(onClick = { AppState.cancel(row) }) { Text("Cancel") }
+            }
+            row.error?.let { Text(it, color = if (row.autoRetry) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
         }
     }
 }

@@ -60,7 +60,7 @@ public actor SecureChannel {
         self.framed = framed; sender = FrameCipher(key: sendKey); receiver = FrameCipher(key: receiveKey)
     }
     public func send(_ message: Message) async throws {
-        let frame = try sender.seal(JSONEncoder().encode(message))
+        let frame = try sender.seal(Wire.encode(message))
         let previous = sendTail
         let connection = framed
         let write = Task { try await previous?.value; try await connection.send(frame) }
@@ -127,7 +127,7 @@ public actor PeerEngine {
             }
             try await Task.sleep(nanoseconds: 20_000_000)
         }
-        throw PortError.invalid("Connection interrupted; retry when your device is reachable")
+        throw PortError.interrupted("Connection interrupted; retry when your device is reachable")
     }
     public func sendFile(_ file: URL, id: String = UUID().uuidString) async throws {
         guard !active.contains(id), active.count < 4 else { throw PortError.invalid("Transfer already active") }
@@ -160,7 +160,11 @@ public actor PeerEngine {
             guard try await wait(id).type == "complete" else { throw PortError.invalid("File was not confirmed") }
             event(PeerEvent(id: id, name: name, direction: "Sent", state: "Complete", progress: 1, path: file.path))
         } catch {
-            event(PeerEvent(id: id, name: file.lastPathComponent, direction: "Sent", state: cancelled.contains(id) ? "Cancelled" : "Interrupted", path: file.path, error: error.localizedDescription)); throw error
+            let wasCancelled = cancelled.contains(id)
+            event(PeerEvent(id: id, name: file.lastPathComponent, direction: "Sent", state: wasCancelled ? "Cancelled" : "Interrupted", path: file.path, error: error.localizedDescription))
+            // Connection loss is resumable; rejections and local failures are not.
+            if !wasCancelled, !alive || error is NWError || (error as? PortError)?.isInterruption == true { throw PortError.interrupted(error.localizedDescription) }
+            throw error
         }
     }
     public func sendText(_ text: String) async throws {

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.0-alpha.4
+
 - Keep the Android pairing-code scanner in portrait instead of rotating to landscape.
 - Redesign the Android app: focused pairing screen, a single home with Mac status, Files and Text actions, and recent transfers, transfer details in sheets, and a grouped Settings screen. Uses the brand palette with dark mode and custom line icons.
 

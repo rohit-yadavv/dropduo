@@ -100,7 +100,7 @@ private fun kotlinx.coroutines.CoroutineScope.launchIo(block: suspend () -> Unit
                         if (state.device == null) {
                             Card { Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                                 Text("Connect your Mac", style = MaterialTheme.typography.titleLarge)
-                                Text("Open DropDuo on your Mac and choose Devices → Pair. Connect both devices to the same local network.")
+                                Text("Open DropDuo on your Mac and choose Pair a Device. Connect both devices to the same local network.")
                                 Button(onClick = onScan, modifier = Modifier.fillMaxWidth()) { Text("Scan pairing code") }
                                 TextButton(onClick = { showCode = true }) { Text("Paste a pairing code") }
                             } }

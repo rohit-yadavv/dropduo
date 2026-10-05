@@ -19,7 +19,6 @@ struct Transfer: Codable, Identifiable {
     @Published var ticket: Ticket?
     @Published var receiving: Bool = true { didSet { for engine in engines.values { Task { await engine.setReceiving(receiving) } } } }
     @Published var text = ""
-    @Published var route = "Share"
     let inboxRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads/DropDuo", isDirectory: true)
     private let stateRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/DropDuo", isDirectory: true)
     private let server = PortServer()
@@ -30,6 +29,10 @@ struct Transfer: Codable, Identifiable {
     private let hostID: String
     init() {
         hostID = UserDefaults.standard.string(forKey: "dropduo.hostID") ?? UUID().uuidString
+        #if DEBUG
+        // Sample data for UI review without touching saved pairings, the Keychain or the network.
+        if ProcessInfo.processInfo.environment["DROPDUO_PREVIEW"] == "1" { seedPreview(); PreviewSnapshot.scheduleIfRequested(); return }
+        #endif
         UserDefaults.standard.set(hostID, forKey: "dropduo.hostID")
         try? FileManager.default.createDirectory(at: stateRoot, withIntermediateDirectories: true)
         devices = load("devices.json") ?? []; transfers = load("history.json") ?? []
@@ -53,6 +56,9 @@ struct Transfer: Codable, Identifiable {
         ticket.discoveryName = "DropDuo-" + hostID
         pending = ticket; self.ticket = ticket
     }
+    var selectedDevice: Device? { devices.first { $0.id == selected } }
+    func isOnline(_ device: Device) -> Bool { online.contains(device.id) }
+    func cancelPairing() { pending = nil; ticket = nil }
     func useAddress(_ address: String) { pending?.host = address; ticket = pending }
     func localAddresses() -> [String] {
         var result: [String] = []; var interfaces: UnsafeMutablePointer<ifaddrs>?
@@ -129,4 +135,22 @@ struct Transfer: Codable, Identifiable {
     }
     func persistSettings() { UserDefaults.standard.set(receiving, forKey: "dropduo.receiving") }
     func clearHistory() { transfers.removeAll { !["Preparing", "Sending", "Receiving"].contains($0.state) }; save(transfers, "history.json") }
+    #if DEBUG
+    private func seedPreview() {
+        let scene = ProcessInfo.processInfo.environment["DROPDUO_PREVIEW_SCENE"] ?? "device"
+        if scene == "welcome" { status = "Ready on your local network"; return }
+        defer { if scene == "pairing" { makeTicket() }; if scene == "offline" { online = [] }; if scene == "empty" { transfers = [] } }
+        let phone = Device(id: "preview-phone", name: "motorola edge 40 neo")
+        devices = [phone, Device(id: "preview-tablet", name: "Pixel Tablet")]; online = [phone.id]; selected = phone.id
+        status = "Ready on your local network"
+        let now = Date()
+        transfers = [
+            Transfer(id: "5", peer: phone.id, name: "Quarterly report.pdf", direction: "Sent", state: "Sending", progress: 0.62, path: "/tmp/Quarterly report.pdf", date: now),
+            Transfer(id: "4", peer: phone.id, name: "Text", direction: "Received", state: "Complete", progress: 1, text: "https://dropduo.app/download", date: now.addingTimeInterval(-60)),
+            Transfer(id: "3", peer: phone.id, name: "IMG_2041.jpg", direction: "Received", state: "Complete", progress: 1, path: "/tmp/IMG_2041.jpg", date: now.addingTimeInterval(-600)),
+            Transfer(id: "2", peer: phone.id, name: "Holiday clip.mov", direction: "Sent", state: "Interrupted", progress: 0.3, path: "/tmp/Holiday clip.mov", error: "Connection interrupted", date: now.addingTimeInterval(-3600)),
+            Transfer(id: "1", peer: phone.id, name: "Text", direction: "Sent", state: "Complete", progress: 1, text: "Meeting notes are in the shared folder, check the second page.", date: now.addingTimeInterval(-90000))
+        ]
+    }
+    #endif
 }

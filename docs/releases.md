@@ -62,7 +62,7 @@ Releases are never marked **pre-release**, so GitHub and the website always offe
 ## CI and repository settings
 
 - Checks/quality: develop/master pushes and PRs into develop/staging/master. Native Checks skips docs/web-only changes; Web builds the site. Staging relies on incoming PR checks.
-- CodeQL: master PRs, weekly on the default branch, or manual runs.
+- CodeQL: master PRs that change code (docs/web-only PRs skip it), weekly on the default branch, or manual runs. It is not a merge requirement, so skipped PRs can still merge.
 - Dependency review: PRs. Dependabot: weekly Actions/Gradle updates.
 - Release: exact-tag build checks. Actions are SHA-pinned with scoped permissions; security changes never auto-merge.
 

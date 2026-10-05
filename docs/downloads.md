@@ -1,12 +1,12 @@
 # Download and install
 
-**[0.1.0-alpha.1](https://github.com/rohit-yadavv/dropduo/releases/tag/v0.1.0-alpha.1)** is a free public development alpha. Requires **macOS 14+** and **Android 10+**. After installing both apps, [pair and share](usage.md) over a reachable local network.
+Download the newest release from the [DropDuo website](https://rohit-yadavv.github.io/dropduo/), which picks the right file for your device, or from the [latest GitHub release](https://github.com/rohit-yadavv/dropduo/releases/latest). It is a free public development alpha. Requires **macOS 14+** and **Android 10+**. After installing both apps, [pair and share](usage.md) over a reachable local network.
 
-| Device | Download |
+| Device | File in the latest release |
 | --- | --- |
-| Apple Silicon (M1 or newer) | [Mac ZIP](https://github.com/rohit-yadavv/dropduo/releases/download/v0.1.0-alpha.1/DropDuo-v0.1.0-alpha.1-macos-arm64-development.zip) |
-| Intel Mac | [Mac ZIP](https://github.com/rohit-yadavv/dropduo/releases/download/v0.1.0-alpha.1/DropDuo-v0.1.0-alpha.1-macos-x86_64-development.zip) |
-| Android | [APK](https://github.com/rohit-yadavv/dropduo/releases/download/v0.1.0-alpha.1/DropDuo-v0.1.0-alpha.1-android-development.apk) |
+| Apple Silicon (M1 or newer) | `DropDuo-<version>-macos-arm64-development.zip` |
+| Intel Mac | `DropDuo-<version>-macos-x86_64-development.zip` |
+| Android | `DropDuo-<version>-android-development.apk` |
 
 No GitHub account is needed for [published release assets](https://github.com/rohit-yadavv/dropduo/releases). Download from **Assets**, not **Source code** (which contains no installed apps). Mac filenames use `-macos-arm64` or `-macos-x86_64`; Android uses `-android`. Development builds add `-development` before the extension.
 

@@ -1,66 +1,41 @@
-# Your first DropDuo transfer
+# Pair and share
 
-DropDuo copies files, photos, videos, text, and links between your Mac and Android phone. Pair the devices once, then share in either direction. It doesn't upload them to a cloud service or require an account.
+[Install both apps](downloads.md), connect to the same reachable local network, allow requested connection permissions, and keep the Mac awake. Internet access is not required.
 
-## Before you start
+## Pair once
 
-- [Install DropDuo](downloads.md) on both devices: macOS 14+ and Android 10+.
-- Connect both devices to the same reachable local network. Internet access isn't required, but guest Wi-Fi may block communication between devices.
-- Open both apps and keep your Mac awake. Complete the connection permissions requested by your OS.
+1. On Mac, choose **Pair a Device** or **Show Pairing Code**.
+2. Select the Mac's Wi-Fi address if several are listed. Codes expire after five minutes; use **New Code** when needed.
+3. On Android, choose **Scan pairing code**, or **Paste a pairing code** copied from the Mac.
+4. Approve the intended phone on the Mac. Keep the code private.
 
-The current builds are an early alpha. For questions about availability, storage, or alternatives, see the [FAQ](faq.md) and [comparison](comparison.md).
+Pairing survives restarts. Reopen the apps and choose **Connect** on Android if needed. Android pairs with one Mac at a time; a Mac can pair multiple phones.
 
-## 1. Pair your phone and Mac
+## Send files, text, or links
 
-1. On Mac, choose **Pair a Device** at the bottom of the sidebar, or **Show Pairing Code** on first run.
-2. If the Mac has several network addresses, select its Wi-Fi address under the QR code. The code expires after five minutes; choose **New Code** if it does.
-3. On Android, choose **Scan pairing code** and scan the Mac's QR. Alternatively, use **Paste a pairing code** with the code copied from the Mac.
-4. Approve the request on the Mac for the phone you intended to connect.
+- **Android → Mac:** select an item in another app, then **Share → DropDuo** (sometimes under **More**), or use **Share → Choose files** inside DropDuo.
+- **Mac → Android:** select your phone, drop files into the window, or use the paperclip/menu-bar **Send files…** action.
+- **Text or links:** enter or paste into the sharing field and send. Mac also supports ⌘Return; Android accepts shared text from other apps. Choose **Copy** on the receiver.
 
-The apps remember the pairing across restarts. Keep the code private: it grants an opportunity to request trust. When an already-paired phone is offline, reopen the apps and choose **Connect** on Android if needed. Pairing doesn't require a new QR each time.
-
-## 2. Send from Android to Mac
-
-For a photo, scan, document, or other item already open in another Android app:
-
-1. Select the item and choose **Share**.
-2. Select **DropDuo** in Android's Share menu. Some apps may put it under **More**.
-3. If your paired Mac is offline, reconnect before completing the transfer. Watch the progress in DropDuo.
-
-You can also open DropDuo's **Share** tab and choose **Choose files**.
-
-On Mac, received items appear in that phone's timeline. Double-click a file to open it, or use its magnifying-glass button to show it in Finder. The folder button in the window toolbar and the menu-bar item **Open received files** open the receiving folder.
-
-## 3. Send from Mac to Android
-
-1. Open DropDuo and select your connected phone in the sidebar.
-2. Drop files anywhere in the window or use the paperclip button. The menu-bar item **Send files…** is another way to open the picker.
-3. Follow transfer progress. In Android's **Recent** tab, choose **Open** to view a received file or **Save a copy** to export it to a chosen folder.
-
-**Save a copy is important:** Android's default received files belong to DropDuo's app storage. Export files you want to keep independently of the app.
-
-## Send a link or text
-
-On either device, enter or paste a link or text into the sharing field and send it. On Mac, use the send button or ⌘Return. On Android, you can also share supported text from another app's Share menu. On the receiver, find the item in Recent (on Mac, the phone's timeline) and select **Copy**.
-
-Text is shared deliberately. DropDuo doesn't monitor or automatically synchronize your clipboard.
+Transfers copy the supplied bytes without resizing or re-encoding; originals stay on the sender. DropDuo does not monitor your clipboard, sync folders, or browse the other device's files.
 
 ## Files and history
 
-Mac receives into `~/Downloads/DropDuo/<pair ID>/`. Android receives into its app-specific external Downloads directory. Uninstalling Android deletes app-specific files; exported copies remain in their chosen location.
+- **Mac:** `~/Downloads/DropDuo/<pair ID>/`. Double-click a received file or use the magnifying glass to show it in Finder. The toolbar folder and menu-bar **Open received files** open the receiving folder.
+- **Android:** app-specific external Downloads storage. Use **Recent → Open** to view or **Save a copy** to export. **Uninstalling deletes app-specific files; export important files first.**
 
-Recent history keeps up to 100 local entries. It doesn't retain deleted files or act as a backup. Received filenames include a unique transfer ID to prevent overwriting existing files. Sharing copies selected data; the sender's original isn't moved or deleted.
+Recent holds 100 local entries and is not a backup. Clearing history leaves completed received files intact. Filenames include a transfer ID to prevent overwrites. The protocol permits files up to 32 GiB; large-file endurance is not yet verified.
 
-A failed file transfer retains partial receiver data. Reconnect, then choose **Retry** on the sender while the original source is still available. Android retains a local outgoing copy for failed transfers; clearing its history removes retained outgoing copies. Interrupted partial receiver data is cleaned after seven days. **Cancel** removes the associated partial transfer. Clearing history leaves completed received files intact.
+For interrupted files, reconnect and choose **Retry** on the sender while the original source remains available. Matching retained partials can resume; abandoned receiver partials expire after seven days. **Cancel** removes partial data. Android retains outgoing copies for failed transfers; clearing history removes those copies.
 
 ## Receiving and trusted devices
 
-On Mac, **DropDuo → Settings… → Accept files and text from paired devices** controls receiving. On Android, use **Device → Accept files and text**. Disabling receiving keeps pairing intact but rejects new inbound transfers.
+Use **DropDuo → Settings… → Accept files and text from paired devices** on Mac, or **Device → Accept files and text** on Android to pause receiving without losing pairing.
 
-Android v1 pairs with one Mac at a time; a Mac can pair multiple Android devices. **Forget** removes local trust and closes the connection. On Mac, it's in the device's **⋯** toolbar menu or its right-click menu in the sidebar. Forget the device on both ends to remove both stored credentials; pair explicitly again when needed.
+**Forget** removes local trust and closes the connection. On Mac, use the device's **⋯** toolbar menu or sidebar right-click menu. Forget on both ends to remove both stored credentials, then pair again if needed.
 
-Keep Mac awake with DropDuo running. Android shows a connection notification while its foreground service runs. Mac sleep, Android force-stop, revoked permissions, or battery controls can interrupt availability. See [troubleshooting](troubleshooting.md) if a device stays offline.
+The Mac must stay awake with DropDuo running. Android's connection service shows a notification; force-stop, reboot, battery controls, or revoked permissions may interrupt receiving. There is no cloud relay or offline queue. See [troubleshooting](troubleshooting.md).
 
-## Updating from an earlier alpha
+## Upgrades
 
-DropDuo has new application identifiers and pairing credentials. Install it on both devices and pair again. Earlier working-name alpha history and trust aren't automatically migrated. Existing received files remain in their original storage locations; export important Android files before uninstalling an earlier build. Also review the [development upgrade limitations](downloads.md#install).
+Development Android signing keys can change, blocking in-place updates. Export files before uninstalling. Earlier working-name alpha pairings/history do not migrate: install DropDuo on both devices and pair again. Existing files remain in their original locations. See [download limitations](downloads.md#install).

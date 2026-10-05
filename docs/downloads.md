@@ -1,42 +1,46 @@
-# Download DropDuo
+# Download and install
 
-Install DropDuo on both your Mac and Android phone to share selected files, photos, videos, text, and links directly over your local network. Pair once; use Mac drag and drop or Android **Share → DropDuo** for later transfers. No account or cloud upload is required.
+**[0.1.0-alpha.1](https://github.com/rohit-yadavv/dropduo/releases/tag/v0.1.0-alpha.1)** is a free public development alpha. Requires **macOS 14+** and **Android 10+**. After installing both apps, [pair and share](usage.md) over a reachable local network.
 
-**Available now: [0.1.0-alpha.1](https://github.com/rohit-yadavv/dropduo/releases/tag/v0.1.0-alpha.1), a public development prerelease for testers.** Download your Mac ZIP and Android APK below, then follow the [first-transfer walkthrough](usage.md). Read the [comparison](comparison.md) if you're deciding whether DropDuo fits your devices.
-
-| Requirement | Supported |
+| Device | Download |
 | --- | --- |
-| Mac | macOS 14+, Apple Silicon or Intel |
-| Phone | Android 10+ |
-| Connection | Same reachable local network; internet access is not required for sharing |
+| Apple Silicon (M1 or newer) | [Mac ZIP](https://github.com/rohit-yadavv/dropduo/releases/download/v0.1.0-alpha.1/DropDuo-v0.1.0-alpha.1-macos-arm64-development.zip) |
+| Intel Mac | [Mac ZIP](https://github.com/rohit-yadavv/dropduo/releases/download/v0.1.0-alpha.1/DropDuo-v0.1.0-alpha.1-macos-x86_64-development.zip) |
+| Android | [APK](https://github.com/rohit-yadavv/dropduo/releases/download/v0.1.0-alpha.1/DropDuo-v0.1.0-alpha.1-android-development.apk) |
 
-## Published versions
-
-Use [GitHub Releases](https://github.com/rohit-yadavv/dropduo/releases). Published releases have downloadable Mac ZIPs and an Android APK under **Assets**. GitHub's **Source code** ZIP is for developers; it does not contain installed apps. The current public version is **0.1.0-alpha.1**, with development signing and outstanding physical-device validation. No GitHub account is needed to download its assets.
-
-| Device | File |
-| --- | --- |
-| Apple Silicon Mac (M1 or newer) | [Download arm64 ZIP](https://github.com/rohit-yadavv/dropduo/releases/download/v0.1.0-alpha.1/DropDuo-v0.1.0-alpha.1-macos-arm64-development.zip) |
-| Intel Mac | [Download Intel ZIP](https://github.com/rohit-yadavv/dropduo/releases/download/v0.1.0-alpha.1/DropDuo-v0.1.0-alpha.1-macos-x86_64-development.zip) |
-| Android 10+ | [Download Android APK](https://github.com/rohit-yadavv/dropduo/releases/download/v0.1.0-alpha.1/DropDuo-v0.1.0-alpha.1-android-development.apk) |
-
-These prerelease filenames include `-development` before the extension. Release pages include `SHA256SUMS`, per-file checksums, build metadata, license and dependency notices. On a Mac, run `shasum -a 256 -c SHA256SUMS` in the folder containing all three downloads. To verify one download alone, use its `.sha256` file instead.
-
-## Development downloads available now
-
-For newer untagged development builds, use CI artifacts instead of the public alpha:
-
-1. Sign into GitHub and open [Checks](https://github.com/rohit-yadavv/dropduo/actions/workflows/checks.yml).
-2. Choose a successful run for `develop`; check its commit and date.
-3. Under **Artifacts**, select `dropduo-macos-arm64-development`, `dropduo-macos-x86_64-development`, or `dropduo-android-development`.
-4. Extract GitHub's artifact ZIP. The Mac artifact contains another ZIP holding `DropDuo.app`; the Android artifact contains an APK. Verify the included checksum.
-
-These artifacts expire after 30 days. Downloading workflow artifacts requires a signed-in account with repository read access ([GitHub documentation](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts)). Public release assets are the intended download route for everyday users.
+No GitHub account is needed for [published release assets](https://github.com/rohit-yadavv/dropduo/releases). Download from **Assets**, not **Source code** (which contains no installed apps). Mac filenames use `-macos-arm64` or `-macos-x86_64`; Android uses `-android`. Development builds add `-development` before the extension.
 
 ## Install
 
-**Mac:** requires macOS 14+. Extract the platform ZIP, move `DropDuo.app` into Applications, then open it. Current development builds use ad-hoc signing and have not been notarized. For a development build you trust and have verified, macOS may offer **System Settings → Privacy & Security → Open Anyway** after the first launch attempt. See [Apple's instructions](https://support.apple.com/en-us/102445). Signed distribution releases use Developer ID and notarization.
+### Mac: first launch
 
-**Android:** download the APK onto your phone and open it. Android may ask you to allow installations from the browser or file manager you used. This is a direct APK download, not a Play Store installation. Open DropDuo, allow the requested device-connection permissions, and pair with your Mac on the same reachable local network. See [usage](usage.md).
+The current Mac alpha is ad-hoc signed, without Apple Developer ID signing or notarization. macOS may block its first launch.
 
-**Development upgrades:** CI debug signing certificates can change between runs. Android may reject an update signed with a different certificate. Export received files with **Save a copy** before uninstalling; uninstall removes DropDuo's app storage and pairing. Public distribution releases must retain the same Android signing identity and increment `versionCode`. [Android signing documentation](https://developer.android.com/studio/publish/app-signing).
+1. Extract the ZIP and move `DropDuo.app` into **Applications**.
+2. Try opening it once. If macOS says the developer cannot be verified or Apple cannot check it for malicious software, dismiss the alert.
+3. Open **System Settings → Privacy & Security**, scroll to **Security**, and look for DropDuo.
+4. If you trust the download, click **Open Anyway** when available, authenticate if asked, then click **Open**. macOS remembers the exception.
+
+The website's **Mac won't open it? First-launch steps** link opens a dedicated help page. Its **Open Privacy & Security on Mac** button opens settings; it cannot approve the app. Your browser may ask permission. If it fails, follow the manual path above. **Open Anyway** requires a blocked launch and may be unavailable on a managed Mac. For a “will damage your computer” or “damaged” alert, stop and [report it](https://github.com/rohit-yadavv/dropduo/issues). [Apple's guide](https://support.apple.com/en-us/102445).
+
+### Android
+
+Open the APK and allow installation from that browser/file manager when prompted. This is a direct download, not a Play Store app. Open DropDuo and allow its connection permissions.
+
+Development signing keys may change and prevent updates. **Save a copy** of important received files before uninstalling; uninstall removes app storage and pairing. Distribution updates must keep the same signing key and increase `versionCode`.
+
+## Public code and checksums
+
+Anyone can [inspect the source](https://github.com/rohit-yadavv/dropduo), [build it](development.md), or [contribute](../CONTRIBUTING.md). DropDuo uses Apache-2.0, with no accounts, cloud uploads, ads, or analytics. Open source does not replace Apple notarization or an independent security audit; this early alpha has not had one. See [validation](validation.md).
+
+Releases include checksums, build metadata, and license/dependency notices. To verify a single asset, download its `.sha256` file and run `shasum -a 256 -c <asset>.sha256` in the same folder. With all three assets present, use `shasum -a 256 -c SHA256SUMS`. Checksums confirm a match to the published asset.
+
+## Development downloads available now
+
+For newer untagged builds, sign into GitHub, open a successful `develop` run in [Checks](https://github.com/rohit-yadavv/dropduo/actions/workflows/checks.yml), and confirm its commit/date. Download an artifact:
+
+- `dropduo-macos-arm64-development`
+- `dropduo-macos-x86_64-development`
+- `dropduo-android-development`
+
+Extract the artifact ZIP; Mac artifacts contain another ZIP holding the app, Android an APK. Verify its checksum. Artifacts expire after 30 days and require repository read access; published releases are the normal download route.

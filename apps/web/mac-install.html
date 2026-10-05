@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Opening DropDuo on your Mac</title>
+  <meta name="description" content="First-launch instructions for the DropDuo Mac alpha, with a Privacy &amp; Security shortcut and links to the public source code.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#F5F6F8">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Opening DropDuo on your Mac">
+  <meta property="og:description" content="How to open the DropDuo Mac alpha and review its public source code.">
+  <meta property="og:image" content="assets/brand/dropduo-icon.png">
+  <link rel="icon" href="assets/brand/dropduo-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/brand/dropduo-icon.png">
+  <link rel="preload" href="assets/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    // Apply the saved or system theme before first paint to avoid a flash.
+    (() => {
+      const root = document.documentElement;
+      let saved = null;
+      try { saved = localStorage.getItem("dropduo:theme"); } catch {}
+      const dark = saved ? saved === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+      root.dataset.theme = dark ? "dark" : "light";
+      root.classList.add("js");
+      document.querySelector('meta[name="theme-color"]').content = dark ? "#0D0E10" : "#F5F6F8";
+    })();
+  </script>
+  <script src="main.js" defer></script>
+</head>
+<body>
+  <!-- Mark geometry mirrors branding/mark.json. Regenerate both together if the mark changes. -->
+  <svg width="0" height="0" class="sr-only" aria-hidden="true">
+    <defs>
+      <path id="dd-ink" fill-rule="evenodd" d="M 218 154 H 429 C 582 154 662 258 662 415 C 662 575 580 675 429 675 H 218 C 187 675 162 650 162 620 V 210 C 162 179 187 154 218 154 Z M 297 274 H 425 C 509 274 542 330 542 415 C 542 501 509 553 425 553 H 297 Z"/>
+      <path id="dd-cobalt" fill-rule="evenodd" d="M 418 370 H 629 C 782 370 862 474 862 631 C 862 791 780 891 629 891 H 418 C 387 891 362 866 362 836 V 426 C 362 395 387 370 418 370 Z M 497 570 H 625 C 709 570 742 592 742 668 C 742 729 709 769 625 769 H 497 Z"/>
+      <clipPath id="dd-front"><rect x="497" y="154" width="165" height="521"/></clipPath>
+      <symbol id="dd-mark" viewBox="0 0 1024 1024">
+        <g transform="translate(0 -10.5)">
+          <use href="#dd-ink" fill="#202124"/>
+          <use href="#dd-cobalt" fill="#2558DD"/>
+          <use href="#dd-ink" fill="#202124" clip-path="url(#dd-front)"/>
+        </g>
+      </symbol>
+    </defs>
+  </svg>
+
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="nav">
+    <div class="wrap nav__inner">
+      <a class="brand" href="index.html" aria-label="DropDuo home">
+        <span class="brand__tile"><svg aria-hidden="true"><use href="#dd-mark"/></svg></span>
+        <span class="brand__name">DropDuo</span>
+      </a>
+      <nav class="nav__primary" aria-label="Primary">
+        <ul class="nav__links">
+          <li><a href="index.html#pair">How it works</a></li>
+          <li><a href="index.html#privacy">Privacy</a></li>
+          <li><a href="https://github.com/rohit-yadavv/dropduo"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#github-logo"/></svg>GitHub</a></li>
+        </ul>
+      </nav>
+      <div class="nav__actions">
+        <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark theme">
+          <svg class="i theme-toggle__moon" aria-hidden="true"><use href="assets/icons.svg#moon"/></svg>
+          <svg class="i theme-toggle__sun" aria-hidden="true"><use href="assets/icons.svg#sun"/></svg>
+        </button>
+        <a class="btn btn--small btn--primary" href="index.html#download">Download</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" class="install-page">
+    <div class="wrap">
+      <a class="install-page__back" href="index.html#download">← Back to downloads</a>
+        <div class="install-guide" id="mac-install" aria-labelledby="mac-install-title">
+          <h1 id="mac-install-title">Opening DropDuo on your Mac</h1>
+          <p>DropDuo is free to download. The current Mac alpha has not been signed with an Apple Developer ID or notarized by Apple, so macOS may block the first launch.</p>
+          <ol>
+            <li>Download the ZIP for your Mac, extract it, and move <strong>DropDuo.app</strong> to <strong>Applications</strong>.</li>
+            <li>Try opening DropDuo once. If macOS says the developer cannot be verified or Apple cannot check it for malicious software, dismiss the alert.</li>
+            <li>Open <strong>System Settings → Privacy &amp; Security</strong>, scroll to <strong>Security</strong>, and look for the message about DropDuo.</li>
+            <li>If you trust this download, click <strong>Open Anyway</strong> when available, authenticate if asked, then click <strong>Open</strong> in the next prompt.</li>
+          </ol>
+          <div class="install-guide__actions">
+            <a class="btn btn--ghost" href="x-apple.systempreferences:com.apple.preference.security">Open Privacy &amp; Security on Mac</a>
+            <a href="https://support.apple.com/en-us/102445">Apple’s first-launch guide</a>
+          </div>
+          <p class="install-guide__note">Your browser may ask to open System Settings. If the button doesn’t open the right pane, follow the steps above. Open Anyway appears only after a blocked launch and may be unavailable on a managed Mac. This button opens settings; you choose whether to allow DropDuo. For a “will damage your computer” or “damaged” alert, stop and report it instead of using these steps.</p>
+          <div class="install-guide__trust">
+            <h4>Public code. Open to contributions.</h4>
+            <p>DropDuo is open source under Apache-2.0. Anyone can inspect the code, build it themselves, report issues, or propose improvements. Transfers stay on your local network, with no account, cloud uploads, ads, or analytics. Open source lets you inspect how it works; it does not replace Apple notarization or an independent security review. This is an early alpha and has not had an independent security audit.</p>
+            <p><a href="https://github.com/rohit-yadavv/dropduo">View the source</a> · <a href="https://github.com/rohit-yadavv/dropduo/blob/develop/CONTRIBUTING.md">Contribute</a> · <a href="https://github.com/rohit-yadavv/dropduo/blob/develop/docs/downloads.md">Verify download checksums</a></p>
+          </div>
+        </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer__inner">
+      <div class="footer__brand">
+        <a class="brand" href="index.html" aria-label="DropDuo home">
+          <span class="brand__tile"><svg aria-hidden="true"><use href="#dd-mark"/></svg></span>
+          <span class="brand__name">DropDuo</span>
+        </a>
+        <p>Mac to Android. Android to Mac.</p>
+      </div>
+      <ul class="footer__links">
+        <li><a href="https://github.com/rohit-yadavv/dropduo">Source code</a></li>
+        <li><a href="https://github.com/rohit-yadavv/dropduo/blob/develop/docs/usage.md">Using DropDuo</a></li>
+        <li><a href="https://github.com/rohit-yadavv/dropduo/blob/develop/protocol/SPEC.md">Protocol</a></li>
+        <li><a href="https://github.com/rohit-yadavv/dropduo/blob/develop/docs/troubleshooting.md">Troubleshooting</a></li>
+        <li><a href="https://github.com/rohit-yadavv/dropduo/blob/develop/SECURITY.md">Security</a></li>
+        <li><a href="https://github.com/rohit-yadavv/dropduo/blob/develop/LICENSE">Apache-2.0</a></li>
+      </ul>
+    </div>
+  </footer>
+</body>
+</html>

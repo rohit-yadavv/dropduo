@@ -10,6 +10,6 @@
 | Android stops receiving | Reopen DropDuo and reconnect. Force-stop, revoked permissions, or vendor battery controls can stop its service. |
 | Android file missing after uninstall | App-specific storage is removed by uninstall. Export important files using Save copy first. |
 | File will not open | Install an app supporting its format, or Save copy and open elsewhere. |
-| Development Mac app blocked | This is an ad-hoc signed local build, not notarized distribution. Follow macOS's normal approval flow for a build you made; do not disable Gatekeeper globally. |
+| Development Mac app blocked | Follow the [first-launch steps](downloads.md#mac-first-launch) for a download you trust. The alpha is not notarized. |
 
 Never paste pairing codes, secrets, or private files into bug reports. Include OS versions, build revision, sanitized error text, and whether the failure was on a physical device or emulator.

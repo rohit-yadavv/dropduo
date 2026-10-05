@@ -4,18 +4,19 @@ Users download published apps from [GitHub Releases](https://github.com/rohit-ya
 
 ## What is automated
 
-`checks.yml` tests and packages both Mac architectures, builds/lints Android, and runs Swift/JVM interoperability. `quality.yml` validates workflow syntax, shell syntax and release guards. `security.yml` runs CodeQL for Swift and Java/Kotlin. The trigger schedule avoids repeating checks on every branch:
+`checks.yml` tests and packages both Mac architectures, builds/lints Android, and runs Swift/JVM interoperability. `quality.yml` validates workflow syntax, shell syntax and release guards. `security.yml` runs CodeQL for Swift and Java/Kotlin. The trigger schedule avoids repeating checks on every branch, and build checks skip changes that only touch Markdown, `docs/` or `apps/web/`:
 
 | Event | Build and quality checks | CodeQL | Dependency review |
 | --- | --- | --- | --- |
 | Push to `develop` or `master` | Yes | No | No |
 | Push to `staging` | No; its incoming PR validates the proposed merge | No | No |
-| PR targeting `develop`, `staging`, or `master` | Yes | Yes | Yes |
+| PR targeting `develop` or `staging` | Yes | No | Yes |
+| PR targeting `master` | Yes | Yes | Yes |
 | Weekly schedule | No | Yes, on the default branch | No |
 | Manual run | Selected workflow | Available | No |
 | Version tag | Release reruns build checks on the exact tag | No separate tag scan | No |
 
-Direct `develop` push checks support solo development, and `master` push checks validate the final production commit. A promotion PR from `develop` can still show both push and PR build results: the PR validates its combined code with the target branch. CodeQL runs on PRs and weekly rather than duplicating each push scan. No tests or platform coverage have been removed.
+Direct `develop` push checks support solo development, and `master` push checks validate the final production commit. A promotion PR from `develop` can still show both push and PR build results: the PR validates its combined code with the target branch. CodeQL runs on PRs into `master` and weekly: every change reaches production through that PR, so earlier promotion scans would repeat it. Docs-only and website-only changes skip the build checks; the Web workflow builds the site. If you later make Checks a required status, account for these skips (GitHub treats a skipped required workflow as pending). No tests or platform coverage have been removed.
 
 Dependency review checks PRs; Dependabot opens weekly update PRs for GitHub Actions and Gradle dependencies. Actions are pinned to full commit SHAs and workflows grant permissions per job. No dependency or security change auto-merges.
 

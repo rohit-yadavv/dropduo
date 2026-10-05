@@ -7,7 +7,7 @@
 - Redesign the Mac app around a sidebar of paired devices and a per-device timeline of sent and received items, with a composer bar, drop-anywhere sending, an offline banner, a pairing sheet with an expiry countdown, and a standard Settings window.
 - Rewrite the product introduction and user guides around everyday Mac–Android sharing; add a sourced competitor comparison, FAQ, and documentation index.
 - Add an animated, dependency-free product website with platform-aware Mac and Android downloads from the latest published release, plus a GitHub Pages workflow.
-- Reduce redundant CI runs: build/quality checks on develop and master pushes plus PRs, and CodeQL on PRs and weekly. Preserve all tests, platform coverage, and release automation.
+- Reduce redundant CI runs: build/quality checks on develop and master pushes plus PRs, skipped for docs- and website-only changes, and CodeQL on PRs into master and weekly. Preserve all tests, platform coverage, and release automation.
 
 ## 0.1.0-alpha.1
 

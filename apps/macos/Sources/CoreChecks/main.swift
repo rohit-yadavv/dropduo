@@ -11,6 +11,12 @@ struct CoreTests {
         var fresh = FrameCipher(key: key)
         expectThrows(try fresh.open(bad))
     }
+    func testWorstCaseChunkFitsInFrame() throws {
+        // 0xFF bytes encode to base64 "/" only, the character JSON encoders may escape.
+        let chunk = Message("chunk", id: UUID().uuidString, offset: Int64.max, data: Data(repeating: 0xFF, count: Wire.chunkSize).base64EncodedString())
+        var sender = FrameCipher(key: Data(repeating: 1, count: 32))
+        expectEqual(try sender.seal(Wire.encode(chunk)).count <= Wire.maxFrame, true)
+    }
     func testTicketRoundTrip() throws {
         let ticket = Ticket(pairID: UUID().uuidString, host: "127.0.0.1", port: 53318,
             secret: Wire.random(32).base64EncodedString(), name: "Mac", expires: 100)
@@ -41,6 +47,7 @@ func expectThrows<T>(_ expression: @autoclosure () throws -> T) { do { _ = try e
 
 let checks = CoreTests()
 try checks.testAuthenticatedFramesRejectReplayAndTampering()
+try checks.testWorstCaseChunkFitsInFrame()
 try checks.testTicketRoundTrip()
 try checks.testInboxResumeIntegrityAndSafeNames()
 let temp = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -63,4 +70,4 @@ _ = try inbox.prepare(paused); try inbox.cancel(paused.id!)
 expectEqual(try inbox.prepare(paused), 0)
 var malformed = FrameCipher(key: Data(repeating: 0, count: 32))
 expectThrows(try malformed.open(Data(repeating: 0, count: 35)))
-print("PASS: authenticated frames, replay/tampering, pairing ticket, resume, integrity and safe names")
+print("PASS: authenticated frames, worst-case chunk size, replay/tampering, pairing ticket, resume, integrity and safe names")

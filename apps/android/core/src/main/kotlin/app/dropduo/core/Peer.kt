@@ -35,6 +35,8 @@ class SecureChannel(val socket: Socket, private val sendKey: ByteArray, private 
         }
     }
 }
+/** The connection dropped mid-transfer; the sender resumes automatically on reconnect. */
+class Disconnected(message: String) : IOException(message)
 data class PeerEvent(val id: String, val name: String, val direction: String, val state: String,
     val progress: Double = 0.0, val path: String? = null, val text: String? = null, val error: String? = null)
 class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, private val event: (PeerEvent) -> Unit) : Closeable {
@@ -58,7 +60,7 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
             val reply = responses.getValue(id).poll(100, TimeUnit.MILLISECONDS) ?: continue
             check(reply.type != "error") { reply.error ?: "Transfer rejected" }; return reply
         }
-        error("Connection interrupted; retry when your device is reachable")
+        throw Disconnected("Connection interrupted; retry when your device is reachable")
     }
     fun sendFile(file: File, id: String = UUID.randomUUID().toString(), displayName: String = file.name) {
         check(active.size < 4 && active.add(id)) { "Transfer already active" }

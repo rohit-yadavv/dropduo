@@ -6,7 +6,7 @@ Free, native Mac–Android sharing over a reachable local network. No accounts, 
 
 - Files, photos, videos, explicit text/links; Mac drag and drop/menu bar and Android Share/file picker.
 - QR pairing with Mac approval, persistent credentials, receiving controls, and device revocation.
-- Authenticated encrypted transfers with progress, cancellation, integrity verification, and manual retry/resume.
+- Authenticated encrypted transfers with progress, cancellation, integrity verification, and resume/retry. Sends cut off by a lost connection resume automatically when the devices reconnect; other failures need a manual retry.
 - Copy selected bytes without moving originals or re-encoding. Recent holds 100 entries, not backups.
 - Mac files go to Downloads/DropDuo by pair; Android uses app storage with **Save a copy** for export. Android uninstall deletes app-specific files.
 - One Mac per Android; multiple Android peers per Mac.

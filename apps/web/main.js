@@ -192,6 +192,9 @@
     select(sends[0]);
   }
 
+  // Help pages share theme/navigation behavior but have no downloads to populate.
+  if (!document.querySelector("[data-release-state]")) return;
+
   // Suggest the visitor's platform. User agents are a hint, so both stay visible.
   const ua = navigator.userAgent;
   const isAndroid = /Android/i.test(ua);

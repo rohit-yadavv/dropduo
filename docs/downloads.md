@@ -21,7 +21,7 @@ The current Mac alpha is ad-hoc signed, without Apple Developer ID signing or no
 3. Open **System Settings → Privacy & Security**, scroll to **Security**, and look for DropDuo.
 4. If you trust the download, click **Open Anyway** when available, authenticate if asked, then click **Open**. macOS remembers the exception.
 
-The website's **Open Privacy & Security on Mac** button opens settings; it cannot approve the app. Your browser may ask permission. If it fails, follow the manual path above. **Open Anyway** requires a blocked launch and may be unavailable on a managed Mac. For a “will damage your computer” or “damaged” alert, stop and [report it](https://github.com/rohit-yadavv/dropduo/issues). [Apple's guide](https://support.apple.com/en-us/102445).
+The website's **Mac won't open it? First-launch steps** link opens a dedicated help page. Its **Open Privacy & Security on Mac** button opens settings; it cannot approve the app. Your browser may ask permission. If it fails, follow the manual path above. **Open Anyway** requires a blocked launch and may be unavailable on a managed Mac. For a “will damage your computer” or “damaged” alert, stop and [report it](https://github.com/rohit-yadavv/dropduo/issues). [Apple's guide](https://support.apple.com/en-us/102445).
 
 ### Android
 

@@ -34,29 +34,35 @@ def main():
     for name in BRAND:
         shutil.copy2(ROOT / "branding" / name, OUT / "assets/brand" / name)
 
-    html = (OUT / "index.html").read_text()
     css = (OUT / "styles.css").read_text()
-    parser = References()
-    parser.feed(html)
+    pages = {}
+    for page in OUT.glob("*.html"):
+        parser = References()
+        parser.feed(page.read_text())
+        pages[page.name] = parser
     errors = []
-    for ref in parser.refs:
-        if ref.startswith("#"):
-            if len(ref) > 1 and ref[1:] not in parser.ids:
-                errors.append(f"missing anchor {ref}")
-            continue
-        if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", ref) or "/" not in ref and "." not in ref:
-            continue
-        path = ref.split("#")[0]
-        if not (OUT / path).is_file():
-            errors.append(f"missing file {ref}")
-        elif path == "assets/icons.svg" and "#" in ref:
-            symbol = ref.split("#")[1]
-            if f'id="{symbol}"' not in (OUT / path).read_text():
-                errors.append(f"missing icon {symbol}")
+    for name, parser in pages.items():
+        for ref in parser.refs:
+            if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", ref):
+                continue
+            path, _, anchor = ref.partition("#")
+            target = OUT / path if path else OUT / name
+            if not target.is_file():
+                errors.append(f"{name}: missing file {ref}")
+                continue
+            if anchor:
+                if target.name in pages:
+                    ids = pages[target.name].ids
+                else:
+                    linked = References()
+                    linked.feed(target.read_text())
+                    ids = linked.ids
+                if anchor not in ids:
+                    errors.append(f"{name}: missing anchor {ref}")
     for url in re.findall(r'url\("([^"]+)"\)', css):
         if not (OUT / url).is_file():
             errors.append(f"missing stylesheet asset {url}")
-    for name in ("index.html", "main.js"):
+    for name in (*pages, "main.js"):
         if re.search("[–—]", (OUT / name).read_text()):
             errors.append(f"{name} contains an en or em dash; use plain punctuation")
     if errors:

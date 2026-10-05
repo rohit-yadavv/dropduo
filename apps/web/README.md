@@ -12,3 +12,5 @@ On computers, the Android download is also shown as a QR code (level H, app tile
 Third-party assets: qrcode-generator 2.0.4 (MIT, `assets/vendor/LICENSE-qrcode-generator.txt`), Geist and Geist Mono fonts (SIL OFL 1.1, `assets/fonts/LICENSE-geist.txt`) and Phosphor Icons 2.1.1 regular (MIT, `assets/LICENSE-phosphor.txt`), plus the Apple and Android logos from Simple Icons 16.33.0 (CC0 1.0; the logos remain their owners' trademarks), compiled into `assets/icons.svg`.
 
 Build and preview: `./scripts/check web`, then `python3 -m http.server 4173 -d dist/web`.
+
+The Mac download links lead to inline first-launch instructions (`#mac-install`). The Settings button uses `x-apple.systempreferences:com.apple.preference.security`, a best-effort macOS deep link; browser prompts and OS support vary, so keep the manual path visible. It opens a pane, never grants a Gatekeeper exception. Native Settings navigation and the blocked-launch flow require manual Mac verification. Source, contribution, and checksum links accompany the alpha signing disclosure.

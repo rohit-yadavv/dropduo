@@ -35,7 +35,22 @@ These artifacts expire after 30 days. Downloading workflow artifacts requires a 
 
 ## Install
 
-**Mac:** requires macOS 14+. Extract the platform ZIP, move `DropDuo.app` into Applications, then open it. Current development builds use ad-hoc signing and have not been notarized. For a development build you trust and have verified, macOS may offer **System Settings → Privacy & Security → Open Anyway** after the first launch attempt. See [Apple's instructions](https://support.apple.com/en-us/102445). Signed distribution releases use Developer ID and notarization.
+### Mac: first launch
+
+DropDuo is free to download. Requires macOS 14+. Current Mac alpha builds use ad-hoc signing: they are not signed with an Apple Developer ID and have not been notarized by Apple. macOS may block the first launch.
+
+1. Download your platform ZIP from our GitHub Releases, extract it, and move `DropDuo.app` into **Applications**.
+2. Try opening DropDuo once. If macOS says the developer cannot be verified or Apple cannot check it for malicious software, dismiss the alert.
+3. Open **System Settings → Privacy & Security**, scroll to **Security**, and look for the message about DropDuo.
+4. If you trust the download, choose **Open Anyway** when available, authenticate if asked, and click **Open** in the next prompt. macOS remembers this exception for later launches.
+
+The download website includes an **Open Privacy & Security on Mac** button. Your browser may ask to open System Settings. If the button doesn't open the right pane, use the manual steps above. It only opens settings; you still decide whether to allow the app. **Open Anyway** requires a blocked launch attempt and may be unavailable on a managed Mac. If you see a “will damage your computer” or “damaged” alert, stop and [report the issue](https://github.com/rohit-yadavv/dropduo/issues) instead of using these steps. See [Apple's instructions](https://support.apple.com/en-us/102445).
+
+### Public code and verifiable downloads
+
+DropDuo is [open source](https://github.com/rohit-yadavv/dropduo) under Apache-2.0. Anyone can inspect the code, [build it themselves](development.md), report issues, or [propose improvements](../CONTRIBUTING.md). Transfers stay on your local network, with no account, cloud uploads, ads, or analytics. Download from our GitHub Releases and compare the included checksums using the commands above to check that the file matches the published asset.
+
+Open source and checksums do not replace Apple notarization or an independent security review. This is an early alpha and has not had an independent security audit. Signed distribution releases use Developer ID and notarization.
 
 **Android:** download the APK onto your phone and open it. Android may ask you to allow installations from the browser or file manager you used. This is a direct APK download, not a Play Store installation. Open DropDuo, allow the requested device-connection permissions, and pair with your Mac on the same reachable local network. See [usage](usage.md).
 

@@ -261,8 +261,8 @@
                 <a class="dl dl--outline" data-asset="mac-x86_64" href="https://github.com/rohit-yadavv/dropduo/releases">Intel<small data-size="mac-x86_64"></small></a>
               </div>
               <div class="half__skeleton" aria-hidden="true"><span></span><span></span></div>
-              <p class="half__soon" data-soon>Signed build arrives with the first public release.</p>
-              <a class="half__help" data-dev-note hidden href="https://github.com/rohit-yadavv/dropduo/blob/develop/docs/downloads.md#install">Mac won't open it?</a>
+              <p class="half__soon" data-soon>Check GitHub for available builds.</p>
+              <a class="half__help" href="#mac-install">Mac won't open it? First-launch steps</a>
             </article>
 
             <span class="duo__tile" aria-hidden="true"><svg><use href="#dd-mark"/></svg></span>
@@ -280,17 +280,38 @@
                 <a class="dl dl--solid" data-asset="android" data-apk-button href="https://github.com/rohit-yadavv/dropduo/releases"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#download-simple"/></svg>Download APK<small data-size="android"></small></a>
               </div>
               <div class="half__skeleton" aria-hidden="true"><span></span></div>
-              <p class="half__soon" data-soon>Signed build arrives with the first public release.</p>
+              <p class="half__soon" data-soon>Check GitHub for available builds.</p>
             </article>
           </div>
 
           <div class="pending" data-pending>
             <h3>The first public release is on its way.</h3>
-            <p>Until it ships, testers can try development builds from GitHub. Watch the repository to hear when signed releases land.</p>
+            <p>Until it ships, testers can try development builds from GitHub. Watch the repository for new releases.</p>
             <div class="pending__actions">
               <a class="btn btn--primary" href="https://github.com/rohit-yadavv/dropduo/blob/develop/docs/downloads.md#development-downloads-available-now">Development builds</a>
               <a class="btn btn--ghost" href="https://github.com/rohit-yadavv/dropduo/releases"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#github-logo"/></svg>Watch releases</a>
             </div>
+          </div>
+        </div>
+
+        <div class="install-guide" id="mac-install" aria-labelledby="mac-install-title">
+          <h3 id="mac-install-title">Opening DropDuo on your Mac</h3>
+          <p>DropDuo is free to download. The current Mac alpha has not been signed with an Apple Developer ID or notarized by Apple, so macOS may block the first launch.</p>
+          <ol>
+            <li>Download the ZIP for your Mac, extract it, and move <strong>DropDuo.app</strong> to <strong>Applications</strong>.</li>
+            <li>Try opening DropDuo once. If macOS says the developer cannot be verified or Apple cannot check it for malicious software, dismiss the alert.</li>
+            <li>Open <strong>System Settings → Privacy &amp; Security</strong>, scroll to <strong>Security</strong>, and look for the message about DropDuo.</li>
+            <li>If you trust this download, click <strong>Open Anyway</strong> when available, authenticate if asked, then click <strong>Open</strong> in the next prompt.</li>
+          </ol>
+          <div class="install-guide__actions">
+            <a class="btn btn--ghost" href="x-apple.systempreferences:com.apple.preference.security">Open Privacy &amp; Security on Mac</a>
+            <a href="https://support.apple.com/en-us/102445">Apple’s first-launch guide</a>
+          </div>
+          <p class="install-guide__note">Your browser may ask to open System Settings. If the button doesn’t open the right pane, follow the steps above. Open Anyway appears only after a blocked launch and may be unavailable on a managed Mac. This button opens settings; you choose whether to allow DropDuo. For a “will damage your computer” or “damaged” alert, stop and report it instead of using these steps.</p>
+          <div class="install-guide__trust">
+            <h4>Public code. Open to contributions.</h4>
+            <p>DropDuo is open source under Apache-2.0. Anyone can inspect the code, build it themselves, report issues, or propose improvements. Transfers stay on your local network, with no account, cloud uploads, ads, or analytics. Open source lets you inspect how it works; it does not replace Apple notarization or an independent security review. This is an early alpha and has not had an independent security audit.</p>
+            <p><a href="https://github.com/rohit-yadavv/dropduo">View the source</a> · <a href="https://github.com/rohit-yadavv/dropduo/blob/develop/CONTRIBUTING.md">Contribute</a> · <a href="https://github.com/rohit-yadavv/dropduo/blob/develop/docs/downloads.md">Verify download checksums</a></p>
           </div>
         </div>
       </div>

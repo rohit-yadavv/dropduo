@@ -44,7 +44,7 @@ def main():
             if len(ref) > 1 and ref[1:] not in parser.ids:
                 errors.append(f"missing anchor {ref}")
             continue
-        if re.match(r"^[a-z]+:", ref) or "/" not in ref and "." not in ref:
+        if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*:", ref) or "/" not in ref and "." not in ref:
             continue
         path = ref.split("#")[0]
         if not (OUT / path).is_file():

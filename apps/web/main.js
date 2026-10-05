@@ -268,17 +268,13 @@
       status.textContent = "Coming soon";
       return;
     }
-    let development = false;
     let apk = null;
     for (const [key, pattern] of Object.entries(patterns)) {
       const asset = release.assets.find((a) => pattern.test(a.name));
       if (key === "android") apk = asset;
       document.querySelectorAll(`[data-asset="${key}"]`).forEach((link) => { link.href = asset ? asset.url : release.page; });
       if (asset?.size) document.querySelectorAll(`[data-size="${key}"]`).forEach((size) => { size.textContent = formatSize(asset.size); });
-      if (asset && /-development\./i.test(asset.name)) development = true;
     }
-    // Development builds are ad-hoc signed on Mac, so explain Gatekeeper's prompt.
-    document.querySelectorAll("[data-dev-note]").forEach((note) => { note.hidden = !development; });
     const version = release.tag.replace(/^v/, "");
     status.textContent = release.prerelease ? `v${version}, pre-release` : `v${version}`;
     status.href = release.page;

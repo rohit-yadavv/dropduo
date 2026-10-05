@@ -32,7 +32,7 @@ All messages have type and a UUID id. Fields are omitted when unused.
 |---|---|---|
 | offer | id,name,size,sha256 | Validate metadata and prepare/resume a partial file |
 | accept | id,offset | Receiver's verified metadata-matched partial size |
-| chunk | id,offset,data | Base64 raw bytes, at most 196608 bytes; offset must equal current length |
+| chunk | id,offset,data | Base64 raw bytes, at most 196608 bytes; offset must equal current length. Do not escape `/` in JSON, or a chunk can exceed the frame limit |
 | ack | id,offset | Confirm next offset after durable chunk write |
 | finish | id | Verify complete size and SHA-256, then publish file |
 | complete | id | Confirm published file or accepted text |
@@ -40,7 +40,7 @@ All messages have type and a UUID id. Fields are omitted when unused.
 | error | id,error | Transfer-scoped failure |
 | text | id,text | Explicitly shared UTF-8 text, at most 64000 bytes |
 
-Stop-and-wait chunks bound memory and simplify resume; throughput tuning follows measured results. Maximum file size is 32 GiB, up to four active incoming/outgoing files per peer. Filenames must be nonempty, at most 218 UTF-8 bytes, not dot/dot-dot, and contain no path separators or control characters. Destination prefixes a UUID to prevent collisions. Partial storage is scoped per paired peer. Invalid hashes/sizes/offsets must fail. Completed matching files make retry idempotent. Abandoned partials expire after seven days. Sender retains source and transfer ID for explicit retry; no cloud/offline delivery guarantee.
+Stop-and-wait chunks bound memory and simplify resume; throughput tuning follows measured results. Maximum file size is 32 GiB, up to four active incoming/outgoing files per peer. Filenames must be nonempty, at most 218 UTF-8 bytes, not dot/dot-dot, and contain no path separators or control characters. Destination prefixes a UUID to prevent collisions. Partial storage is scoped per paired peer. Invalid hashes/sizes/offsets must fail. Completed matching files make retry idempotent. Abandoned partials expire after seven days. Sender retains source and transfer ID to retry; after a connection loss it re-offers the same ID on reconnect and resumes from the accepted offset. No cloud/offline delivery guarantee.
 
 ## Compatibility fixtures
 

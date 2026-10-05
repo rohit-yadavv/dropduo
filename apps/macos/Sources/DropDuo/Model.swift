@@ -6,6 +6,8 @@ struct Device: Codable, Identifiable { var id: String; var name: String }
 struct Transfer: Codable, Identifiable {
     var id: String; var peer: String; var name: String; var direction: String; var state: String
     var progress: Double; var path: String?; var text: String?; var error: String?; var date: Date
+    /// Set when a sent file was cut off by a lost connection; it resumes when the peer reconnects.
+    var autoRetry: Bool?
 }
 @MainActor final class AppModel: ObservableObject {
     @Published var targeted = false
@@ -23,6 +25,7 @@ struct Transfer: Codable, Identifiable {
     private let stateRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/DropDuo", isDirectory: true)
     private let server = PortServer()
     private var engines: [String: PeerEngine] = [:]
+    private var running: Set<String> = []
     private var pending: Ticket?
     private var pendingApproval = false
     private var port = 53318
@@ -36,7 +39,10 @@ struct Transfer: Codable, Identifiable {
         UserDefaults.standard.set(hostID, forKey: "dropduo.hostID")
         try? FileManager.default.createDirectory(at: stateRoot, withIntermediateDirectories: true)
         devices = load("devices.json") ?? []; transfers = load("history.json") ?? []
-        for index in transfers.indices where ["Preparing", "Sending", "Receiving"].contains(transfers[index].state) { transfers[index].state = "Interrupted" }
+        for index in transfers.indices where ["Preparing", "Sending", "Receiving"].contains(transfers[index].state) {
+            transfers[index].state = "Interrupted"
+            if transfers[index].direction == "Sent", transfers[index].path != nil { transfers[index].autoRetry = true }
+        }
         receiving = UserDefaults.standard.object(forKey: "dropduo.receiving") as? Bool ?? true
         selected = devices.first?.id ?? ""
         server.lookup = { [weak self] hello in
@@ -99,6 +105,7 @@ struct Transfer: Codable, Identifiable {
             let engine = PeerEngine(channel: channel, inbox: inbox) { [weak self] event in Task { @MainActor in self?.record(event, peer: id) } }
             engines[id] = engine; online.insert(id); if selected.isEmpty { selected = id }
             await engine.setReceiving(receiving)
+            resumePending(id)
             do { try await engine.run() } catch { status = "Connection ended. Your phone will reconnect when reachable." }
             if engines[id] === engine { engines.removeValue(forKey: id); online.remove(id) }
         } catch { self.error = error.localizedDescription; await channel.close() }
@@ -108,6 +115,7 @@ struct Transfer: Codable, Identifiable {
             transfers[index].state = event.state; transfers[index].progress = event.progress
             transfers[index].path = event.path ?? transfers[index].path
             transfers[index].text = event.text ?? transfers[index].text; transfers[index].error = event.error
+            if ["Complete", "Cancelled"].contains(event.state) { transfers[index].autoRetry = nil }
         } else {
             transfers.insert(Transfer(id: event.id, peer: peer, name: event.name, direction: event.direction, state: event.state,
                 progress: event.progress, path: event.path, text: event.text, error: event.error, date: Date()), at: 0)
@@ -116,18 +124,36 @@ struct Transfer: Codable, Identifiable {
         if ["Complete", "Interrupted", "Cancelled"].contains(event.state) { save(transfers, "history.json") }
     }
     func chooseFiles() { let panel = NSOpenPanel(); panel.allowsMultipleSelection = true; panel.canChooseDirectories = false; if panel.runModal() == .OK { send(panel.urls) } }
-    func send(_ files: [URL], retryID: String? = nil) {
-        guard let engine = engines[selected] else { error = "Your phone is offline. Open DropDuo on it and connect to the same local network."; return }
-        let peer = selected
-        Task { for file in files {
-            let id = retryID ?? UUID().uuidString
+    func send(_ files: [URL]) { send(files.map { ($0, UUID().uuidString) }, to: selected) }
+    /// Sends one file at a time so resumed batches stay within the peer's active-transfer limit.
+    private func send(_ files: [(url: URL, id: String)], to peer: String) {
+        guard let engine = engines[peer] else { error = "Your phone is offline. Open DropDuo on it and connect to the same local network."; return }
+        let files = files.filter { running.insert($0.id).inserted }
+        Task { for (file, id) in files {
+            if transfers.first(where: { $0.id == id && $0.peer == peer })?.state == "Cancelled" { running.remove(id); continue }
             record(PeerEvent(id: id, name: file.lastPathComponent, direction: "Sent", state: "Preparing", path: file.path), peer: peer)
-            do { try await engine.sendFile(file, id: id) } catch { self.error = error.localizedDescription }
+            do { try await engine.sendFile(file, id: id); running.remove(id) } catch {
+                running.remove(id)
+                let interrupted = (error as? PortError)?.isInterruption == true
+                if let index = transfers.firstIndex(where: { $0.id == id && $0.peer == peer }) { transfers[index].autoRetry = interrupted ? true : nil; save(transfers, "history.json") }
+                if !interrupted { self.error = error.localizedDescription }
+                // The phone may have reconnected while this attempt was still failing on the old connection.
+                else if let current = engines[peer], current !== engine { resumePending(peer) }
+            }
         } }
     }
+    private func resumePending(_ peer: String) {
+        let pending = transfers.filter { $0.peer == peer && $0.direction == "Sent" && $0.state == "Interrupted" && $0.autoRetry == true && !running.contains($0.id) }
+            .reversed().compactMap { transfer in transfer.path.map { (url: URL(fileURLWithPath: $0), id: transfer.id) } }
+        if !pending.isEmpty { send(Array(pending), to: peer) }
+    }
     func sendText() { guard let engine = engines[selected] else { error = "Connect your phone first."; return }; let value = text; Task { do { try await engine.sendText(value); text = "" } catch { self.error = error.localizedDescription } } }
-    func cancel(_ transfer: Transfer) { if let engine = engines[transfer.peer] { Task { await engine.cancel(transfer.id) } } }
-    func retry(_ transfer: Transfer) { guard let path = transfer.path else { return }; selected = transfer.peer; send([URL(fileURLWithPath: path)], retryID: transfer.id) }
+    func cancel(_ transfer: Transfer) {
+        if let index = transfers.firstIndex(where: { $0.id == transfer.id && $0.peer == transfer.peer }), transfers[index].autoRetry == true {
+            transfers[index].autoRetry = nil; transfers[index].state = "Cancelled"; save(transfers, "history.json")
+        }
+        if let engine = engines[transfer.peer] { Task { await engine.cancel(transfer.id) } } }
+    func retry(_ transfer: Transfer) { guard let path = transfer.path else { return }; selected = transfer.peer; send([(URL(fileURLWithPath: path), transfer.id)], to: transfer.peer) }
     func forget(_ device: Device) {
         let engine = engines.removeValue(forKey: device.id); Task { await engine?.stop() }
         online.remove(device.id); SecureStore.remove(device.id); devices.removeAll { $0.id == device.id }; save(devices, "devices.json")

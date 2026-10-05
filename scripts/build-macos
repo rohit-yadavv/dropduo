@@ -20,19 +20,9 @@ info['DropDuoVersion'] = version['versionName']
 path.write_bytes(plistlib.dumps(info))
 PY
 cp apps/macos/Resources/DropDuo.icns "$app/Contents/Resources/DropDuo.icns"
-# Bundle.module searches the app's Resources directory first.
-resource_bundle="$app/Contents/Resources/DropDuo_DropDuo.bundle"
-# SwiftPM emits a flat bundle on some toolchains, a Contents bundle on others.
-# Normalize both into a resource bundle that codesign and Bundle.module accept.
-rm -rf "$resource_bundle"
-mkdir -p "$resource_bundle/Contents/Resources"
-if [ -d "$bin/DropDuo_DropDuo.bundle/Contents/Resources" ]; then
-  cp -R "$bin/DropDuo_DropDuo.bundle/Contents/Resources/." "$resource_bundle/Contents/Resources/"
-else
-  cp -R "$bin/DropDuo_DropDuo.bundle/." "$resource_bundle/Contents/Resources/"
-fi
-cp apps/macos/Resources/BundleInfo.plist "$resource_bundle/Contents/Info.plist"
-codesign --force --sign "${DROPDUO_SIGN_IDENTITY:--}" "$resource_bundle"
+# Images live directly in the app's Resources so Bundle.main finds them; no nested SwiftPM bundle to lose.
+rm -rf "$app/Contents/Resources/DropDuo_DropDuo.bundle"
+cp apps/macos/Sources/DropDuo/Resources/*.png "$app/Contents/Resources/"
 if [ "${DROPDUO_SIGN_IDENTITY:--}" = '-' ]; then
   codesign --force --sign - "$app"
 else

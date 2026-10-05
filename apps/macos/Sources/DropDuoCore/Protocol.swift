@@ -3,7 +3,12 @@ import CryptoKit
 
 public enum PortError: Error, LocalizedError {
     case invalid(String)
-    public var errorDescription: String? { if case let .invalid(message) = self { return message }; return "Connection failed" }
+    /// The connection dropped mid-transfer; the sender resumes automatically on reconnect.
+    case interrupted(String)
+    public var errorDescription: String? {
+        switch self { case let .invalid(message), let .interrupted(message): return message }
+    }
+    public var isInterruption: Bool { if case .interrupted = self { return true }; return false }
 }
 public enum Wire {
     public static let version = 1
@@ -32,6 +37,11 @@ public enum Wire {
         var hash = SHA256()
         while let data = try handle.read(upToCount: chunkSize), !data.isEmpty { hash.update(data: data) }
         return hash.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+    /// Base64 contains "/", which Foundation escapes to two bytes by default; unescaped chunks always fit in one frame.
+    public static func encode(_ message: Message) throws -> Data {
+        let encoder = JSONEncoder(); encoder.outputFormatting = .withoutEscapingSlashes
+        return try encoder.encode(message)
     }
     public static func integer(_ value: UInt64) -> Data { var v = value.bigEndian; return Data(bytes: &v, count: 8) }
 }

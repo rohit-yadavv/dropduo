@@ -21,6 +21,11 @@ class CoreTest {
         val damaged = field("frame").also { it[it.lastIndex] = (it.last().toInt() xor 1).toByte() }
         assertTrue(runCatching { FrameCipher(key).open(damaged) }.isFailure)
     }
+    @Test fun worstCaseChunkFitsInFrame() {
+        // 0xFF bytes encode to base64 "/" only, the character JSON encoders may escape.
+        val chunk = Message("chunk", UUID.randomUUID().toString(), offset = Long.MAX_VALUE, data = Wire.b64(ByteArray(Wire.CHUNK_SIZE) { -1 }))
+        assertTrue(FrameCipher(ByteArray(32)).seal(Wire.gson.toJson(chunk).toByteArray()).size <= Wire.MAX_FRAME)
+    }
     @Test fun resumedFileAndPathValidation() {
         val dir = Files.createTempDirectory("dropduo-test").toFile()
         try {

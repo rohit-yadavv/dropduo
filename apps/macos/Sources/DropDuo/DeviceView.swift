@@ -143,7 +143,8 @@ struct TransferBubble: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(transfer.name).lineLimit(1).truncationMode(.middle).font(.body.weight(.medium))
                 if active { ProgressView(value: transfer.progress).controlSize(.small) }
-                if let error = transfer.error, transfer.state != "Complete" { Text(error).font(.caption).foregroundStyle(.orange).lineLimit(2) }
+                if transfer.state == "Interrupted", transfer.autoRetry == true { Text("Resumes when your phone reconnects").font(.caption).foregroundStyle(.secondary).lineLimit(2) }
+                else if let error = transfer.error, transfer.state != "Complete" { Text(error).font(.caption).foregroundStyle(.orange).lineLimit(2) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             actions
@@ -166,6 +167,10 @@ struct TransferBubble: View {
             Button { reveal(path) } label: { Image(systemName: "magnifyingglass") }.buttonStyle(.borderless).help("Show in Finder").accessibilityLabel("Show in Finder")
         } else if transfer.state == "Interrupted", sent, transfer.path != nil {
             Button("Retry") { model.retry(transfer) }.controlSize(.small)
+            if transfer.autoRetry == true {
+                Button { model.cancel(transfer) } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                    .buttonStyle(.borderless).help("Stop resuming").accessibilityLabel("Stop resuming transfer")
+            }
         } else if active {
             Button { model.cancel(transfer) } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
                 .buttonStyle(.borderless).help("Cancel").accessibilityLabel("Cancel transfer")

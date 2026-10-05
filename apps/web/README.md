@@ -1,14 +1,11 @@
-# DropDuo website
+# Website
 
-Static landing and download page. No framework, bundler, or package install.
+Dependency-free HTML, CSS, and JavaScript. Build with `./scripts/check web`, then preview using `python3 -m http.server 4173 -d dist/web`.
 
-- `index.html`, `styles.css`, `main.js`: the page. Light and dark follow the system setting until the visitor uses the nav toggle, which is remembered in `localStorage` (`dropduo:theme`). Theme colors key off `:root[data-theme]`, set before first paint by the head script; motion is disabled under `prefers-reduced-motion`.
-- The inline mark in `index.html` mirrors `branding/mark.json`. Update both if the mark changes. `scripts/build-web` copies the generated icon files into `assets/brand/`.
-- Downloads come from the GitHub Releases API at view time. Asset names must keep the pattern in [downloads](../../docs/downloads.md) (`-macos-arm64`, `-macos-x86_64`, `-android` with optional `-development`). With no published release, the page shows a pending state linking to development builds.
-- `assets/img/` holds real Android emulator screenshots (light and dark). Recapture them when the home screen changes. A Mac app screenshot is still wanted.
+- `index.html`, `styles.css`, `main.js`: page; system light/dark theme with remembered toggle (`dropduo:theme`), reduced-motion support.
+- GitHub Releases API provides downloads. Keep asset patterns aligned with [downloads](../../docs/downloads.md). Without a release, link development builds; API failures fall back to Releases.
+- Desktop Android downloads include a QR code; vendor script loads only when needed.
+- `mac-install.html`: separate first-launch page and source/contribution/checksum links. The best-effort `x-apple.systempreferences:com.apple.preference.security` link opens Settings, never approves the app. Keep manual fallback; native navigation needs Mac verification.
+- Inline mark mirrors `branding/mark.json`; build copies icon exports to `assets/brand/`. Android screenshots are in `assets/img/`; a Mac screenshot is still wanted.
 
-On computers, the Android download is also shown as a QR code (level H, app tile in the centre) that points straight at the APK; `assets/vendor/qrcode.js` loads only then.
-
-Third-party assets: qrcode-generator 2.0.4 (MIT, `assets/vendor/LICENSE-qrcode-generator.txt`), Geist and Geist Mono fonts (SIL OFL 1.1, `assets/fonts/LICENSE-geist.txt`) and Phosphor Icons 2.1.1 regular (MIT, `assets/LICENSE-phosphor.txt`), plus the Apple and Android logos from Simple Icons 16.33.0 (CC0 1.0; the logos remain their owners' trademarks), compiled into `assets/icons.svg`.
-
-Build and preview: `./scripts/check web`, then `python3 -m http.server 4173 -d dist/web`.
+Vendored assets: qrcode-generator 2.0.4 (MIT), Geist fonts (OFL 1.1), Phosphor Icons 2.1.1 (MIT), and Simple Icons 16.33.0 Apple/Android logos (CC0; trademarks retained). Keep license files and [dependency notices](../../docs/dependencies.md) current.

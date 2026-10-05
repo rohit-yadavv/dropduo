@@ -1100,3 +1100,20 @@ a.download__version:hover { color: var(--accent-text); text-decoration: underlin
   html { scroll-behavior: auto; }
   .tile { transition: none; }
 }
+
+/* First-launch help remains available even when release lookup fails. */
+.install-guide { margin-top: 36px; padding: clamp(24px, 4vw, 44px); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); scroll-margin-top: 96px; }
+.install-guide h1 { font-size: clamp(1.4rem, 3vw, 1.8rem); }
+.install-guide p { margin-top: 14px; max-width: 78ch; }
+.install-guide ol { list-style: decimal; margin: 24px 0; padding-left: 24px; max-width: 78ch; }
+.install-guide li { padding-left: 6px; margin-top: 12px; }
+.install-guide a:not(.btn) { color: var(--accent-text); text-decoration: underline; text-underline-offset: 4px; }
+.install-guide__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; }
+.install-guide .install-guide__note { font-size: 0.9375rem; color: var(--muted); }
+.install-guide__trust { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--line); }
+.install-guide__trust h4 { font-size: 1.125rem; }
+
+.install-page { padding: 112px 0 80px; }
+.install-page .wrap { max-width: 1000px; }
+.install-page__back { color: var(--accent-text); text-decoration: underline; text-underline-offset: 4px; }
+.install-page .install-guide { margin-top: 24px; }

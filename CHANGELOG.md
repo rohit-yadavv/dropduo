@@ -2,21 +2,22 @@
 
 ## Unreleased
 
+- Simplify the README and docs; consolidate FAQ answers into the setup guide.
+- Add Mac first-launch instructions, a Settings shortcut, and public-source links.
+
 ## 0.1.0-alpha.2
 
-- Redesign the Mac app around a sidebar of paired devices and a per-device timeline of sent and received items, with a composer bar, drop-anywhere sending, an offline banner, a pairing sheet with an expiry countdown, and a standard Settings window.
-- Rewrite the product introduction and user guides around everyday Mac–Android sharing; add a sourced competitor comparison, FAQ, and documentation index.
-- Add an animated, dependency-free product website with platform-aware Mac and Android downloads from the latest published release, plus a GitHub Pages workflow.
-- Reduce redundant CI runs: build/quality checks on develop and master pushes plus PRs, skipped for docs- and website-only changes, and CodeQL on PRs into master and weekly. Preserve all tests, platform coverage, and release automation.
+- Redesign Mac sharing with a device sidebar, transfer timeline, composer, drop-anywhere sending, and pairing/settings sheets.
+- Add user guides and a documentation index for Mac–Android sharing.
+- Add a static download website with platform-aware release links and GitHub Pages deployment.
+- Reduce duplicate CI runs; skip native builds for docs/web-only changes and run CodeQL on master PRs and weekly.
 
 ## 0.1.0-alpha.1
 
 - Add Apple Silicon and Intel Mac development downloads, repair hosted SDK/resource-bundle setup, and include download checksums.
 - Add tag-validated release drafts, optional distribution signing/notarization, shared version metadata, workflow guard checks, CodeQL, dependency review, and Dependabot configuration.
 - Adopt the bold overlapping double-D icon in ink and cobalt on pure white across native app launchers and headers.
-
 - Adopt DropDuo branding throughout the native apps, package identifiers, protocol namespace, documentation, scripts, and artifacts. Earlier working-name alpha builds require fresh pairing on both devices.
-
 - Native Mac and Android apps with persistent approved pairing and encrypted local transfer.
 - Bidirectional file, photo, video, explicit text/link sharing; progress, cancellation, and manual resume/retry.
 - Local recent history, receiver controls, device revocation, native Android Share target, and Mac menu bar access.

@@ -1,45 +1,23 @@
-# Git standards and workflow
+# Git workflow
 
 ## Solo v1 exception
 
-For initial development only, the user authorizes coherent milestone commits directly on `develop`. No PR/reviewer is required for these local commits. This exception does not authorize direct commits to staging/master, pushing, publishing, or self-merging future PRs. Transition to the normal workflow when collaboration begins.
+Local milestone commits on `develop` are authorized during initial solo development, without a PR/reviewer. This does not authorize pushing, publishing, direct staging/master commits, or self-merging PRs. Use the normal flow once collaborating.
 
-## Long-lived branches
+## Branches and review
 
-| Branch | Purpose |
-|---|---|
-| develop | Active development and integration |
-| staging | Pre-production testing and QA |
-| master | Production-ready code only |
+- `develop`: active development. Start `feature/<name>` or `fix/<name>` here.
+- `staging`: pre-production QA.
+- `master`: production. Publish/deploy from here only.
 
-No direct commits to staging or master. Normal changes require PRs.
+Normal flow: feature/fix → develop → staging → master, through PRs. Hotfixes start at master and merge back into both develop and staging. No direct staging/master commits.
 
-## Short-lived branches
+Keep PRs focused. Explain behavior, validation, and limitations; link issues. Require at least one reviewer, no self-merge or force-push after review. Never auto-merge security-sensitive changes.
 
-| Type | Name | From | Into |
-|---|---|---|---|
-| Feature | feature/<short-desc> | develop | develop |
-| Fix | fix/<short-desc> | develop | develop |
-| Hotfix | hotfix/<short-desc> | master | master, then develop and staging |
+## Commits and versions
 
-Standard: feature/fix → develop → staging → master. Hotfix: hotfix → master → develop → staging. Always back-merge hotfixes. Reserve hotfix for production-critical bugs.
+Use `<type>: <short imperative description>`. Types: feat, fix, hotfix, refactor, chore, docs, test. No secrets or unrelated changes. Enable hooks with `git config core.hooksPath .githooks`.
 
-## Commits
+Use SemVer tags `vMAJOR.MINOR.PATCH`; prereleases use suffixes such as `v0.1.0-alpha.1`. After reviewed promotion to master, tag the matching version and changelog. Release CI checks/builds the tag and prepares a draft; stable versions require signed distribution. Maintainers review and publish. See [releases](releases.md).
 
-`<type>: <short description>`
-
-Types: feat, fix, hotfix, refactor, chore, docs, test. Use an imperative concise description. Examples: `feat: add trusted device pairing`, `fix: resume interrupted transfers safely`. Never include secrets or unrelated changes. Hook setup: `git config core.hooksPath .githooks`.
-
-## Pull requests
-
-One feature/fix per PR. Explain what, why, and impact; link an issue when applicable. Include validation and limitations. Minimum one reviewer, no self-merge, no force-push after review.
-
-## Versions and releases
-
-Tags: vMAJOR.MINOR.PATCH. Breaking change → major; feature → minor; fix → patch. Pre-release builds use v0.1.0-alpha.N. Merge staging into master, create an annotated version tag, push the tag, publish/deploy from master only. Example commands: `git tag -a v1.0.0 -m "DropDuo 1.0.0"`, `git push origin v1.0.0`. The Release workflow validates master ancestry, app versions and changelog; checks/builds all platforms and prepares a draft. Stable versions require signed distribution mode and configured credentials. A maintainer reviews and publishes the draft. See [release guide](releases.md).
-
-## Hosted protections
-
-Protect develop, staging, and master: PR required, checks pass, no direct pushes. Solo exception may require a temporary scoped bypass on develop. Configure these in the repository host once a remote exists; files alone do not enable protections.
-
-Avoid long-running feature branches, mixed-feature PRs, direct staging/master commits, and hotfixes without back-merging.
+Configure branch protections in GitHub: PRs, passing checks, no direct pushes, with a scoped solo-v1 exception for develop. Repository files do not enable hosted protections.

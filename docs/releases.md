@@ -57,7 +57,7 @@ Distribution verifies Android with `apksigner`; Mac uses a temporary keychain, h
 
 Inspect draft notes and assets: Apple Silicon ZIP, Intel ZIP, Android APK, `SHA256SUMS`, per-asset checksums/JSON metadata, `LICENSE`, `NOTICE`, `DEPENDENCIES.md`, and required third-party license texts. Install those exact assets on clean devices; verify same-key Android upgrades for distribution builds.
 
-Keep alpha/beta/rc marked **pre-release**. Publish when satisfied. Published assets are public and do not expire after CI's 30-day retention; drafts require maintainer access.
+Releases are never marked **pre-release**, so GitHub and the website always offer the newest published build; the `-alpha` version suffix still signals early, unsigned builds. Publish when satisfied. Published assets are public and do not expire after CI's 30-day retention; drafts require maintainer access.
 
 ## CI and repository settings
 

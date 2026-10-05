@@ -168,9 +168,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.gate.outputs.tag }}
-          PRERELEASE: ${{ needs.gate.outputs.prerelease }}
         run: |
+          # Published releases are always full releases so GitHub and the website offer the newest build.
           args=(--draft --verify-tag --title "DropDuo $TAG" --notes-file dist/release-notes.md)
-          if [[ "$PRERELEASE" == 'true' ]]; then args+=(--prerelease); fi
           # Never overwrite a release or assets from an earlier run.
           gh release create "$TAG" dist/release/* "${args[@]}"

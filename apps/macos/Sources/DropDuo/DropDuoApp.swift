@@ -37,8 +37,10 @@ struct MainView: View {
         NavigationSplitView {
             Sidebar(model: model).navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 320)
         } detail: {
-            if let device = model.selectedDevice { DeviceView(model: model, device: device).id(device.id) }
-            else { WelcomeView(model: model) }
+            Group {
+                if let device = model.selectedDevice { DeviceView(model: model, device: device).id(device.id) }
+                else { WelcomeView(model: model) }
+            }.seamlessToolbar()
         }
         .sheet(isPresented: Binding(get: { model.ticket != nil }, set: { if !$0 { model.cancelPairing() } })) { PairingView(model: model).tint(Brand.cobalt) }
         .alert("DropDuo", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("OK") { model.error = nil } } message: { Text(model.error ?? "") }
@@ -127,5 +129,13 @@ struct WelcomeView: View {
                 Text(text)
             }
         }
+    }
+}
+
+private extension View {
+    /// macOS 26+ draws no title-bar separator; content scrolls under the toolbar's edge effect instead.
+    /// Without this, the detail toolbar's separator overhangs the sidebar divider by a few points.
+    @ViewBuilder func seamlessToolbar() -> some View {
+        if #available(macOS 26, *) { toolbarBackgroundVisibility(.hidden, for: .windowToolbar) } else { self }
     }
 }

@@ -16,7 +16,6 @@ struct DeviceView: View {
             if !online { offlineBanner }
             composer
         }
-        .background(Color(nsColor: .textBackgroundColor).opacity(0.35))
         .navigationTitle(device.name)
         .navigationSubtitle(online ? "Connected" : "Not reachable")
         .toolbar {

@@ -1,6 +1,6 @@
 # Alpha validation evidence
 
-Recorded 2026-10-02 during local development. Check the Git log for the associated implementation and validation commits; this document is not a public release certification.
+Evidence recorded **2026-10-02**; these results do not certify physical-device reliability or production signing.
 
 | Check | Result and scope |
 | --- | --- |
@@ -16,12 +16,11 @@ Not yet verified: production Mac pairing approval/rejection with a physical phon
 
 Run the repeatable commands in [development](development.md), then record physical-device results against [testing](testing.md). Resume tests seeded partial data; do not describe them as verified recovery from every possible network interruption.
 
-## DropDuo rename verification
+## Rename and hosted checks
 
-On 2026-10-02 the core checks, native builds, Android lint, Swift/JVM interoperability, and Android emulator foreground-service/Keystore integration passed again using DropDuo application IDs and protocol namespaces. The shared cryptographic fixture was regenerated for the new domain separators. Earlier working-name alpha pairings are incompatible; both devices must install DropDuo and pair again.
+The same local checks and emulator integration passed again on 2026-10-02 with DropDuo IDs/domain separators and regenerated crypto fixtures. Earlier working-name pairings are incompatible; install both apps and pair again.
 
-## Hosted CI
+- [Checks 36987826448](https://github.com/rohit-yadavv/dropduo/actions/runs/36987826448), commit `4facb44`: Android tests/build/lint, both Mac architectures/packaging/signature checks, and interoperability passed. Uploaded development assets/reports. Fixed obsolete Android SDK setup and Mac resource-bundle layout from the earlier failed run.
+- [Release 37008988771](https://github.com/rohit-yadavv/dropduo/actions/runs/37008988771), master `90dc7e7`: all nine jobs passed. Published [0.1.0-alpha.1](https://github.com/rohit-yadavv/dropduo/releases/tag/v0.1.0-alpha.1) as a development prerelease. Download checksums, Mac ad-hoc signatures/architectures, Android signature/version, and public HTTP downloads were verified.
 
-On 2026-10-02, [Checks run 36987826448](https://github.com/rohit-yadavv/dropduo/actions/runs/36987826448) at commit `4facb44` passed Android tests/build/lint, Apple Silicon Mac tests/packaging, Intel Mac tests/packaging, signature validation, and Swift/JVM interoperability. It uploaded all three development downloads and Android reports. The initial run at `8b6ff02` had failed because the Android setup action requested obsolete SDK `tools` and the Mac resource bundle layout differed between Swift toolchains; both were corrected. This hosted result does not verify real-phone behavior or production signing.
-
-On 2026-10-02, [Release run 37008988771](https://github.com/rohit-yadavv/dropduo/actions/runs/37008988771) passed all nine jobs at master commit `90dc7e7`. [0.1.0-alpha.1](https://github.com/rohit-yadavv/dropduo/releases/tag/v0.1.0-alpha.1) was published as a development prerelease. All three downloaded installer checksums, Mac ad-hoc signatures and architectures, and Android APK signature/version were verified; public download URLs returned HTTP 200. Physical-device checks remain outstanding. No real-credential distribution signing/notarization run has been performed.
+Physical-device checks and real-credential distribution signing/notarization remain outstanding.

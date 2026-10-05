@@ -1,6 +1,6 @@
 # Architecture
 
-One monorepo, two native apps, one versioned protocol. Swift/SwiftUI on macOS; Kotlin/Compose on Android. No shared Rust engine or external backend in v1.
+One monorepo, two native apps, one versioned protocol. Swift/SwiftUI on macOS; Kotlin/Compose on Android. No shared UI/engine or external backend in v1. Native system integration and independently tested protocol implementations are the v1 design choice.
 
 Mac advertises a Bonjour TCP listener. Android discovers and opens a persistent authenticated connection; both sides can initiate transfers over it. QR pairing bypasses discovery but does not bypass network isolation. Discovery is a reachability hint, not authentication.
 

@@ -1,7 +1,7 @@
 # Security policy
 
-DropDuo is pre-release software; no independent security audit has been completed. The current development version receives fixes.
+DropDuo is pre-release software without an independent security audit. The current development version receives fixes.
 
-Do not report exploitable vulnerabilities with secrets in public issues. Once a GitHub remote is configured, use its private vulnerability reporting feature. Until that channel exists, do not upload sensitive reports publicly; ask the maintainer for a private channel without disclosing exploit details.
+Report vulnerabilities through GitHub private vulnerability reporting **when enabled**. Otherwise ask the maintainer for a private channel without sharing exploit details. Never post secrets or sensitive reports in public issues.
 
-Threat model and protocol details live in `docs/security.md` and `protocol/SPEC.md`. Pair only devices you control. A compromised paired device can send files. Revoking trust prevents new sessions and closes existing sessions. Downloaded copies cannot be remotely revoked.
+Pair only devices you control. A compromised paired device can send files. Forgetting a device closes sessions and revokes local trust, but cannot revoke received copies. See [security design](docs/security.md) and [protocol](protocol/SPEC.md).

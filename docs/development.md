@@ -1,52 +1,44 @@
 # Development
 
-## Prerequisites
+## Requirements
 
-- macOS 14+, Swift 6, and a macOS SDK. Install Apple's Command Line Tools or Xcode. The executable checks work with Command Line Tools; full Xcode is useful for debugging and distribution.
-- Java 17. Android SDK platform 36 and build tools 36.0.0. Install with Android Studio's SDK Manager. Set `ANDROID_HOME`, or create ignored `apps/android/local.properties` with `sdk.dir=<absolute SDK path>`. The check script recognizes the default macOS SDK location.
-- Python 3 for the disposable emulator ticket rewrite. Android SDK `adb` on PATH for emulator checks.
+- macOS 14+, Swift 6, and a macOS SDK via Command Line Tools or Xcode. Full Xcode helps with debugging/distribution.
+- Java 17; Android SDK 36 and build tools 36.0.0. Set `ANDROID_HOME` or ignored `apps/android/local.properties` (`sdk.dir=<absolute path>`). Scripts recognize the default macOS SDK location.
+- Python 3; Android SDK `adb` on PATH for emulator checks.
 
-Pinned build components: Gradle 8.13 (checksum-verified wrapper), Android Gradle Plugin 8.12.0, Kotlin/Compose compiler 2.2.10. Android min SDK 29, target/compile SDK 36. See Gradle files for dependency pins. Do not upgrade them without verifying both protocol implementations.
+Gradle/AGP/Kotlin pins live in the build files. Android min SDK is 29; target/compile SDK is 36. Verify both protocol implementations after dependency upgrades.
 
-## Commands
+## Build and check
 
-Run from the repository root:
+From the repository root:
 
 ```sh
-./scripts/doctor                 # report prerequisites
-./scripts/check macos            # Swift core assertions and app compile
-./scripts/check android          # JVM tests, APK build, Android lint
-./scripts/interop                # real Swift/JVM socket interoperability
-./scripts/check all              # all the above
-./scripts/build-macos            # release configuration; development ad-hoc signing
-python3 -m unittest discover -s scripts/tests -v # release metadata guards
+./scripts/doctor
+./scripts/check macos       # Swift core checks and app build
+./scripts/check android     # JVM tests, APK build, lint
+./scripts/interop           # Swift/JVM socket compatibility
+./scripts/check all         # native checks, interoperability, website
+./scripts/build-macos       # release config, ad-hoc signing
 open dist/DropDuo.app
 ./apps/android/gradlew -p apps/android :app:assembleDebug
+python3 -m unittest discover -s scripts/tests -v
 ```
 
-Use `./scripts/build-macos debug` for a debug app bundle. Install the Android debug APK from `apps/android/app/build/outputs/apk/debug/app-debug.apk` through your normal development workflow.
+Use `./scripts/build-macos debug` for a debug bundle. Android APK: `apps/android/app/build/outputs/apk/debug/app-debug.apk`.
 
-`version.properties` is the shared version name and build number. Android reads it during configuration; Mac packaging stamps it into the app Info.plist. Release checks require the matching version tag and released changelog heading. CI/release workflows and signing setup are documented in [releases](releases.md).
+`./scripts/check-emulator` requires a **disposable emulator**, refuses physical devices, installs test APKs, and checks the Android service/Keystore against a Swift host. It grants notification permission and uses synthetic pairing/files. Success cleans test state; failure may leave it. Camera and physical Wi-Fi discovery are not covered.
 
-To verify the real Android service and Keystore, start a **disposable Android emulator**, then run `./scripts/check-emulator`. This installs debug and test APKs, grants notification permission, uses a synthetic pairing ticket, and transfers test files against a Swift host. It refuses physical devices. The test removes its pairing and received test files on success; a failed run may leave synthetic state. It does not test the camera or physical Wi-Fi discovery.
+Read component `AGENTS.md`. Keep Swift/Kotlin core consistent with [the protocol](../protocol/SPEC.md) and fixtures. Never commit local SDK paths, user files, credentials, or signing keys. No release credentials are needed for development.
 
-## Boundaries
+`version.properties` supplies both app versions. See [releases](releases.md), [testing](testing.md), and [Git workflow](git-workflow.md).
 
-Read component AGENTS.md before editing. Swift core and Kotlin core must agree with `protocol/SPEC.md` and shared fixtures. Never commit local SDK paths, received files, pairing credentials, or signing keys. Build output belongs in ignored directories.
-
-No release credentials are needed for development. Distribution requires maintainer-owned signing and notarization, described in [releases](releases.md). GitHub workflows are included; verify their hosted results before release. Branch protection must be configured in GitHub; the workflow files alone do not enable it.
-
-## Website
-
-`apps/web/` is the static download page: plain HTML, CSS and JavaScript with no build dependencies. It reads the newest published GitHub release in the browser and links its Mac and Android assets, falling back to the releases page. Preview it with:
+## Website and branding
 
 ```sh
-./scripts/check web               # assemble dist/web and verify local references
+./scripts/check web
 python3 -m http.server 4173 -d dist/web
 ```
 
-`.github/workflows/web.yml` deploys `master` to GitHub Pages. A maintainer must first set **Settings → Pages → Source** to **GitHub Actions**. See [apps/web/README.md](../apps/web/README.md) for assets and licenses.
+The [static website](../apps/web/README.md) has no build dependencies and reads GitHub release assets. `web.yml` deploys `master`; configure **Settings → Pages → Source → GitHub Actions** first.
 
-## Icon assets
-
-The approved double-D icon uses ink, cobalt, and pure white. See [branding](../branding/README.md) for editable source and exports. Run `./scripts/generate-branding` on macOS to regenerate SVGs, Android vectors, Mac PNG resources, and ICNS after changing `branding/mark.json`. Exported assets are committed, so normal app builds need no graphics tooling.
+After editing `branding/mark.json`, run `./scripts/generate-branding` on macOS and review the committed exports. See [branding](../branding/README.md).

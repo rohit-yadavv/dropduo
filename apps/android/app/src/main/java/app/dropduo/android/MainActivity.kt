@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState); enableEdgeToEdge()
-        setContent { DropDuoApp(Actions(scan = { scan.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt("Scan the code shown on your Mac").setBeepEnabled(false).setOrientationLocked(false)) },
+        setContent { DropDuoApp(Actions(scan = { scan.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt("Scan the code shown on your Mac").setBeepEnabled(false).setOrientationLocked(true)) },
             connect = ::connect, files = { files.launch(arrayOf("*/*")) }, save = { row -> row.path?.let { exportSource = File(it); export.launch(row.name) } }, open = ::openFile)) }
         if (AppState.ticket != null) connect()
         handleShare(intent)

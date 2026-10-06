@@ -101,10 +101,13 @@ public actor PeerEngine {
         self.channel = channel; self.inbox = inbox; self.event = event
     }
     public func setReceiving(_ enabled: Bool) { receivingEnabled = enabled }
+    static let connectionLost = "Connection lost. It resumes when the devices reconnect."
+    static let paused = "Receiving is paused on the other device. Turn it back on there, then retry."
+    static let textTooLong = "Text is too long to send. Share it as a file instead."
     public func run() async throws {
         defer {
             alive = false
-            for offer in incoming.values { event(PeerEvent(id: offer.id!, name: offer.name!, direction: "Received", state: "Interrupted", error: "Connection interrupted; sender can retry")) }
+            for offer in incoming.values { event(PeerEvent(id: offer.id!, name: offer.name!, direction: "Received", state: "Interrupted", error: "Connection lost. The sender can retry when the devices reconnect.")) }
             incoming.removeAll()
         }
         while alive { try await handle(channel.receive()) }
@@ -127,7 +130,7 @@ public actor PeerEngine {
             }
             try await Task.sleep(nanoseconds: 20_000_000)
         }
-        throw PortError.interrupted("Connection interrupted; retry when your device is reachable")
+        throw PortError.interrupted(Self.connectionLost)
     }
     public func sendFile(_ file: URL, id: String = UUID().uuidString) async throws {
         guard !active.contains(id), active.count < 4 else { throw PortError.invalid("Transfer already active") }
@@ -136,8 +139,9 @@ public actor PeerEngine {
             let name = file.lastPathComponent
             event(PeerEvent(id: id, name: name, direction: "Sent", state: "Preparing"))
             let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
-            guard attributes[.type] as? FileAttributeType == .typeRegular, let number = attributes[.size] as? NSNumber,
-                  number.int64Value <= Wire.maxFile else { throw PortError.invalid("Choose a regular file up to 32 GiB") }
+            guard attributes[.type] as? FileAttributeType == .typeRegular, let number = attributes[.size] as? NSNumber
+            else { throw PortError.invalid("Only files can be sent, not folders") }
+            guard number.int64Value <= Wire.maxFile else { throw PortError.invalid("Files larger than 32 GB can't be sent") }
             let size = number.int64Value
             let hash = try await Task.detached { try Wire.hash(file) }.value
             if cancelled.contains(id) { throw PortError.invalid("Transfer cancelled") }
@@ -161,14 +165,16 @@ public actor PeerEngine {
             event(PeerEvent(id: id, name: name, direction: "Sent", state: "Complete", progress: 1, path: file.path))
         } catch {
             let wasCancelled = cancelled.contains(id)
-            event(PeerEvent(id: id, name: file.lastPathComponent, direction: "Sent", state: wasCancelled ? "Cancelled" : "Interrupted", path: file.path, error: error.localizedDescription))
             // Connection loss is resumable; rejections and local failures are not.
-            if !wasCancelled, !alive || error is NWError || (error as? PortError)?.isInterruption == true { throw PortError.interrupted(error.localizedDescription) }
+            let lost = !wasCancelled && (!alive || error is NWError || (error as? PortError)?.isInterruption == true)
+            event(PeerEvent(id: id, name: file.lastPathComponent, direction: "Sent", state: wasCancelled ? "Cancelled" : "Interrupted", path: file.path, error: lost ? Self.connectionLost : error.localizedDescription))
+            if lost { throw PortError.interrupted(Self.connectionLost) }
             throw error
         }
     }
     public func sendText(_ text: String) async throws {
-        guard !text.isEmpty, text.utf8.count <= 64_000 else { throw PortError.invalid("Text must be between 1 and 64000 bytes") }
+        guard !text.isEmpty else { throw PortError.invalid("Type something to send") }
+        guard text.utf8.count <= 64_000 else { throw PortError.invalid(Self.textTooLong) }
         let id = UUID().uuidString
         active.insert(id); defer { active.remove(id); responses.removeValue(forKey: id) }
         try await channel.send(Message("text", id: id, text: text))
@@ -188,7 +194,8 @@ public actor PeerEngine {
             do {
                 switch message.type {
                 case "offer":
-                    guard receivingEnabled, incoming.count < 4 else { throw PortError.invalid("Receiving is paused or busy") }
+                    guard receivingEnabled else { throw PortError.invalid(Self.paused) }
+                    guard incoming.count < 4 else { throw PortError.invalid("The other device is already receiving 4 files. Retry when they finish.") }
                     let offset = try inbox.prepare(message); incoming[id] = message
                     event(PeerEvent(id: id, name: message.name!, direction: "Received", state: "Receiving", progress: 0))
                     try await channel.send(Message("accept", id: id, offset: offset))
@@ -205,7 +212,8 @@ public actor PeerEngine {
                     try await channel.send(Message("complete", id: id))
                     event(PeerEvent(id: id, name: offer.name!, direction: "Received", state: "Complete", progress: 1, path: file.path))
                 case "text":
-                    guard receivingEnabled, let text = message.text, text.utf8.count <= 64_000 else { throw PortError.invalid("Receiving paused or text too large") }
+                    guard receivingEnabled else { throw PortError.invalid(Self.paused) }
+                    guard let text = message.text, text.utf8.count <= 64_000 else { throw PortError.invalid(Self.textTooLong) }
                     event(PeerEvent(id: id, name: "Text", direction: "Received", state: "Complete", progress: 1, text: text))
                     try await channel.send(Message("complete", id: id))
                 default: throw PortError.invalid("Unsupported message")

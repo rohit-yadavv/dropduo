@@ -3,36 +3,73 @@ import AppKit
 import DropDuoCore
 
 @main struct DropDuoApp: App {
-    @StateObject private var model = AppModel()
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     var body: some Scene {
-        WindowGroup("DropDuo", id: "main") { MainView(model: model).frame(minWidth: 720, minHeight: 520).tint(Brand.cobalt) }
+        WindowGroup("DropDuo", id: "main") { MainView(model: delegate.model, delegate: delegate).frame(minWidth: 720, minHeight: 520).tint(Brand.cobalt) }
             .defaultSize(width: 920, height: 640)
             .commands { CommandGroup(replacing: .newItem) {} }
-        Settings { SettingsView(model: model).tint(Brand.cobalt) }
-        MenuBarExtra {
-            MenuContent(model: model)
-        } label: { Image(nsImage: Brand.menuIcon).accessibilityLabel("DropDuo") }
+        Settings { SettingsView(model: delegate.model).tint(Brand.cobalt) }
     }
 }
 
-struct MenuContent: View {
-    @ObservedObject var model: AppModel
-    @Environment(\.openWindow) private var openWindow
-    var body: some View {
-        if let device = model.selectedDevice {
-            Text(model.isOnline(device) ? "\(device.name) · Connected" : "\(device.name) · Not reachable")
-        } else { Text("No paired devices") }
-        Button("Open DropDuo") { openWindow(id: "main"); NSApp.activate(ignoringOtherApps: true) }
-        Button("Send files…") { model.chooseFiles() }.disabled(!model.online.contains(model.selected))
-        Button("Open received files") { NSWorkspace.shared.open(model.inboxRoot) }
-        Divider()
-        SettingsLink { Text("Settings…") }
-        Button("Quit DropDuo") { NSApp.terminate(nil) }
+@MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
+    let model = AppModel()
+    /// SwiftUI only opens windows from inside a view, so MainView hands these over when it first appears.
+    var openWindow: (() -> Void)?
+    var openSettings: (() -> Void)?
+    weak var mainWindow: NSWindow?
+    private var statusItem: StatusItemController?
+    private var launchedAtLogin = false
+
+    func applicationWillFinishLaunching(_ notification: Notification) { launchedAtLogin = LoginItem.launchedAtLogin }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        let status = StatusItemController(model: model)
+        status.openApp = { [weak self] in self?.showMain() }
+        status.openSettings = { [weak self] in NSApp.activate(ignoringOtherApps: true); self?.openSettings?() }
+        statusItem = status
+        model.notifier.openApp = { [weak self] in self?.showMain() }
+        model.windowVisible = { [weak self] in self?.mainWindow?.isVisible == true }
+    }
+
+    func showMain() {
+        NSApp.activate(ignoringOtherApps: true)
+        if let window = mainWindow, window.isVisible { window.makeKeyAndOrderFront(nil) } else { openWindow?() }
+    }
+
+    /// Closing the window keeps DropDuo in the menu bar, so the phone can still connect.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { showMain() }
+        return true
+    }
+
+    func attach(_ window: NSWindow) {
+        mainWindow = window
+        // Opened by macOS at login: stay in the menu bar instead of popping a window.
+        if launchedAtLogin { launchedAtLogin = false; window.close() }
+    }
+}
+
+/// Reports the NSWindow hosting a SwiftUI view.
+private struct WindowReader: NSViewRepresentable {
+    let found: (NSWindow) -> Void
+    func makeNSView(context: Context) -> NSView { Reader(found) }
+    func updateNSView(_ view: NSView, context: Context) {}
+    final class Reader: NSView {
+        let found: (NSWindow) -> Void
+        init(_ found: @escaping (NSWindow) -> Void) { self.found = found; super.init(frame: .zero) }
+        required init?(coder: NSCoder) { nil }
+        override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); if let window { found(window) } }
     }
 }
 
 struct MainView: View {
     @ObservedObject var model: AppModel
+    let delegate: AppDelegate
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
     var body: some View {
         NavigationSplitView {
             Sidebar(model: model).navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 320)
@@ -47,6 +84,11 @@ struct MainView: View {
         .confirmationDialog("Forget \(model.confirmation?.name ?? "this device")?", isPresented: Binding(get: { model.confirmation != nil }, set: { if !$0 { model.confirmation = nil } })) {
             if let device = model.confirmation { Button("Forget Device", role: .destructive) { model.forget(device); model.confirmation = nil } }
         } message: { Text("It will need to pair again before it can share with this Mac. Received files stay in Downloads.") }
+        .background(WindowReader { delegate.attach($0) })
+        .onAppear {
+            delegate.openWindow = { openWindow(id: "main") }
+            delegate.openSettings = { openSettings() }
+        }
     }
 }
 

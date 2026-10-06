@@ -37,7 +37,7 @@ public final class Inbox {
         let offset = (try fm.attributesOfItem(atPath: part.path)[.size] as? NSNumber)?.int64Value ?? 0
         guard offset <= offer.size! else { throw PortError.invalid("Invalid partial file size") }
         let available = (try fm.attributesOfFileSystem(forPath: root.path)[.systemFreeSize] as? NSNumber)?.int64Value ?? 0
-        guard offer.size! - offset < available else { throw PortError.invalid("Not enough storage") }
+        guard offer.size! - offset < available else { throw PortError.invalid("Not enough free space on the receiving device") }
         return offset
     }
     public func append(_ offer: Message, offset: Int64, data: Data) throws -> Int64 {

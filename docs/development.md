@@ -30,7 +30,17 @@ Use `./scripts/build-macos debug` for a debug bundle. Android APK: `apps/android
 
 Read component `AGENTS.md`. Keep Swift/Kotlin core consistent with [the protocol](../protocol/SPEC.md) and fixtures. Never commit local SDK paths, user files, credentials, or signing keys. No release credentials are needed for development.
 
-`version.properties` supplies both app versions. See [releases](releases.md), [testing](testing.md), and [Git workflow](git-workflow.md).
+`version.properties` supplies both app versions. See [releases](releases.md) and the [Git workflow](../CONTRIBUTING.md#git-workflow).
+
+## What the checks cover
+
+Automated: Swift/JVM crypto fixtures, replay and tamper rejection, malformed frames, path and size validation, and real loopback transfers both ways with resume, cancellation, duplicates, and empty or multi-chunk files.
+
+Before a release, try on real devices: pairing approve/reject, forget, Share → DropDuo, menu bar drop, notifications, text, app restart and login launch, Android background and screen lock, Mac sleep/wake, and Wi-Fi changes. Emulators don't prove vendor battery behavior or physical-LAN discovery.
+
+## Development builds
+
+For untagged builds, sign into GitHub, open a successful `develop` run in [Checks](https://github.com/rohit-yadavv/dropduo/actions/workflows/checks.yml), and download `dropduo-macos-arm64-development`, `dropduo-macos-x86_64-development`, or `dropduo-android-development`. Mac artifacts contain a ZIP holding the app; Android contains an APK. Artifacts expire after 30 days and need repository read access.
 
 ## Website and branding
 

@@ -1,5 +1,5 @@
 #!/bin/sh
 if ! head -n 1 "$1" | LC_ALL=C grep -Eq '^(feat|fix|hotfix|refactor|chore|docs|test): .+'; then
-  echo 'Commit must use <type>: <description>; see docs/git-workflow.md' >&2
+  echo 'Commit must use <type>: <description>; see CONTRIBUTING.md' >&2
   exit 1
 fi

@@ -4,10 +4,10 @@ Publish downloads through [GitHub Releases](https://github.com/rohit-yadavv/drop
 
 ## Prepare
 
-1. Complete applicable [device/accessibility tests](testing.md), update [evidence](validation.md), and review security and licenses. Include required third-party license texts; the dependency inventory alone is insufficient.
-2. On a preparation branch from `develop`, update `version.properties`: SemVer `versionName` (for example `0.1.0-alpha.2`) and a higher `versionCode` for each distributed update. Both apps use this file.
-3. Add an exact released heading to `CHANGELOG.md`, such as `## 0.1.0-alpha.2`, below `## Unreleased`.
-4. Promote through `develop` → `staging` → `master` with review and passing checks. See [Git workflow](git-workflow.md). Maintainers must establish missing branches and protections; CI does not create them.
+1. Run the [real-device checks](development.md#what-the-checks-cover) and review security and licenses. Include required third-party license texts; the dependency inventory alone is insufficient.
+2. On a preparation branch from `develop`, update `version.properties`: SemVer `versionName` (for example `1.0.1`) and a higher `versionCode` for each distributed update. Both apps use this file.
+3. Add an exact released heading to `CHANGELOG.md`, such as `## 1.0.1`, below `## Unreleased`.
+4. Promote through `develop` → `staging` → `master` with review and passing checks. See the [Git workflow](../CONTRIBUTING.md#git-workflow). Maintainers must establish missing branches and protections; CI does not create them.
 
 ## Tag and build
 
@@ -17,9 +17,9 @@ After the reviewed commit reaches master, use your **new, prepared version**:
 git fetch origin --tags &&
 git switch master &&
 git pull --ff-only origin master &&
-./scripts/check-release v0.1.0-alpha.2 development &&
-git tag -a v0.1.0-alpha.2 -m "DropDuo 0.1.0-alpha.2" &&
-git push origin v0.1.0-alpha.2
+./scripts/check-release v1.0.1 distribution &&
+git tag -a v1.0.1 -m "DropDuo 1.0.1" &&
+git push origin v1.0.1
 ```
 
 `&&` stops after failure. Never move a published tag. A `v*` tag push starts Release; a master push does not. You can also select an existing tag in **Actions → Release → Run workflow**.
@@ -53,11 +53,15 @@ For single-line Base64 on macOS: `base64 -i /path/to/file | tr -d '\n'`. Paste d
 
 Distribution verifies Android with `apksigner`; Mac uses a temporary keychain, hardened runtime, notarization, stapling, and assessment. Cleanup runs even on failure. Missing credentials or failed notarization stops the draft. **Real-credential distribution has not yet been validated.**
 
+## Asset names
+
+Release assets are `DropDuo-v<version>-macos-arm64.zip`, `DropDuo-v<version>-macos-x86_64.zip`, and `DropDuo-v<version>-android.apk`, each with a `.sha256` file, plus `SHA256SUMS`. Development builds add `-development` before the extension. The website and [install guide](usage.md#install) depend on these patterns.
+
 ## Review and publish
 
 Inspect draft notes and assets: Apple Silicon ZIP, Intel ZIP, Android APK, `SHA256SUMS`, per-asset checksums/JSON metadata, `LICENSE`, `NOTICE`, `DEPENDENCIES.md`, and required third-party license texts. Install those exact assets on clean devices; verify same-key Android upgrades for distribution builds.
 
-Releases are never marked **pre-release**, so GitHub and the website always offer the newest published build; the `-alpha` version suffix still signals early, unsigned builds. Publish when satisfied. Published assets are public and do not expire after CI's 30-day retention; drafts require maintainer access.
+Releases are never marked **pre-release**, so GitHub and the website always offer the newest published build. Publish when satisfied. Published assets are public and do not expire after CI's 30-day retention; drafts require maintainer access.
 
 ## CI and repository settings
 

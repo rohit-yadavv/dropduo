@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## 1.0.0
+## 0.1.0-alpha.5
 
 - Drop files on the DropDuo menu bar icon to send them to your phone. With several paired phones, choose the target under **Send To** in the menu.
 - Show a Mac notification when a file or text arrives: click a file to show it in Finder, or choose **Copy** for text. Sends started from the menu bar confirm with a notification too.

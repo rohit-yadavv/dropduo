@@ -5,8 +5,8 @@ Publish downloads through [GitHub Releases](https://github.com/rohit-yadavv/drop
 ## Prepare
 
 1. Run the [real-device checks](development.md#what-the-checks-cover) and review security and licenses. Include required third-party license texts; the dependency inventory alone is insufficient.
-2. On a preparation branch from `develop`, update `version.properties`: SemVer `versionName` (for example `1.0.1`) and a higher `versionCode` for each distributed update. Both apps use this file.
-3. Add an exact released heading to `CHANGELOG.md`, such as `## 1.0.1`, below `## Unreleased`.
+2. On a preparation branch from `develop`, update `version.properties`: SemVer `versionName` (for example `0.1.0-alpha.6`) and a higher `versionCode` for each distributed update. Both apps use this file.
+3. Add an exact released heading to `CHANGELOG.md`, such as `## 0.1.0-alpha.6`, below `## Unreleased`.
 4. Merge `develop` into `master` through a PR once checks pass. See the [Git workflow](../CONTRIBUTING.md#git-workflow).
 
 ## Tag and build
@@ -17,9 +17,9 @@ After the release commit reaches master, use your **new, prepared version**:
 git fetch origin --tags &&
 git switch master &&
 git pull --ff-only origin master &&
-./scripts/check-release v1.0.1 distribution &&
-git tag -a v1.0.1 -m "DropDuo 1.0.1" &&
-git push origin v1.0.1
+./scripts/check-release v0.1.0-alpha.6 development &&
+git tag -a v0.1.0-alpha.6 -m "DropDuo 0.1.0-alpha.6" &&
+git push origin v0.1.0-alpha.6
 ```
 
 `&&` stops after failure. Never move a published tag. A `v*` tag push starts Release; a master push does not. You can also select an existing tag in **Actions → Release → Run workflow**.

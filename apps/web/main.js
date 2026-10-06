@@ -56,6 +56,15 @@
   }, { rootMargin: "0px 0px -12% 0px", threshold: 0.12 });
   document.querySelectorAll(".reveal").forEach((el) => revealer.observe(el));
 
+  // Play the silent demo while it is on screen. With reduced motion it waits for the controls.
+  const demo = document.querySelector("[data-demo]");
+  if (demo && !reduceMotion.matches) {
+    new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) demo.play().catch(() => {});
+      else demo.pause();
+    }, { threshold: 0.5 }).observe(demo);
+  }
+
   // Pointer tilt on the hero tile. Pointer devices only, never with reduced motion.
   const visual = document.querySelector("[data-tilt]");
   const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");

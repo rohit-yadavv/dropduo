@@ -8,6 +8,7 @@ local.properties
 *.xcuserstate
 DerivedData/
 dist/
+/video/
 .artifacts/
 __pycache__/
 *.pyc

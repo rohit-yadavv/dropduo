@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import Network
 import DropDuoCore
 
 struct Device: Codable, Identifiable { var id: String; var name: String }
@@ -21,6 +22,8 @@ struct Transfer: Codable, Identifiable {
     @Published var ticket: Ticket?
     @Published var receiving: Bool = true { didSet { for engine in engines.values { Task { await engine.setReceiving(receiving) } } } }
     @Published var text = ""
+    @Published var openAtLogin = LoginItem.isEnabled
+    @Published var loginError: String?
     let inboxRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads/DropDuo", isDirectory: true)
     private let stateRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/DropDuo", isDirectory: true)
     private let server = PortServer()
@@ -30,6 +33,9 @@ struct Transfer: Codable, Identifiable {
     private var pendingApproval = false
     private var port = 53318
     private let hostID: String
+    let notifier = Notifier()
+    /// Set by the app so problems surface as notifications when no DropDuo window is open.
+    var windowVisible: () -> Bool = { true }
     init() {
         hostID = UserDefaults.standard.string(forKey: "dropduo.hostID") ?? UUID().uuidString
         #if DEBUG
@@ -49,9 +55,25 @@ struct Transfer: Codable, Identifiable {
             guard let self else { throw PortError.invalid("App closed") }; return try await self.authenticate(hello)
         }
         server.onReady = { [weak self] port in Task { @MainActor in self?.port = port; self?.status = "Ready on your local network" } }
-        server.onError = { [weak self] message in Task { @MainActor in self?.status = message } }
+        server.onListenerError = { [weak self] error in Task { @MainActor in self?.listenerFailed(error) } }
         server.onPeer = { [weak self] id, name, channel in await self?.connected(id: id, name: name, channel: channel) }
-        do { try server.start(serviceName: "DropDuo-" + hostID) } catch { self.error = error.localizedDescription }
+        do { try server.start(serviceName: "DropDuo-" + hostID) } catch { report("DropDuo couldn't start receiving: " + error.localizedDescription) }
+        notifier.lookup = { [weak self] id in self?.transfers.first { $0.id == id } }
+        notifier.start()
+        if !devices.isEmpty { notifier.requestPermission(); LoginItem.enableByDefault() }
+    }
+    private func listenerFailed(_ error: NWError) {
+        if case .posix(.EADDRINUSE) = error {
+            status = "Port \(port) is in use. Quit other copies of DropDuo, then reopen it."
+        } else {
+            status = "Can't receive right now. Check your network, then reopen DropDuo."
+        }
+    }
+    /// Shows an alert in the window, or a notification when the user sent from Finder or the menu bar.
+    func report(_ message: String) { if windowVisible() { error = message } else { notifier.problem(message) } }
+    private func name(_ peer: String) -> String { devices.first { $0.id == peer }?.name ?? "Your phone" }
+    private func unreachable(_ peer: String) -> String {
+        "\(name(peer)) isn't reachable. Open DropDuo on the phone and check both devices are on the same Wi-Fi."
     }
     private func load<T: Decodable>(_ name: String) -> T? { guard let data = try? Data(contentsOf: stateRoot.appendingPathComponent(name)) else { return nil }; return try? JSONDecoder().decode(T.self, from: data) }
     private func save<T: Encodable>(_ object: T, _ name: String) { do { try JSONEncoder().encode(object).write(to: stateRoot.appendingPathComponent(name), options: .atomic) } catch { self.error = "Could not save app state: " + error.localizedDescription } }
@@ -96,7 +118,9 @@ struct Transfer: Codable, Identifiable {
         guard ticket.expires > Int64(Date().timeIntervalSince1970), pending?.pairID == ticket.pairID else { throw PortError.invalid("Pairing expired; generate a new code") }
         try SecureStore.save(secret, id: hello.pairID)
         devices.append(Device(id: hello.pairID, name: hello.name)); save(devices, "devices.json")
-        selected = hello.pairID; pending = nil; self.ticket = nil; return secret
+        selected = hello.pairID; pending = nil; self.ticket = nil
+        notifier.requestPermission(); LoginItem.enableByDefault()
+        return secret
     }
     private func connected(id: String, name: String, channel: SecureChannel) async {
         if let old = engines[id] { await old.stop() }
@@ -106,11 +130,12 @@ struct Transfer: Codable, Identifiable {
             engines[id] = engine; online.insert(id); if selected.isEmpty { selected = id }
             await engine.setReceiving(receiving)
             resumePending(id)
-            do { try await engine.run() } catch { status = "Connection ended. Your phone will reconnect when reachable." }
+            try? await engine.run()
             if engines[id] === engine { engines.removeValue(forKey: id); online.remove(id) }
         } catch { self.error = error.localizedDescription; await channel.close() }
     }
     private func record(_ event: PeerEvent, peer: String) {
+        let finished = event.state == "Complete" && transfers.first(where: { $0.id == event.id && $0.peer == peer })?.state != "Complete"
         if let index = transfers.firstIndex(where: { $0.id == event.id && $0.peer == peer }) {
             transfers[index].state = event.state; transfers[index].progress = event.progress
             transfers[index].path = event.path ?? transfers[index].path
@@ -121,13 +146,21 @@ struct Transfer: Codable, Identifiable {
                 progress: event.progress, path: event.path, text: event.text, error: event.error, date: Date()), at: 0)
         }
         transfers = Array(transfers.prefix(100))
+        if finished, let transfer = transfers.first(where: { $0.id == event.id && $0.peer == peer }) {
+            if transfer.direction == "Received" { notifier.received(transfer, from: name(peer)) } else { notifier.sent(transfer, to: name(peer)) }
+        }
         if ["Complete", "Interrupted", "Cancelled"].contains(event.state) { save(transfers, "history.json") }
     }
     func chooseFiles() { let panel = NSOpenPanel(); panel.allowsMultipleSelection = true; panel.canChooseDirectories = false; if panel.runModal() == .OK { send(panel.urls) } }
-    func send(_ files: [URL]) { send(files.map { ($0, UUID().uuidString) }, to: selected) }
+    func send(_ urls: [URL]) {
+        guard !devices.isEmpty else { report("Pair your phone first: choose Pair a Device in DropDuo."); return }
+        let files = urls.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) != true }
+        if files.count < urls.count { report(files.isEmpty ? "Folders can't be sent. Open the folder and choose the files inside." : "Folders were skipped. Only files can be sent.") }
+        if !files.isEmpty { send(files.map { ($0, UUID().uuidString) }, to: selected) }
+    }
     /// Sends one file at a time so resumed batches stay within the peer's active-transfer limit.
     private func send(_ files: [(url: URL, id: String)], to peer: String) {
-        guard let engine = engines[peer] else { error = "Your phone is offline. Open DropDuo on it and connect to the same local network."; return }
+        guard let engine = engines[peer] else { report(unreachable(peer)); return }
         let files = files.filter { running.insert($0.id).inserted }
         Task { for (file, id) in files {
             if transfers.first(where: { $0.id == id && $0.peer == peer })?.state == "Cancelled" { running.remove(id); continue }
@@ -136,7 +169,7 @@ struct Transfer: Codable, Identifiable {
                 running.remove(id)
                 let interrupted = (error as? PortError)?.isInterruption == true
                 if let index = transfers.firstIndex(where: { $0.id == id && $0.peer == peer }) { transfers[index].autoRetry = interrupted ? true : nil; save(transfers, "history.json") }
-                if !interrupted { self.error = error.localizedDescription }
+                if !interrupted { report(error.localizedDescription) }
                 // The phone may have reconnected while this attempt was still failing on the old connection.
                 else if let current = engines[peer], current !== engine { resumePending(peer) }
             }
@@ -147,7 +180,7 @@ struct Transfer: Codable, Identifiable {
             .reversed().compactMap { transfer in transfer.path.map { (url: URL(fileURLWithPath: $0), id: transfer.id) } }
         if !pending.isEmpty { send(Array(pending), to: peer) }
     }
-    func sendText() { guard let engine = engines[selected] else { error = "Connect your phone first."; return }; let value = text; Task { do { try await engine.sendText(value); text = "" } catch { self.error = error.localizedDescription } } }
+    func sendText() { guard let engine = engines[selected] else { error = unreachable(selected); return }; let value = text; Task { do { try await engine.sendText(value); text = "" } catch { self.error = error.localizedDescription } } }
     func cancel(_ transfer: Transfer) {
         if let index = transfers.firstIndex(where: { $0.id == transfer.id && $0.peer == transfer.peer }), transfers[index].autoRetry == true {
             transfers[index].autoRetry = nil; transfers[index].state = "Cancelled"; save(transfers, "history.json")
@@ -158,6 +191,19 @@ struct Transfer: Codable, Identifiable {
         let engine = engines.removeValue(forKey: device.id); Task { await engine?.stop() }
         online.remove(device.id); SecureStore.remove(device.id); devices.removeAll { $0.id == device.id }; save(devices, "devices.json")
         if selected == device.id { selected = devices.first?.id ?? "" }
+    }
+    func setOpenAtLogin(_ enabled: Bool) {
+        loginError = nil
+        do {
+            try LoginItem.set(enabled)
+            if enabled, LoginItem.needsApproval {
+                loginError = "Allow DropDuo in System Settings → General → Login Items."
+                LoginItem.openSystemSettings()
+            }
+        } catch {
+            loginError = "macOS didn't allow this. Move DropDuo to Applications, open it from there, and try again."
+        }
+        openAtLogin = LoginItem.isEnabled || LoginItem.needsApproval
     }
     func persistSettings() { UserDefaults.standard.set(receiving, forKey: "dropduo.receiving") }
     func clearHistory() { transfers.removeAll { !["Preparing", "Sending", "Receiving"].contains($0.state) }; save(transfers, "history.json") }

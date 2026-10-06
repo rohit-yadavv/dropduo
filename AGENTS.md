@@ -7,9 +7,9 @@ DropDuo v1 shares files, photos, links, and text between macOS and Android on a 
 ## Map and authority
 
 - `docs/product.md`: behavior and scope.
-- `docs/architecture.md`: system boundaries.
+- `docs/architecture.md`: system boundaries and security design.
 - `protocol/SPEC.md`: authoritative cross-platform contract.
-- `docs/git-workflow.md`: branching and commits; solo v1 exception applies.
+- `CONTRIBUTING.md`: Git workflow (`develop` → `master`) and commit format.
 - Component `AGENTS.md` files add focused instructions.
 
 ## Work loop
@@ -22,7 +22,7 @@ Authenticate paired peers before accepting data. Never trust discovery names or 
 
 ## Verification
 
-Run `./scripts/doctor` first. Mac checks require macOS and a Swift SDK. Android checks require Java 17 and Android SDK. Protocol tests must cover cross-language compatibility. Background receiving, screen locking, and Wi-Fi changes require device evidence; compilation is not proof. See `docs/testing.md`.
+Run `./scripts/doctor` first. Mac checks require macOS and a Swift SDK. Android checks require Java 17 and Android SDK. Protocol tests must cover cross-language compatibility. Background receiving, screen locking, and Wi-Fi changes require device evidence; compilation is not proof. See `docs/development.md`.
 
 ## Collaboration
 

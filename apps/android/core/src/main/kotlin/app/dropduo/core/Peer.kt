@@ -39,6 +39,9 @@ class SecureChannel(val socket: Socket, private val sendKey: ByteArray, private 
 class Disconnected(message: String) : IOException(message)
 data class PeerEvent(val id: String, val name: String, val direction: String, val state: String,
     val progress: Double = 0.0, val path: String? = null, val text: String? = null, val error: String? = null)
+const val CONNECTION_LOST = "Connection lost. It resumes when the devices reconnect."
+private const val PAUSED = "Receiving is paused on the other device. Turn it back on there, then retry."
+private const val TEXT_TOO_LONG = "Text is too long to send. Share it as a file instead."
 class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, private val event: (PeerEvent) -> Unit) : Closeable {
     private val incoming = ConcurrentHashMap<String, Message>()
     private val responses = ConcurrentHashMap<String, LinkedBlockingQueue<Message>>()
@@ -46,7 +49,7 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
     private val active = ConcurrentHashMap.newKeySet<String>()
     @Volatile var receivingEnabled = true
     @Volatile private var alive = true
-    fun run() { try { while (alive) handle(channel.receive()) } finally { alive = false; incoming.values.forEach { event(PeerEvent(it.id!!, it.name!!, "Received", "Interrupted", error = "Connection interrupted; sender can retry")) }; incoming.clear(); channel.close() } }
+    fun run() { try { while (alive) handle(channel.receive()) } finally { alive = false; incoming.values.forEach { event(PeerEvent(it.id!!, it.name!!, "Received", "Interrupted", error = "Connection lost. The sender can retry when the devices reconnect.")) }; incoming.clear(); channel.close() } }
     override fun close() { alive = false; channel.close() }
     fun cancel(id: String) {
         if (!active.contains(id) && !incoming.containsKey(id)) return
@@ -60,14 +63,14 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
             val reply = responses.getValue(id).poll(100, TimeUnit.MILLISECONDS) ?: continue
             check(reply.type != "error") { reply.error ?: "Transfer rejected" }; return reply
         }
-        throw Disconnected("Connection interrupted; retry when your device is reachable")
+        throw Disconnected(CONNECTION_LOST)
     }
     fun sendFile(file: File, id: String = UUID.randomUUID().toString(), displayName: String = file.name) {
         check(active.size < 4 && active.add(id)) { "Transfer already active" }
         cancelled.remove(id); responses[id] = LinkedBlockingQueue(8)
         try {
             event(PeerEvent(id, displayName, "Sent", "Preparing"))
-            require(file.isFile && file.length() <= Wire.MAX_FILE) { "Choose a regular file up to 32 GiB" }
+            require(file.isFile) { "Only files can be sent, not folders" }; require(file.length() <= Wire.MAX_FILE) { "Files larger than 32 GB can't be sent" }
             val size = file.length(); val offer = Message("offer", id, displayName, size, Wire.hash(file))
             check(!cancelled.contains(id)) { "Transfer cancelled" }
             Inbox.validate(offer); channel.send(offer)
@@ -88,11 +91,12 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
             channel.send(Message("finish", id)); check(wait(id).type == "complete") { "File was not confirmed" }
             event(PeerEvent(id, displayName, "Sent", "Complete", 1.0, file.path))
         } catch (error: Exception) {
-            event(PeerEvent(id, displayName, "Sent", if (cancelled.contains(id)) "Cancelled" else "Interrupted", path = file.path, error = error.message)); throw error
+            val lost = !cancelled.contains(id) && (!alive || error is java.io.IOException || error is Disconnected)
+            event(PeerEvent(id, displayName, "Sent", if (cancelled.contains(id)) "Cancelled" else "Interrupted", path = file.path, error = if (lost) CONNECTION_LOST else error.message)); throw error
         } finally { active.remove(id); cancelled.remove(id); responses.remove(id) }
     }
     fun sendText(text: String) {
-        require(text.isNotEmpty() && text.toByteArray().size <= 64000) { "Text must be between 1 and 64000 bytes" }
+        require(text.isNotEmpty()) { "Type something to send" }; require(text.toByteArray().size <= 64000) { TEXT_TOO_LONG }
         val id = UUID.randomUUID().toString(); responses[id] = LinkedBlockingQueue(8)
         try {
             channel.send(Message("text", id, text = text)); check(wait(id).type == "complete") { "Text was not confirmed" }
@@ -108,7 +112,7 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
             else -> try {
                 when (message.type) {
                     "offer" -> {
-                        check(receivingEnabled && incoming.size < 4) { "Receiving is paused or busy" }
+                        check(receivingEnabled) { PAUSED }; check(incoming.size < 4) { "The other device is already receiving 4 files. Retry when they finish." }
                         val offset = inbox.prepare(message); incoming[id] = message
                         event(PeerEvent(id, message.name!!, "Received", "Receiving")); channel.send(Message("accept", id, offset = offset))
                     }
@@ -124,7 +128,7 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
                         event(PeerEvent(id, offer.name!!, "Received", "Complete", 1.0, file.path))
                     }
                     "text" -> {
-                        check(receivingEnabled && message.text != null && message.text.toByteArray().size <= 64000) { "Receiving paused or invalid text" }
+                        check(receivingEnabled) { PAUSED }; check(message.text != null && message.text.toByteArray().size <= 64000) { TEXT_TOO_LONG }
                         event(PeerEvent(id, "Text", "Received", "Complete", 1.0, text = message.text)); channel.send(Message("complete", id))
                     }
                     else -> error("Unsupported message")

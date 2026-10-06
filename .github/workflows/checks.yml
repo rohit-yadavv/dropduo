@@ -1,12 +1,11 @@
 name: Checks
 on:
-  # Staging is validated by its incoming PR; keep solo development and production checks.
   # Docs and website changes can't affect the app builds, so they skip this workflow.
   push:
     branches: [develop, master]
     paths-ignore: ['**/*.md', 'docs/**', 'apps/web/**']
   pull_request:
-    branches: [develop, staging, master]
+    branches: [develop, master]
     paths-ignore: ['**/*.md', 'docs/**', 'apps/web/**']
   workflow_dispatch:
   workflow_call:

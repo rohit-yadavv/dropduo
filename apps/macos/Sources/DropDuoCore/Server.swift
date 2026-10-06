@@ -9,6 +9,9 @@ private final class ConnectionBudget: @unchecked Sendable {
 }
 public final class PortServer: @unchecked Sendable {
     public var onReady: @Sendable (Int) -> Void = { _ in }
+    /// The listener failed, so nothing can connect until it restarts.
+    public var onListenerError: @Sendable (NWError) -> Void = { _ in }
+    /// One connection was rejected or dropped during the handshake.
     public var onError: @Sendable (String) -> Void = { _ in }
     public var lookup: @Sendable (Hello) async throws -> Data = { _ in throw PortError.invalid("Unknown peer") }
     public var onPeer: @Sendable (String, String, SecureChannel) async -> Void = { _, _, _ in }
@@ -21,7 +24,7 @@ public final class PortServer: @unchecked Sendable {
         listener.service = NWListener.Service(name: serviceName, type: "_dropduo._tcp")
         listener.stateUpdateHandler = { [weak self, weak listener] state in
             if case .ready = state { self?.onReady(Int(listener?.port?.rawValue ?? port)) }
-            if case let .failed(error) = state { self?.onError(error.localizedDescription) }
+            if case let .failed(error) = state { self?.onListenerError(error) }
         }
         listener.newConnectionHandler = { [weak self] connection in
             guard let self, self.budget.acquire() else { connection.cancel(); return }

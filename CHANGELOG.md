@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.0.0
+
+- Drop files on the DropDuo menu bar icon to send them to your phone. With several paired phones, choose the target under **Send To** in the menu.
+- Show a Mac notification when a file or text arrives: click a file to show it in Finder, or choose **Copy** for text. Sends started from the menu bar confirm with a notification too.
+- Open DropDuo at login, so a paired phone can reach the Mac after a restart. It turns on after pairing and can be switched off in Settings. Closing the window keeps DropDuo running in the menu bar.
+- Clearer error messages on both apps: which device can't be reached and what to check, paused receiving, a busy receiver, folders, and lost connections.
+
 ## 0.1.0-alpha.4
 
 - Keep the Android pairing-code scanner in portrait instead of rotating to landscape.

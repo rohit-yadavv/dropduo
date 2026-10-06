@@ -42,5 +42,5 @@ status = ("Development prerelease: Mac apps are ad-hoc signed and not notarized.
 notes = f"{section}\n\n{status}\n\nChoose the arm64 ZIP for Apple Silicon Macs or x86_64 ZIP for Intel Macs. "
 notes += "Unzip and move DropDuo.app to Applications. Install the Android APK on Android 10+. Both devices need a reachable local network.\n\n"
 notes += "Verify downloads with SHA256SUMS. Source commit: `" + metadata[0]['commit'] + "`.\n\n"
-notes += "Before publishing, complete the physical-device checks and review [known validation limits](https://github.com/rohit-yadavv/dropduo/blob/" + tag + "/docs/validation.md).\n"
+notes += "Setup and troubleshooting: [install and use DropDuo](https://github.com/rohit-yadavv/dropduo/blob/" + tag + "/docs/usage.md).\n"
 (root / "dist/release-notes.md").write_text(notes)

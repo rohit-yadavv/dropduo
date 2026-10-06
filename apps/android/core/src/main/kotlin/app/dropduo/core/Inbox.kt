@@ -30,7 +30,7 @@ class Inbox(val root: File) {
         if (!file.exists()) file.createNewFile()
         val offset = file.length()
         require(offset <= offer.size!!) { "Invalid partial size" }
-        require(offer.size - offset < root.usableSpace) { "Not enough storage" }
+        require(offer.size - offset < root.usableSpace) { "Not enough free space on the receiving device" }
         return offset
     }
     @Synchronized fun append(offer: Message, offset: Long, data: ByteArray): Long {

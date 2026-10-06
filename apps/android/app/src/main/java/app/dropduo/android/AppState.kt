@@ -15,6 +15,7 @@ data class Transfer(val id: String, val name: String, val direction: String, val
     val path: String? = null, val text: String? = null, val error: String? = null, val autoRetry: Boolean = false)
 data class UiState(val device: String? = null, val connected: Boolean = false, val status: String = "Pair your Mac to get started",
     val receiving: Boolean = true, val history: List<Transfer> = emptyList(), val error: String? = null)
+const val MAC_UNREACHABLE = "Can't reach your Mac. Make sure it's awake with DropDuo open and on the same Wi-Fi."
 object AppState {
     lateinit var context: Application
     lateinit var secure: SecureStore
@@ -79,7 +80,7 @@ object AppState {
         runCatching { val temp = File(context.filesDir, "history.tmp"); temp.writeText(Wire.gson.toJson(history)); check(temp.renameTo(historyFile())) }
             .onFailure { error("Could not save transfer history") }
     }
-    fun sendText(text: String, onSuccess: () -> Unit = {}) { scope.launch { try { val peer = engine ?: throw IllegalStateException("Mac is offline. Connect first."); peer.sendText(text); withContext(Dispatchers.Main) { onSuccess() } } catch (e: Exception) { error(e.message ?: "Could not send text") } } }
+    fun sendText(text: String, onSuccess: () -> Unit = {}) { scope.launch { try { val peer = engine ?: throw IllegalStateException(MAC_UNREACHABLE); peer.sendText(text); withContext(Dispatchers.Main) { onSuccess() } } catch (e: Exception) { error(e.message ?: "Could not send text") } } }
     fun importAndSend(uris: List<Uri>) {
         scope.launch {
             for (uri in uris) {
@@ -94,8 +95,8 @@ object AppState {
                     record(PeerEvent(id, name, "Sent", "Preparing", path = file.path))
                     context.contentResolver.openInputStream(uri)?.use { source -> file.outputStream().use { out ->
                         val buffer = ByteArray(Wire.CHUNK_SIZE); var total = 0L
-                        while (true) { check(!cancelledImports.contains(id)) { "Transfer cancelled" }; val n = source.read(buffer); if (n < 0) break; total += n; require(total <= Wire.MAX_FILE && context.filesDir.usableSpace > n + 1024*1024) { "Not enough space or file too large" }; out.write(buffer, 0, n) }
-                    } } ?: throw IllegalStateException("Could not read selected file")
+                        while (true) { check(!cancelledImports.contains(id)) { "Transfer cancelled" }; val n = source.read(buffer); if (n < 0) break; total += n; require(total <= Wire.MAX_FILE) { "Files larger than 32 GB can't be sent" }; require(context.filesDir.usableSpace > n + 1024*1024) { "Not enough free space on this phone to prepare the file" }; out.write(buffer, 0, n) }
+                    } } ?: throw IllegalStateException("Couldn't read that file. Try sharing it again from the original app.")
                     check(!cancelledImports.contains(id)) { "Transfer cancelled" }
                     imported = true
                     sendStored(id, name, file)

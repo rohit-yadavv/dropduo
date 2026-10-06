@@ -217,7 +217,7 @@
     if (platform === "android") half.parentElement.classList.add("duo--android-first");
   }
 
-  // Release assets. Published names follow docs/downloads.md:
+  // Release assets. Published names follow docs/releases.md#asset-names:
   // DropDuo-vVERSION-macos-arm64[-development].zip, -macos-x86_64, -android.apk
   const platforms = document.querySelector("[data-release-state]");
   const status = document.querySelector("[data-release-status]");

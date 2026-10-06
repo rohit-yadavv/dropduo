@@ -45,7 +45,7 @@ class ConnectionService : Service() {
                     AppState.resumePending()
                     peer.run()
                 } catch (e: Exception) {
-                    if (running) { AppState.pairFailed(ticket); AppState.update { it.copy(connected = false, status = "Mac isn't reachable. Reconnecting…") } }
+                    if (running) { AppState.pairFailed(ticket); AppState.update { it.copy(connected = false, status = "Mac not found. Is it awake with DropDuo open, on this Wi-Fi? Retrying…") } }
                 } finally { AppState.engine?.close(); AppState.engine = null; AppState.update { it.copy(connected = false) } }
             }
             try { Thread.sleep(4000) } catch (_: InterruptedException) { break }

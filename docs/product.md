@@ -4,7 +4,7 @@ Free, native Mac–Android sharing over a reachable local network. No accounts, 
 
 ## Scope
 
-- Files, photos, videos, explicit text/links. Mac: window and menu bar icon drag and drop, **Send Files…**, notifications for received items, open at login. Android: Share target and file picker.
+- Files, photos, videos, explicit text/links. Mac: drag and drop into the window, **Send Files…** from the window or menu bar, notifications for received items, open at login. Android: Share target and file picker.
 - QR pairing with Mac approval, persistent credentials, receiving controls, and device revocation.
 - Authenticated encrypted transfers with progress, cancellation, integrity verification, and resume/retry. Sends cut off by a lost connection resume automatically when the devices reconnect; other failures need a manual retry.
 - Copy selected bytes without moving originals or re-encoding. Recent holds 100 entries, not backups.

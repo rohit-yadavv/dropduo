@@ -26,7 +26,7 @@ Pairing survives restarts. A Mac can pair several phones; a phone pairs with one
 
 ## Send
 
-- **Mac → Android:** drop files on the DropDuo menu bar icon or into the window, or use **Send Files…**. With several phones paired, pick the target under **Send To** in the menu bar menu.
+- **Mac → Android:** drop files into the window, or choose **Send Files…** from the DropDuo menu bar icon. With several phones paired, pick the target under **Send To** in that menu.
 - **Android → Mac:** in any app, **Share → DropDuo**, or use **Files** inside DropDuo.
 - **Text and links:** type or paste into the text field and send (⌘Return on Mac). Android also accepts text shared from other apps. Choose **Copy** on the receiving side.
 

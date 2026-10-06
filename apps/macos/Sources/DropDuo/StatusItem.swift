@@ -1,9 +1,7 @@
 import AppKit
-import UniformTypeIdentifiers
 
-/// Menu bar icon that opens the DropDuo menu and accepts files dropped onto it.
-/// SwiftUI's MenuBarExtra can't receive drops, so this uses NSStatusItem directly.
-@MainActor final class StatusItemController: NSObject, NSMenuDelegate, NSWindowDelegate {
+/// Menu bar icon and its menu, rebuilt each time it opens so status and progress stay current.
+@MainActor final class StatusItemController: NSObject, NSMenuDelegate {
     private let model: AppModel
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     var openApp: () -> Void = {}
@@ -14,11 +12,8 @@ import UniformTypeIdentifiers
         super.init()
         item.button?.image = Brand.menuIcon
         item.button?.setAccessibilityLabel("DropDuo")
-        item.button?.toolTip = "DropDuo: drop files here to send them to your phone"
+        item.button?.toolTip = "DropDuo"
         let menu = NSMenu(); menu.delegate = self; item.menu = menu
-        // The status bar window forwards drag events to its delegate.
-        item.button?.window?.registerForDraggedTypes([.fileURL])
-        item.button?.window?.delegate = self
     }
 
     // MARK: Menu
@@ -63,28 +58,6 @@ import UniformTypeIdentifiers
         let item = NSMenuItem(title: title, action: #selector(MenuAction.run), keyEquivalent: key)
         let target = MenuAction(run); item.target = target; item.representedObject = target
         return item
-    }
-
-    // MARK: Drop
-
-    func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        guard !files(sender).isEmpty else { return [] }
-        item.button?.highlight(true)
-        return .copy
-    }
-
-    func draggingExited(_ sender: NSDraggingInfo?) { item.button?.highlight(false) }
-
-    func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        item.button?.highlight(false)
-        let urls = files(sender)
-        guard !urls.isEmpty else { return false }
-        model.send(urls)
-        return true
-    }
-
-    private func files(_ sender: NSDraggingInfo) -> [URL] {
-        sender.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
     }
 }
 

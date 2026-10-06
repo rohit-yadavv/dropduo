@@ -7,11 +7,11 @@ Publish downloads through [GitHub Releases](https://github.com/rohit-yadavv/drop
 1. Run the [real-device checks](development.md#what-the-checks-cover) and review security and licenses. Include required third-party license texts; the dependency inventory alone is insufficient.
 2. On a preparation branch from `develop`, update `version.properties`: SemVer `versionName` (for example `1.0.1`) and a higher `versionCode` for each distributed update. Both apps use this file.
 3. Add an exact released heading to `CHANGELOG.md`, such as `## 1.0.1`, below `## Unreleased`.
-4. Promote through `develop` → `staging` → `master` with review and passing checks. See the [Git workflow](../CONTRIBUTING.md#git-workflow). Maintainers must establish missing branches and protections; CI does not create them.
+4. Merge `develop` into `master` through a PR once checks pass. See the [Git workflow](../CONTRIBUTING.md#git-workflow).
 
 ## Tag and build
 
-After the reviewed commit reaches master, use your **new, prepared version**:
+After the release commit reaches master, use your **new, prepared version**:
 
 ```sh
 git fetch origin --tags &&
@@ -65,7 +65,7 @@ Releases are never marked **pre-release**, so GitHub and the website always offe
 
 ## CI and repository settings
 
-- Checks/quality: develop/master pushes and PRs into develop/staging/master. Native Checks skips docs/web-only changes; Web builds the site. Staging relies on incoming PR checks.
+- Checks/quality: develop/master pushes and PRs into develop/master. Native Checks skips docs/web-only changes; Web builds the site.
 - CodeQL: master PRs that change code (docs/web-only PRs skip it), weekly on the default branch, or manual runs. It is not a merge requirement, so skipped PRs can still merge.
 - Dependency review: PRs. Dependabot: weekly Actions/Gradle updates.
 - Release: exact-tag build checks. Actions are SHA-pinned with scoped permissions; security changes never auto-merge.
@@ -78,4 +78,3 @@ Configure branch/tag protections, dependency graph, Dependabot alerts, and priva
 - **No release after pushing master:** push a fresh version tag. Check **Actions → Release**; validation failure creates no draft. A successful run creates a draft that must be published.
 - **Outdated/invalid tag:** changing master does not change tagged source. Prepare a new version, increase the build number, add its changelog heading, promote, and tag. Keep old published tags unchanged.
 - **Existing draft blocks retry:** inspect it; a maintainer may remove an incomplete draft before retrying. Never move its published tag or overwrite reviewed assets.
-- **Promotion uses old workflows:** promote the current develop commit through staging; an older staging PR uses its own source/workflows.

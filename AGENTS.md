@@ -9,7 +9,7 @@ DropDuo v1 shares files, photos, links, and text between macOS and Android on a 
 - `docs/product.md`: behavior and scope.
 - `docs/architecture.md`: system boundaries and security design.
 - `protocol/SPEC.md`: authoritative cross-platform contract.
-- `CONTRIBUTING.md`: Git workflow and commits; the solo exception applies.
+- `CONTRIBUTING.md`: Git workflow (`develop` → `master`) and commit format.
 - Component `AGENTS.md` files add focused instructions.
 
 ## Work loop

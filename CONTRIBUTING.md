@@ -8,13 +8,10 @@ Bug reports, code, design, docs, and device testing are welcome. Start with the 
 
 ## Git workflow
 
-- `develop`: active development. Start `feature/<name>` or `fix/<name>` here.
-- `staging`: pre-production QA.
-- `master`: production. Publish and deploy from here only.
+- `develop`: day-to-day work. Commit here directly, or use a short `feature/<name>` or `fix/<name>` branch for larger changes.
+- `master`: what's released. The website deploys from it and release tags point at it.
 
-Changes flow feature/fix → develop → staging → master through PRs. Hotfixes start at master and merge back into develop and staging. Keep PRs focused, explain behavior, validation, and limitations, and get at least one reviewer; no self-merge, no force-push after review, and never auto-merge security-sensitive changes.
-
-**Solo exception:** while DropDuo has a single maintainer, local milestone commits on `develop` are allowed without a PR. This doesn't cover pushing, publishing, or committing directly to staging or master.
+To release, open a PR from `develop` into `master` and merge it once checks pass. Urgent fixes can branch from `master`; merge them back into `develop` afterwards. Contributors outside the project send PRs to `develop`. Never force-push `master` or auto-merge security-sensitive changes.
 
 Commit messages use `<type>: <short imperative description>` with type feat, fix, hotfix, refactor, chore, docs, or test. Enable the check with `git config core.hooksPath .githooks`. Versions use SemVer tags `vMAJOR.MINOR.PATCH`; see [releases](docs/releases.md).
 

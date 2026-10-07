@@ -2,8 +2,10 @@
 """Pick and validate the next release version from existing tags, without creating a tag or publishing anything.
 
 Usage: scripts/check-release [version]
-With no version, the next alpha follows the newest tag. Prints key=value lines for GitHub Actions outputs.
+With no version, the next one follows the newest tag (0.1.7 → 0.1.8). Prints key=value lines for GitHub Actions outputs.
+Set DROPDUO_SIGNED=true when signing credentials are configured.
 """
+import os
 import re
 import subprocess
 import sys
@@ -33,16 +35,17 @@ def next_version(tags, requested=None):
             raise ValueError(f"{requested} must be newer than the latest release {latest}.")
         return requested
     if latest is None:
-        return "0.1.0-alpha.1"
+        return "0.1.0"
     major, minor, patch, stage, number = parse(latest)
-    if stage == 3:
-        return f"{major}.{minor}.{patch + 1}-alpha.1"
-    return f"{major}.{minor}.{patch}-{latest.split('-', 1)[1].split('.')[0]}.{number + 1}"
+    # Older alpha tags continue their count: 0.1.0-alpha.6 → 0.1.7.
+    if stage != 3:
+        patch = max(patch, number)
+    return f"{major}.{minor}.{patch + 1}"
 
 
-def mode_for(version):
-    """Prereleases build unsigned development downloads; stable versions require distribution signing."""
-    return "development" if "-" in version else "distribution"
+def mode_for(signed):
+    """Builds are unsigned development downloads until signing credentials are configured."""
+    return "distribution" if signed else "development"
 
 
 def validate_build(build):
@@ -58,4 +61,4 @@ if __name__ == "__main__":
         build = validate_build(int(subprocess.check_output(["git", "rev-list", "--count", "HEAD"], cwd=ROOT, text=True)))
     except (ValueError, subprocess.CalledProcessError) as error:
         sys.exit(str(error))
-    print(f"version={version}\ntag=v{version}\nbuild={build}\nmode={mode_for(version)}")
+    print(f"version={version}\ntag=v{version}\nbuild={build}\nmode={mode_for(os.environ.get('DROPDUO_SIGNED') == 'true')}")

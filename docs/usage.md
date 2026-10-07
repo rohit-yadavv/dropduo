@@ -4,11 +4,13 @@ DropDuo needs **macOS 14+** (Apple Silicon or Intel) and **Android 10+** on the 
 
 ## Install
 
-Download the [latest release](https://github.com/rohit-yadavv/dropduo/releases/latest) from **Assets** (not **Source code**):
+Download DropDuo from the [website](https://rohit-yadavv.github.io/dropduo/#download), which always offers the newest version. On a computer, scan its QR code to get the Android app on your phone.
 
-- Apple Silicon Mac (M1 or newer): `-macos-arm64` ZIP
-- Intel Mac: `-macos-x86_64` ZIP
-- Android: `-android` APK
+You can also pick the files from the [latest release](https://github.com/rohit-yadavv/dropduo/releases/latest):
+
+- Mac with Apple silicon (M1 or newer): `dropduo-mac-applesilicon-v…zip`
+- Intel Mac: `dropduo-mac-intel-v…zip`
+- Android: `dropduo-android-v…apk`
 
 **Mac:** unzip and move `DropDuo.app` into **Applications**, then open it. If macOS says it can't verify the developer, dismiss the alert, open **System Settings → Privacy & Security**, and click **Open Anyway** next to DropDuo. macOS remembers this. If you see a "damaged" or "will damage your computer" alert, stop and [report it](https://github.com/rohit-yadavv/dropduo/issues). See [Apple's guide](https://support.apple.com/en-us/102445).
 

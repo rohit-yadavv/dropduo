@@ -25,6 +25,9 @@ cp apps/macos/Resources/DropDuo.icns "$app/Contents/Resources/DropDuo.icns"
 # Images live directly in the app's Resources so Bundle.main finds them; no nested SwiftPM bundle to lose.
 rm -rf "$app/Contents/Resources/DropDuo_DropDuo.bundle"
 cp apps/macos/Sources/DropDuo/Resources/*.png "$app/Contents/Resources/"
+# Releases upload only the app, so its license and notices travel inside it.
+cp LICENSE NOTICE "$app/Contents/Resources/"
+cp docs/dependencies.md "$app/Contents/Resources/DEPENDENCIES.md"
 if [ "${DROPDUO_SIGN_IDENTITY:--}" = '-' ]; then
   codesign --force --sign - "$app"
 else

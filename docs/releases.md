@@ -7,15 +7,15 @@ Publish downloads through [GitHub Releases](https://github.com/rohit-yadavv/drop
 1. Merge `develop` into `master` through a PR once checks pass. See the [Git workflow](../CONTRIBUTING.md#git-workflow).
 2. On GitHub, open **Actions → Release → Run workflow** and click **Run workflow**. Only the repository owner can release; runs started by anyone else, including re-runs, stop before building.
 
-The workflow takes the next alpha after the newest tag (`v0.1.0-alpha.6` → `v0.1.0-alpha.7`); type a version instead for a beta, release candidate or stable release. The build number is the commit count on master, so each release has a higher Android version code than the last. It builds the Mac and Android apps from master, then tags that commit and publishes the release with its downloads. Release notes list the pull requests merged since the previous release, led by a `## <version>` section from `CHANGELOG.md` if one exists. No version edits in code; `version.properties` only sets the version for local and test builds. The checks already ran when the commit reached master, so they aren't repeated.
+Leave the version empty for the next one after the newest tag (`v0.1.7` → `v0.1.8`), or type a newer version without the `v`, such as `0.2.0`. The build number is the commit count on master, so each release has a higher Android version code than the last. It builds the Mac and Android apps from master, then tags that commit and publishes the release with its downloads. Release notes list the pull requests merged since the previous release, led by a `## <version>` section from `CHANGELOG.md` if one exists. No version edits in code; `version.properties` only sets the version for local and test builds. The checks already ran when the commit reached master, so they aren't repeated.
 
 Test the published downloads on your Mac and phone. If something is wrong, fix it on `develop` and release again; never move a published tag or replace its downloads.
 
 ## Signing modes
 
-**Development:** used for prerelease versions such as `0.1.0-alpha.7`. No signing secrets needed; ad-hoc signed, non-notarized Mac apps and debug-signed Android APKs use `-development` filenames. For testers only. Android debug keys can change, blocking updates; export received files before uninstalling.
+**Development:** used until the signing secrets below exist. Ad-hoc signed, non-notarized Mac apps and debug-signed Android APKs; the release notes say so. Android debug keys can change, blocking updates; export received files before uninstalling.
 
-**Distribution:** used for stable versions such as `1.0.0`; requires the credentials below. Do not relabel development builds as signed distribution.
+**Distribution:** used automatically once `MAC_CERTIFICATE_BASE64` and `ANDROID_KEYSTORE_BASE64` are set, along with the other credentials below. Do not relabel development builds as signed distribution.
 
 Add these repository **Actions secrets** in **Settings → Secrets and variables → Actions**:
 
@@ -40,11 +40,11 @@ Distribution verifies Android with `apksigner`; Mac uses a temporary keychain, h
 
 ## Asset names
 
-Release assets are `DropDuo-v<version>-macos-arm64.zip`, `DropDuo-v<version>-macos-x86_64.zip`, and `DropDuo-v<version>-android.apk`, each with a `.sha256` file, plus `SHA256SUMS`. Development builds add `-development` before the extension. The website and [install guide](usage.md#install) depend on these patterns.
+Each release has `dropduo-mac-applesilicon-v<version>.zip`, `dropduo-mac-intel-v<version>.zip`, `dropduo-android-v<version>.apk`, and `SHA256SUMS`. `LICENSE`, `NOTICE` and `DEPENDENCIES.md` ship inside the Mac app (`Contents/Resources`) and the APK (`assets`). The website and [install guide](usage.md#install) depend on these names; the website also recognizes the older `DropDuo-v<version>-macos-arm64` style used up to `v0.1.0-alpha.6`.
 
 ## Review
 
-Check the published files: Apple Silicon ZIP, Intel ZIP, Android APK, `SHA256SUMS`, per-asset checksums/JSON metadata, `LICENSE`, `NOTICE`, `DEPENDENCIES.md`, and required third-party license texts. Install them on clean devices; verify same-key Android upgrades for distribution builds.
+Check the published files: Apple silicon ZIP, Intel ZIP, Android APK and `SHA256SUMS`, with the license and notices inside each app. Per-file checksums and build metadata stay in the run's artifacts for 30 days. Install them on clean devices; verify same-key Android upgrades for distribution builds.
 
 Don't mark releases as **pre-release**, so GitHub and the website always offer the newest build. Published assets are public and do not expire after CI's 30-day retention.
 

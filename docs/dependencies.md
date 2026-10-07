@@ -16,4 +16,4 @@ DropDuo's own source is Apache-2.0. Dependency licenses remain their owners' lic
 | qrcode-generator 2.0.4 by Kazuhiko Arase (website only) | MIT |
 | Simple Icons Apple/Android logos (website only) | CC0 1.0; trademarks remain their owners' |
 
-Apple frameworks and Android SDK components are provided under their respective platform terms. They are not relicensed by this repository. No competitor source code or branding is bundled. Keep this list current when adding dependencies, and ship required third-party license texts with public releases.
+Apple frameworks and Android SDK components are provided under their respective platform terms. They are not relicensed by this repository. No competitor source code or branding is bundled. Keep this list current when adding dependencies. Releases ship `LICENSE`, `NOTICE` and this list inside each download; add any other required third-party license texts there too.

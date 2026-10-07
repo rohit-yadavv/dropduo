@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version to release. Leave empty for the next alpha (for example 0.1.0-alpha.7).
+        description: Version to release, like 0.1.8. Leave empty for the next one.
         required: false
         type: string
 permissions:
@@ -39,6 +39,8 @@ jobs:
         name: Pick the version, build number and signing mode
         env:
           VERSION: ${{ inputs.version }}
+          # Signed downloads once both signing credentials exist; unsigned development builds until then.
+          DROPDUO_SIGNED: ${{ secrets.MAC_CERTIFICATE_BASE64 != '' && secrets.ANDROID_KEYSTORE_BASE64 != '' }}
         run: |
           # Assign first so an invalid version stops the run here instead of passing empty outputs on.
           metadata=$(./scripts/check-release "$VERSION")
@@ -169,4 +171,6 @@ jobs:
           gh api "repos/$GH_REPO/releases/generate-notes" -f tag_name="$TAG" -f target_commitish="$COMMIT" --jq .body >> dist/release-notes.md
           # Creates the tag on the built commit. Never overwrites: an existing tag or release fails here.
           # Releases are never marked pre-release, so GitHub and the website offer the newest build.
-          gh release create "$TAG" dist/release/* --target "$COMMIT" --title "DropDuo $TAG" --notes-file dist/release-notes.md
+          # Only the three downloads and SHA256SUMS; per-file metadata stays in the workflow artifacts.
+          gh release create "$TAG" dist/release/*.zip dist/release/*.apk dist/release/SHA256SUMS \
+            --target "$COMMIT" --title "DropDuo $TAG" --notes-file dist/release-notes.md

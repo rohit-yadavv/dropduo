@@ -6,7 +6,7 @@
 
 Pair once, then send over your local network. Free and open source, with no account, cloud uploads, ads, or analytics.
 
-[Download](https://github.com/rohit-yadavv/dropduo/releases/latest) · [Setup guide](docs/usage.md) · [Contribute](CONTRIBUTING.md)
+[Download](https://rohit-yadavv.github.io/dropduo/#download) · [Setup guide](docs/usage.md) · [Contribute](CONTRIBUTING.md)
 
 [![DropDuo demo: a photo dropped on the Mac lands on an Android phone](apps/web/assets/video/dropduo-demo.jpg)](https://rohit-yadavv.github.io/dropduo/#demo)
 

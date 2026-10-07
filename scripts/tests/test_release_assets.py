@@ -37,7 +37,11 @@ class ReleaseAssetTests(unittest.TestCase):
         result = self.assemble()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(len((self.out / "SHA256SUMS").read_text().splitlines()), 3)
-        self.assertIn("not notarized", (self.root / "dist/release-notes.md").read_text())
+        notes = (self.root / "dist/release-notes.md").read_text()
+        self.assertIn("not notarized", notes)
+        self.assertTrue(notes.startswith("**Download DropDuo: [rohit-yadavv.github.io/dropduo]"))
+        # License files ship inside the downloads, not as separate release files.
+        self.assertFalse((self.out / "LICENSE").exists())
 
     def test_tampered_download_is_rejected(self):
         (self.out / "android.apk").write_bytes(b"modified")

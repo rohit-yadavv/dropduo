@@ -25,6 +25,19 @@ android {
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
 }
 kotlin { jvmToolchain(17) }
+// Releases upload only the APK, so its license and notices travel inside it as assets.
+abstract class CopyNotices : DefaultTask() {
+    @get:InputFiles abstract val notices: ConfigurableFileCollection
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
+    @TaskAction fun copy() {
+        val dir = outputDir.get().asFile.apply { deleteRecursively(); mkdirs() }
+        notices.forEach { it.copyTo(dir.resolve(if (it.name == "dependencies.md") "DEPENDENCIES.md" else it.name), overwrite = true) }
+    }
+}
+val copyNotices = tasks.register<CopyNotices>("copyNotices") {
+    notices.from(rootProject.file("../../LICENSE"), rootProject.file("../../NOTICE"), rootProject.file("../../docs/dependencies.md"))
+}
+androidComponents { onVariants { variant -> variant.sources.assets?.addGeneratedSourceDirectory(copyNotices, CopyNotices::outputDir) } }
 dependencies {
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test:core:1.6.1")

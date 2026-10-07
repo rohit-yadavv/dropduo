@@ -22,15 +22,14 @@ if mode == "distribution" and dirty:
     sys.exit("Distribution assets must be built from a clean source checkout.")
 out = root / "dist/release"
 out.mkdir(parents=True, exist_ok=True)
-suffix = "-development" if mode == "development" else ""
-name = f"DropDuo-v{version['versionName']}-{target}"
+# Friendly names, e.g. dropduo-mac-applesilicon-v0.1.7.zip; the website and install guide match them.
 if target == "macos":
-    name += "-" + platform.machine()
-    artifact = out / (name + suffix + ".zip")
+    chip = {"arm64": "applesilicon", "x86_64": "intel"}[platform.machine()]
+    artifact = out / f"dropduo-mac-{chip}-v{version['versionName']}.zip"
     subprocess.run(["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", str(root / "dist/DropDuo.app"), str(artifact)], check=True)
 else:
     kind = "debug" if mode == "development" else "release"
-    artifact = out / (name + suffix + ".apk")
+    artifact = out / f"dropduo-android-v{version['versionName']}.apk"
     shutil.copy2(root / f"apps/android/app/build/outputs/apk/{kind}/app-{kind}.apk", artifact)
 digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
 (out / (artifact.name + ".sha256")).write_text(f"{digest}  {artifact.name}\n")

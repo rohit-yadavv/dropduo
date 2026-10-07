@@ -1,33 +1,61 @@
 #!/usr/bin/env python3
-"""Validate release metadata without creating a tag or publishing anything."""
+"""Pick and validate the next release version from existing tags, without creating a tag or publishing anything.
+
+Usage: scripts/check-release [version]
+With no version, the next alpha follows the newest tag. Prints key=value lines for GitHub Actions outputs.
+"""
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 VERSION = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(alpha|beta|rc)\.([1-9]\d*))?$")
+STAGES = {"alpha": 0, "beta": 1, "rc": 2}
+MAX_BUILD = 2100000000
 
 
-def validate(tag, mode, root=ROOT):
-    version = dict(line.split("=", 1) for line in (root / "version.properties").read_text().splitlines() if "=" in line)
-    name = version["versionName"]
-    if not VERSION.fullmatch(name) or tag != "v" + name:
-        raise ValueError("Tag must equal v + versionName (SemVer or alpha.N / beta.N / rc.N).")
-    if not version["versionCode"].isdigit() or not 1 <= int(version["versionCode"]) <= 2100000000:
-        raise ValueError("versionCode must be a positive Android-compatible integer.")
-    if mode not in ("development", "distribution"):
-        raise ValueError("Unknown release mode.")
-    prerelease = "-" in name
-    if mode == "development" and not prerelease:
-        raise ValueError("Stable tags require distribution signing; development mode is prerelease-only.")
-    if f"## {name}" not in (root / "CHANGELOG.md").read_text().splitlines():
-        raise ValueError("Add a released changelog section named ## " + name + " before tagging.")
-    return prerelease
+def parse(version):
+    match = VERSION.fullmatch(version)
+    if not match:
+        raise ValueError(f"{version} is not a valid version (SemVer, optionally -alpha.N / -beta.N / -rc.N).")
+    major, minor, patch, stage, number = match.groups()
+    # A prerelease sorts before its stable version.
+    return (int(major), int(minor), int(patch), STAGES[stage] if stage else 3, int(number or 0))
+
+
+def next_version(tags, requested=None):
+    versions = [tag[1:] for tag in tags if tag.startswith("v") and VERSION.fullmatch(tag[1:])]
+    latest = max(versions, key=parse, default=None)
+    if requested:
+        parse(requested)
+        if latest and parse(requested) <= parse(latest):
+            raise ValueError(f"{requested} must be newer than the latest release {latest}.")
+        return requested
+    if latest is None:
+        return "0.1.0-alpha.1"
+    major, minor, patch, stage, number = parse(latest)
+    if stage == 3:
+        return f"{major}.{minor}.{patch + 1}-alpha.1"
+    return f"{major}.{minor}.{patch}-{latest.split('-', 1)[1].split('.')[0]}.{number + 1}"
+
+
+def mode_for(version):
+    """Prereleases build unsigned development downloads; stable versions require distribution signing."""
+    return "development" if "-" in version else "distribution"
+
+
+def validate_build(build):
+    if not 1 <= build <= MAX_BUILD:
+        raise ValueError("Build number must be a positive Android-compatible integer.")
+    return build
 
 
 if __name__ == "__main__":
     try:
-        prerelease = validate(sys.argv[1], sys.argv[2])
-    except (ValueError, KeyError, IndexError) as error:
+        tags = subprocess.check_output(["git", "tag", "--list", "v*"], cwd=ROOT, text=True).split()
+        version = next_version(tags, sys.argv[1].strip() if len(sys.argv) > 1 else None)
+        build = validate_build(int(subprocess.check_output(["git", "rev-list", "--count", "HEAD"], cwd=ROOT, text=True)))
+    except (ValueError, subprocess.CalledProcessError) as error:
         sys.exit(str(error))
-    print("Release metadata valid; prerelease=" + str(prerelease).lower())
+    print(f"version={version}\ntag=v{version}\nbuild={build}\nmode={mode_for(version)}")

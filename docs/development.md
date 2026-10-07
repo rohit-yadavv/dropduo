@@ -30,7 +30,7 @@ Use `./scripts/build-macos debug` for a debug bundle. Android APK: `apps/android
 
 Read component `AGENTS.md`. Keep Swift/Kotlin core consistent with [the protocol](../protocol/SPEC.md) and fixtures. Never commit local SDK paths, user files, credentials, or signing keys. No release credentials are needed for development.
 
-`version.properties` supplies both app versions. See [releases](releases.md) and the [Git workflow](../CONTRIBUTING.md#git-workflow).
+`version.properties` sets both app versions for local and test builds; releases get theirs from **Actions → Release**. See [releases](releases.md) and the [Git workflow](../CONTRIBUTING.md#git-workflow).
 
 ## What the checks cover
 

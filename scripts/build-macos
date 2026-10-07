@@ -9,14 +9,16 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin/DropDuo" "$app/Contents/MacOS/DropDuo"
 cp apps/macos/Resources/Info.plist "$app/Contents/Info.plist"
 python3 - "$app/Contents/Info.plist" <<'PY'
-import plistlib, sys
+import os, plistlib, sys
 from pathlib import Path
+# The Release workflow sets DROPDUO_VERSION/DROPDUO_BUILD; version.properties covers local and test builds.
 version = dict(line.split('=', 1) for line in Path('version.properties').read_text().splitlines() if '=' in line)
+name = os.environ.get('DROPDUO_VERSION') or version['versionName']
 path = Path(sys.argv[1])
 info = plistlib.loads(path.read_bytes())
-info['CFBundleShortVersionString'] = version['versionName'].split('-', 1)[0]
-info['CFBundleVersion'] = version['versionCode']
-info['DropDuoVersion'] = version['versionName']
+info['CFBundleShortVersionString'] = name.split('-', 1)[0]
+info['CFBundleVersion'] = os.environ.get('DROPDUO_BUILD') or version['versionCode']
+info['DropDuoVersion'] = name
 path.write_bytes(plistlib.dumps(info))
 PY
 cp apps/macos/Resources/DropDuo.icns "$app/Contents/Resources/DropDuo.icns"

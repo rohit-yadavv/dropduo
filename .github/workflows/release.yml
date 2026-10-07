@@ -1,25 +1,17 @@
 name: Release
-# Publish a release from GitHub's Releases page (new tag on master); this builds and attaches the downloads.
-# Checks already ran when the commit reached master, so they are not repeated here.
+# Actions → Release → Run workflow: picks the next version from the tags, builds master, tags it and publishes
+# the release with its downloads. No version bump in code. Checks already ran when the commit reached master.
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
-      tag:
-        description: Existing release tag from master to build and attach downloads to (for example v0.1.0-alpha.1)
-        required: true
+      version:
+        description: Version to release. Leave empty for the next alpha (for example 0.1.0-alpha.7).
+        required: false
         type: string
-      mode:
-        description: Development prerelease or signed distribution
-        required: true
-        default: development
-        type: choice
-        options: [development, distribution]
 permissions:
   contents: read
 concurrency:
-  group: release-${{ inputs.tag || github.ref_name }}
+  group: release
   cancel-in-progress: false
 jobs:
   gate:
@@ -27,28 +19,23 @@ jobs:
     timeout-minutes: 5
     outputs:
       tag: ${{ steps.metadata.outputs.tag }}
+      version: ${{ steps.metadata.outputs.version }}
+      build: ${{ steps.metadata.outputs.build }}
       mode: ${{ steps.metadata.outputs.mode }}
-      prerelease: ${{ steps.metadata.outputs.prerelease }}
+      commit: ${{ steps.metadata.outputs.commit }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.tag || github.ref_name }}
+          ref: master
           fetch-depth: 0
           persist-credentials: false
       - id: metadata
-        name: Validate tag, production ancestry, versions and changelog
+        name: Pick the version, build number and signing mode
         env:
-          TAG: ${{ inputs.tag || github.ref_name }}
-          MODE: ${{ inputs.mode || (contains(github.ref_name, '-') && 'development' || 'distribution') }}
+          VERSION: ${{ inputs.version }}
         run: |
-          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$ ]] || exit 1
-          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$TAG^{commit}")"
-          git fetch --no-tags origin master:refs/remotes/origin/master
-          git merge-base --is-ancestor HEAD origin/master
-          ./scripts/check-release "$TAG" "$MODE"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
-          if [[ "$TAG" == *-* ]]; then echo 'prerelease=true' >> "$GITHUB_OUTPUT"; else echo 'prerelease=false' >> "$GITHUB_OUTPUT"; fi
+          ./scripts/check-release "$VERSION" | tee -a "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" | tee -a "$GITHUB_OUTPUT"
   macos:
     needs: gate
     strategy:
@@ -59,9 +46,10 @@ jobs:
           - {runner: macos-15-intel, arch: x86_64}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
+    env: {DROPDUO_VERSION: "${{ needs.gate.outputs.version }}", DROPDUO_BUILD: "${{ needs.gate.outputs.build }}"}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: {ref: "${{ needs.gate.outputs.tag }}", persist-credentials: false}
+        with: {ref: "${{ needs.gate.outputs.commit }}", persist-credentials: false}
       - name: Import Developer ID into ephemeral keychain
         if: needs.gate.outputs.mode == 'distribution'
         env:
@@ -102,9 +90,10 @@ jobs:
     needs: gate
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env: {DROPDUO_VERSION: "${{ needs.gate.outputs.version }}", DROPDUO_BUILD: "${{ needs.gate.outputs.build }}"}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: {ref: "${{ needs.gate.outputs.tag }}", persist-credentials: false}
+        with: {ref: "${{ needs.gate.outputs.commit }}", persist-credentials: false}
       - uses: ./.github/actions/setup-android
       - name: Development APK
         if: needs.gate.outputs.mode == 'development'
@@ -142,7 +131,7 @@ jobs:
       - name: Remove temporary keystore
         if: always()
         run: rm -f "$RUNNER_TEMP/dropduo-release.jks"
-  attach:
+  publish:
     needs: [gate, macos, android]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -150,7 +139,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: {ref: "${{ needs.gate.outputs.tag }}", persist-credentials: false}
+        with: {ref: "${{ needs.gate.outputs.commit }}", persist-credentials: false}
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: release-*
@@ -161,15 +150,15 @@ jobs:
           TAG: ${{ needs.gate.outputs.tag }}
           MODE: ${{ needs.gate.outputs.mode }}
         run: python3 scripts/release-notes.py
-      - name: Attach downloads to the release
+      - name: Tag master and publish the release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.gate.outputs.tag }}
+          COMMIT: ${{ needs.gate.outputs.commit }}
         run: |
-          # Never overwrite assets from an earlier run; the website shows a release only once its downloads exist.
-          gh release upload "$TAG" dist/release/*
-          # Fill an empty description from the changelog; keep notes the maintainer wrote.
-          if [ -z "$(gh release view "$TAG" --json body --jq .body)" ]; then
-            gh release edit "$TAG" --title "DropDuo $TAG" --notes-file dist/release-notes.md
-          fi
+          # GitHub lists the pull requests merged since the previous release under the install notes.
+          gh api "repos/$GH_REPO/releases/generate-notes" -f tag_name="$TAG" -f target_commitish="$COMMIT" --jq .body >> dist/release-notes.md
+          # Creates the tag on the built commit. Never overwrites: an existing tag or release fails here.
+          # Releases are never marked pre-release, so GitHub and the website offer the newest build.
+          gh release create "$TAG" dist/release/* --target "$COMMIT" --title "DropDuo $TAG" --notes-file dist/release-notes.md

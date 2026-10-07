@@ -1,7 +1,6 @@
 import importlib.machinery
 import importlib.util
 from pathlib import Path
-import tempfile
 import unittest
 
 loader = importlib.machinery.SourceFileLoader("release_check", str(Path(__file__).parents[1] / "check-release"))
@@ -10,43 +9,37 @@ release = importlib.util.module_from_spec(spec)
 loader.exec_module(release)
 
 
-class ReleaseGuardTests(unittest.TestCase):
-    def setUp(self):
-        self.temp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+class ReleaseVersionTests(unittest.TestCase):
+    def test_next_alpha_follows_newest_tag(self):
+        tags = ["v0.1.0-alpha.2", "v0.1.0-alpha.10", "v0.1.0-alpha.9", "not-a-version"]
+        self.assertEqual(release.next_version(tags), "0.1.0-alpha.11")
 
-    def version(self, name, code="1", heading=None):
-        (self.root / "version.properties").write_text(f"versionName={name}\nversionCode={code}\n")
-        (self.root / "CHANGELOG.md").write_text(heading if heading is not None else f"# Changelog\n\n## {name}\n")
+    def test_after_stable_release_starts_next_patch_alpha(self):
+        self.assertEqual(release.next_version(["v0.1.0-alpha.5", "v1.0.0"]), "1.0.1-alpha.1")
 
-    def test_alpha_allows_development_or_distribution(self):
-        self.version("0.1.0-alpha.1")
-        for mode in ("development", "distribution"):
-            self.assertTrue(release.validate("v0.1.0-alpha.1", mode, self.root))
+    def test_prerelease_stage_continues(self):
+        self.assertEqual(release.next_version(["v1.0.0-rc.2", "v1.0.0-beta.4"]), "1.0.0-rc.3")
 
-    def test_stable_cannot_publish_development_builds(self):
-        self.version("1.0.0")
-        with self.assertRaisesRegex(ValueError, "distribution signing"):
-            release.validate("v1.0.0", "development", self.root)
-        self.assertFalse(release.validate("v1.0.0", "distribution", self.root))
+    def test_first_release(self):
+        self.assertEqual(release.next_version([]), "0.1.0-alpha.1")
 
-    def test_tag_mismatch_and_invalid_versions_fail(self):
-        for name, tag in [("0.1.0", "v0.2.0"), ("01.0.0", "v01.0.0"), ("1.0.0-alpha.0", "v1.0.0-alpha.0")]:
-            self.version(name)
+    def test_requested_version_must_be_valid_and_newer(self):
+        tags = ["v0.1.0-alpha.5"]
+        self.assertEqual(release.next_version(tags, "0.1.0"), "0.1.0")
+        self.assertEqual(release.next_version(tags, "0.1.0-beta.1"), "0.1.0-beta.1")
+        for requested in ("0.1.0-alpha.5", "0.1.0-alpha.4", "01.0.0", "1.0.0-alpha.0", "v1.0.0", "1.0"):
             with self.assertRaises(ValueError):
-                release.validate(tag, "distribution", self.root)
+                release.next_version(tags, requested)
 
-    def test_unreleased_heading_is_not_a_release(self):
-        self.version("0.1.0-alpha.1", heading="# Changelog\n\n## Unreleased — 0.1.0-alpha.1\n")
-        with self.assertRaisesRegex(ValueError, "changelog"):
-            release.validate("v0.1.0-alpha.1", "development", self.root)
+    def test_stable_versions_require_distribution_signing(self):
+        self.assertEqual(release.mode_for("0.1.0-alpha.6"), "development")
+        self.assertEqual(release.mode_for("1.0.0"), "distribution")
 
     def test_bad_build_numbers_fail(self):
-        for code in ("0", "-1", "abc", "2100000001"):
-            self.version("1.0.0", code)
+        for build in (0, -1, 2100000001):
             with self.assertRaises(ValueError):
-                release.validate("v1.0.0", "distribution", self.root)
+                release.validate_build(build)
+        self.assertEqual(release.validate_build(89), 89)
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ Publish downloads through [GitHub Releases](https://github.com/rohit-yadavv/drop
 ## Release
 
 1. Merge `develop` into `master` through a PR once checks pass. See the [Git workflow](../CONTRIBUTING.md#git-workflow).
-2. On GitHub, open **Actions → Release → Run workflow** and click **Run workflow**.
+2. On GitHub, open **Actions → Release → Run workflow** and click **Run workflow**. Only the repository owner can release; runs started by anyone else, including re-runs, stop before building.
 
 The workflow takes the next alpha after the newest tag (`v0.1.0-alpha.6` → `v0.1.0-alpha.7`); type a version instead for a beta, release candidate or stable release. The build number is the commit count on master, so each release has a higher Android version code than the last. It builds the Mac and Android apps from master, then tags that commit and publishes the release with its downloads. Release notes list the pull requests merged since the previous release, led by a `## <version>` section from `CHANGELOG.md` if one exists. No version edits in code; `version.properties` only sets the version for local and test builds. The checks already ran when the commit reached master, so they aren't repeated.
 

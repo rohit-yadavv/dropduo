@@ -27,9 +27,8 @@ class ReleaseVersionTests(unittest.TestCase):
         tags = ["v0.1.0-alpha.5"]
         self.assertEqual(release.next_version(tags, "0.1.0"), "0.1.0")
         self.assertEqual(release.next_version(tags, "0.1.0-beta.1"), "0.1.0-beta.1")
-        self.assertEqual(release.next_version(tags, " v0.1.0-alpha.6 "), "0.1.0-alpha.6")
         self.assertEqual(release.next_version(tags, ""), "0.1.0-alpha.6")
-        for requested in ("0.1.0-alpha.5", "v0.1.0-alpha.4", "01.0.0", "1.0.0-alpha.0", "vv1.0.0", "1.0"):
+        for requested in ("0.1.0-alpha.5", "0.1.0-alpha.4", "01.0.0", "1.0.0-alpha.0", "v0.1.0-alpha.6", "1.0"):
             with self.assertRaises(ValueError):
                 release.next_version(tags, requested)
 

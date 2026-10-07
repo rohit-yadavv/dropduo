@@ -40,7 +40,7 @@ All messages have type and a UUID id. Fields are omitted when unused.
 | error | id,error | Transfer-scoped failure |
 | text | id,text | Explicitly shared UTF-8 text, at most 64000 bytes |
 
-Stop-and-wait chunks bound memory and simplify resume; throughput tuning follows measured results. Maximum file size is 32 GiB, up to four active incoming/outgoing files per peer. Filenames must be nonempty, at most 218 UTF-8 bytes, not dot/dot-dot, and contain no path separators or control characters. Destination prefixes a UUID to prevent collisions. Partial storage is scoped per paired peer. Invalid hashes/sizes/offsets must fail. Completed matching files make retry idempotent. Abandoned partials expire after seven days. Sender retains source and transfer ID to retry; after a connection loss it re-offers the same ID on reconnect and resumes from the accepted offset. No cloud/offline delivery guarantee.
+Stop-and-wait chunks bound memory and simplify resume; throughput tuning follows measured results. Maximum file size is 32 GiB, up to four active incoming/outgoing files per peer. Filenames must be nonempty, at most 218 UTF-8 bytes, not dot/dot-dot, and contain no path separators or control characters. Destination prefixes a UUID to prevent collisions. Partial storage is scoped per paired peer. Invalid hashes/sizes/offsets must fail. Completed matching files make retry idempotent. Abandoned partials expire after seven days. Sender retains source and transfer ID to retry; while the peer is unreachable or after a connection loss it holds the item and re-sends the same ID on reconnect, resuming files from the accepted offset. Receivers show a repeated text ID once. No cloud delivery.
 
 ## Compatibility fixtures
 

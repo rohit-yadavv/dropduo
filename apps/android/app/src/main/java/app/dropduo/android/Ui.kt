@@ -121,8 +121,8 @@ private val ACTIVE = listOf("Preparing", "Sending", "Receiving")
         item { DeviceCard(state, actions.connect) }
         item {
             Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                ActionTile(R.drawable.ic_file, "Files", "Photos, videos, docs", state.connected, primary = true, onClick = actions.files, modifier = Modifier.weight(1f))
-                ActionTile(R.drawable.ic_text, "Text", "Links and notes", state.connected, primary = false, onClick = { textSheet = true }, modifier = Modifier.weight(1f))
+                ActionTile(R.drawable.ic_file, "Files", "Photos, videos, docs", primary = true, onClick = actions.files, modifier = Modifier.weight(1f))
+                ActionTile(R.drawable.ic_text, "Text", "Links and notes", primary = false, onClick = { textSheet = true }, modifier = Modifier.weight(1f))
             }
         }
         item {
@@ -177,10 +177,10 @@ private val ACTIVE = listOf("Preparing", "Sending", "Receiving")
     Box(Modifier.size(8.dp).alpha(alpha).background(color, CircleShape))
 }
 
-@Composable private fun ActionTile(icon: Int, title: String, subtitle: String, enabled: Boolean, primary: Boolean, onClick: () -> Unit, modifier: Modifier) {
+@Composable private fun ActionTile(icon: Int, title: String, subtitle: String, primary: Boolean, onClick: () -> Unit, modifier: Modifier) {
     val background = if (primary) colors.accent else colors.surface
     val content = if (primary) colors.onAccent else colors.text
-    Surface(onClick = onClick, enabled = enabled, modifier = modifier.height(136.dp).alpha(if (enabled) 1f else 0.4f), shape = RoundedCornerShape(24.dp), color = background) {
+    Surface(onClick = onClick, modifier = modifier.height(136.dp), shape = RoundedCornerShape(24.dp), color = background) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Box(Modifier.size(40.dp).background(if (primary) content.copy(alpha = 0.16f) else colors.background, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
                 Glyph(icon, null, content, 22.dp)
@@ -218,7 +218,7 @@ private val ACTIVE = listOf("Preparing", "Sending", "Receiving")
     }
 }
 
-private fun canRetry(row: Transfer) = row.state == "Interrupted" && row.direction == "Sent" && row.path != null
+private fun canRetry(row: Transfer) = row.state == "Interrupted" && row.direction == "Sent" && (row.path != null || row.text != null)
 private fun title(row: Transfer) = row.text?.lineSequence()?.firstOrNull { it.isNotBlank() }?.trim() ?: row.name
 private fun subtitle(row: Transfer) = when (row.state) {
     "Complete" -> row.direction
@@ -250,11 +250,11 @@ private fun kindIcon(row: Transfer) = when {
     Sheet(onDismiss) {
         Text("Send text", style = Type.title, color = colors.text)
         Spacer(Modifier.height(4.dp))
-        Text(if (connected) "A link or a note, straight to your Mac." else "Connect to your Mac to send text.", style = Type.caption, color = colors.secondary)
+        Text(if (connected) "A link or a note, straight to your Mac." else "Your Mac isn't connected. This sends when it's back.", style = Type.caption, color = colors.secondary)
         Spacer(Modifier.height(20.dp))
         Field(text, { text = it }, "Paste a link or type a note", minLines = 4)
         Spacer(Modifier.height(16.dp))
-        PrimaryButton("Send", enabled = connected && text.isNotBlank()) { AppState.sendText(text) { text = ""; onDismiss() } }
+        PrimaryButton("Send", enabled = text.isNotBlank()) { AppState.sendText(text) { text = ""; onDismiss() } }
     }
 }
 

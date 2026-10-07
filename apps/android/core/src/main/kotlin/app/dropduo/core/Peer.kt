@@ -43,6 +43,9 @@ const val CONNECTION_LOST = "Connection lost. It resumes when the devices reconn
 private const val PAUSED = "Receiving is paused on the other device. Turn it back on there, then retry."
 private const val TEXT_TOO_LONG = "Text is too long to send. Share it as a file instead."
 class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, private val event: (PeerEvent) -> Unit) : Closeable {
+    companion object {
+        fun validateText(text: String) { require(text.isNotEmpty()) { "Type something to send" }; require(text.toByteArray().size <= 64000) { TEXT_TOO_LONG } }
+    }
     private val incoming = ConcurrentHashMap<String, Message>()
     private val responses = ConcurrentHashMap<String, LinkedBlockingQueue<Message>>()
     private val cancelled = ConcurrentHashMap.newKeySet<String>()
@@ -95,9 +98,9 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
             event(PeerEvent(id, displayName, "Sent", if (cancelled.contains(id)) "Cancelled" else "Interrupted", path = file.path, error = if (lost) CONNECTION_LOST else error.message)); throw error
         } finally { active.remove(id); cancelled.remove(id); responses.remove(id) }
     }
-    fun sendText(text: String) {
-        require(text.isNotEmpty()) { "Type something to send" }; require(text.toByteArray().size <= 64000) { TEXT_TOO_LONG }
-        val id = UUID.randomUUID().toString(); responses[id] = LinkedBlockingQueue(8)
+    /** Reusing [id] when re-sending held text lets the receiver show it once. */
+    fun sendText(text: String, id: String = UUID.randomUUID().toString()) {
+        validateText(text); check(responses.putIfAbsent(id, LinkedBlockingQueue(8)) == null) { "Transfer already active" }
         try {
             channel.send(Message("text", id, text = text)); check(wait(id).type == "complete") { "Text was not confirmed" }
             event(PeerEvent(id, "Text", "Sent", "Complete", 1.0, text = text))

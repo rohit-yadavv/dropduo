@@ -42,7 +42,7 @@ import AppKit
         menu.addItem(.separator())
         menu.addItem(action("Open DropDuo") { [weak self] in self?.openApp() })
         let send = action("Send Files…") { [model] in NSApp.activate(ignoringOtherApps: true); model.chooseFiles() }
-        send.isEnabled = model.online.contains(model.selected)
+        send.isEnabled = !model.selected.isEmpty
         menu.addItem(send)
         menu.addItem(action("Open Received Files") { [model] in NSWorkspace.shared.open(model.inboxRoot) })
         menu.addItem(.separator())

@@ -1,11 +1,13 @@
 name: Release
+# Publish a release from GitHub's Releases page (new tag on master); this builds and attaches the downloads.
+# Checks already ran when the commit reached master, so they are not repeated here.
 on:
-  push:
-    tags: ['v*']
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing version tag from master (for example v0.1.0-alpha.1)
+        description: Existing release tag from master to build and attach downloads to (for example v0.1.0-alpha.1)
         required: true
         type: string
       mode:
@@ -47,13 +49,8 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
           if [[ "$TAG" == *-* ]]; then echo 'prerelease=true' >> "$GITHUB_OUTPUT"; else echo 'prerelease=false' >> "$GITHUB_OUTPUT"; fi
-  checks:
-    needs: gate
-    uses: ./.github/workflows/checks.yml
-    with:
-      ref: ${{ needs.gate.outputs.tag }}
   macos:
-    needs: [gate, checks]
+    needs: gate
     strategy:
       fail-fast: false
       matrix:
@@ -102,7 +99,7 @@ jobs:
         if: always() && needs.gate.outputs.mode == 'distribution'
         run: ./scripts/macos-distribution cleanup
   android:
-    needs: [gate, checks]
+    needs: gate
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -145,8 +142,8 @@ jobs:
       - name: Remove temporary keystore
         if: always()
         run: rm -f "$RUNNER_TEMP/dropduo-release.jks"
-  draft:
-    needs: [gate, checks, macos, android]
+  attach:
+    needs: [gate, macos, android]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -164,12 +161,15 @@ jobs:
           TAG: ${{ needs.gate.outputs.tag }}
           MODE: ${{ needs.gate.outputs.mode }}
         run: python3 scripts/release-notes.py
-      - name: Create draft only
+      - name: Attach downloads to the release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.gate.outputs.tag }}
         run: |
-          # Published releases are always full releases so GitHub and the website offer the newest build.
-          args=(--draft --verify-tag --title "DropDuo $TAG" --notes-file dist/release-notes.md)
-          # Never overwrite a release or assets from an earlier run.
-          gh release create "$TAG" dist/release/* "${args[@]}"
+          # Never overwrite assets from an earlier run; the website shows a release only once its downloads exist.
+          gh release upload "$TAG" dist/release/*
+          # Fill an empty description from the changelog; keep notes the maintainer wrote.
+          if [ -z "$(gh release view "$TAG" --json body --jq .body)" ]; then
+            gh release edit "$TAG" --title "DropDuo $TAG" --notes-file dist/release-notes.md
+          fi

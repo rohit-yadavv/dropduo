@@ -33,13 +33,15 @@ if len({m['commit'] for m in metadata}) != 1:
 for name in ("LICENSE", "NOTICE"):
     shutil.copy2(root / name, out / name)
 shutil.copy2(root / "docs/dependencies.md", out / "DEPENDENCIES.md")
+# An optional CHANGELOG.md section for this version leads the notes; GitHub appends the merged pull requests.
 changelog = (root / "CHANGELOG.md").read_text()
-section = changelog.split("## " + tag[1:] + "\n", 1)[1].split("\n## ", 1)[0].strip()
+heading = "## " + tag[1:] + "\n"
+section = changelog.split(heading, 1)[1].split("\n## ", 1)[0].strip() + "\n\n" if heading in changelog else ""
 status = ("Development prerelease: Mac apps are ad-hoc signed and not notarized. Android APK is debug-signed. "
           "Android debug certificates can change between runs; export received files before uninstalling a previous build. "
           "Do not present these downloads as production-signed software.") if mode == "development" else (
           "Mac apps use Developer ID signing and Apple notarization. Android APK uses the maintainer's distribution key.")
-notes = f"{section}\n\n{status}\n\nChoose the arm64 ZIP for Apple Silicon Macs or x86_64 ZIP for Intel Macs. "
+notes = f"{section}{status}\n\nChoose the arm64 ZIP for Apple Silicon Macs or x86_64 ZIP for Intel Macs. "
 notes += "Unzip and move DropDuo.app to Applications. Install the Android APK on Android 10+. Both devices need a reachable local network.\n\n"
 notes += "Verify downloads with SHA256SUMS. Source commit: `" + metadata[0]['commit'] + "`.\n\n"
 notes += "Setup and troubleshooting: [install and use DropDuo](https://github.com/rohit-yadavv/dropduo/blob/" + tag + "/docs/usage.md).\n"

@@ -1,5 +1,7 @@
 # Changelog
 
+Each [GitHub release](https://github.com/rohit-yadavv/dropduo/releases) lists the pull requests it includes. A section here with the exact version adds highlights above that list.
+
 ## Unreleased
 
 ## 0.1.0-alpha.6

@@ -4,11 +4,14 @@ plugins { id("com.android.application"); kotlin("android"); id("org.jetbrains.ko
 val releaseVersion = Properties().apply {
     rootProject.file("../../version.properties").inputStream().use { load(it) }
 }
+// The Release workflow sets these; version.properties covers local and test builds.
+val appVersionName = providers.environmentVariable("DROPDUO_VERSION").orNull ?: releaseVersion.getProperty("versionName")
+val appVersionCode = (providers.environmentVariable("DROPDUO_BUILD").orNull ?: releaseVersion.getProperty("versionCode")).toInt()
 val signingPath = providers.environmentVariable("DROPDUO_ANDROID_KEYSTORE").orNull
 android {
     namespace = "app.dropduo.android"
     compileSdk = 36
-    defaultConfig { applicationId = "app.dropduo.android"; minSdk = 29; targetSdk = 36; versionCode = releaseVersion.getProperty("versionCode").toInt(); versionName = releaseVersion.getProperty("versionName"); testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
+    defaultConfig { applicationId = "app.dropduo.android"; minSdk = 29; targetSdk = 36; versionCode = appVersionCode; versionName = appVersionName; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
     buildFeatures { compose = true; buildConfig = true }
     if (signingPath != null) {
         signingConfigs.create("distribution") {

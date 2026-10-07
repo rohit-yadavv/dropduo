@@ -40,7 +40,9 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          ./scripts/check-release "$VERSION" | tee -a "$GITHUB_OUTPUT"
+          # Assign first so an invalid version stops the run here instead of passing empty outputs on.
+          metadata=$(./scripts/check-release "$VERSION")
+          echo "$metadata" | tee -a "$GITHUB_OUTPUT"
           echo "commit=$(git rev-parse HEAD)" | tee -a "$GITHUB_OUTPUT"
   macos:
     needs: gate

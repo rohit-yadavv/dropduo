@@ -2,6 +2,7 @@
   "name": "DropDuo double-D",
   "viewBox": 1024,
   "colors": { "ink": "#202124", "cobalt": "#2558DD", "background": "#FFFFFF" },
+  "macColors": { "ink": "#FFFFFF", "cobalt": "#4C7EF3", "background": "#202124" },
   "paths": [
     {
       "color": "ink",

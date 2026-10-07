@@ -2,8 +2,11 @@
 
 ## Unreleased
 
+## 0.1.0-alpha.6
+
 - Send while the other device is offline: files and text you share from the Mac or the phone wait, then go out automatically the next time the devices connect. Clearing recent history keeps items still waiting to send.
 - Remove drag and drop onto the menu bar icon; dragging there opened the macOS desktop instead of sending. Use **Send Files…** in the menu bar menu or drop files into the window.
+- The Mac app icon now uses a dark tile, so it stays legible in dark mode.
 
 ## 0.1.0-alpha.5
 

@@ -28,7 +28,6 @@ struct DeviceView: View {
             }
         }
         .onDrop(of: [UTType.fileURL], isTargeted: $model.targeted) { providers in
-            guard online else { return false }
             for provider in providers { _ = provider.loadObject(ofClass: URL.self) { url, _ in if let url { Task { @MainActor in model.send([url]) } } } }
             return true
         }
@@ -67,7 +66,7 @@ struct DeviceView: View {
             Image(systemName: "wifi.exclamationmark").foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(device.name) isn't reachable").font(.callout.weight(.semibold))
-                Text("Open DropDuo on the phone and make sure both devices are on the same Wi-Fi. It reconnects automatically.")
+                Text("Open DropDuo on the phone and make sure both devices are on the same Wi-Fi. Anything you send now goes out when it reconnects.")
                     .font(.callout).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
@@ -79,8 +78,8 @@ struct DeviceView: View {
     private var composer: some View {
         HStack(alignment: .bottom, spacing: 10) {
             Button { model.chooseFiles() } label: { Image(systemName: "paperclip").font(.system(size: 16, weight: .medium)).frame(width: 32, height: 32) }
-                .buttonStyle(.borderless).help("Send files").accessibilityLabel("Send files").disabled(!online)
-            TextField(online ? "Send a link or text" : "Waiting for \(device.name)…", text: $model.text, axis: .vertical)
+                .buttonStyle(.borderless).help("Send files").accessibilityLabel("Send files")
+            TextField(online ? "Send a link or text" : "Sends when \(device.name) is back", text: $model.text, axis: .vertical)
                 .textFieldStyle(.plain).lineLimit(1...6).focused($composing)
                 .padding(.horizontal, 12).padding(.vertical, 8)
                 .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -98,16 +97,16 @@ struct DeviceView: View {
 
     private var dropOverlay: some View {
         RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .strokeBorder(online ? Brand.cobalt : Color.secondary, style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
-            .background((online ? Brand.cobalt : Color.secondary).opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .strokeBorder(Brand.cobalt, style: StrokeStyle(lineWidth: 2, dash: [8, 6]))
+            .background(Brand.cobalt.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay {
-                Label(online ? "Drop to send to \(device.name)" : "\(device.name) isn't reachable", systemImage: online ? "arrow.down.circle.fill" : "wifi.slash")
+                Label(online ? "Drop to send to \(device.name)" : "Drop to send when \(device.name) is back", systemImage: "arrow.down.circle.fill")
                     .font(.title3.weight(.semibold)).padding(.horizontal, 18).padding(.vertical, 10).background(.regularMaterial, in: Capsule())
             }
             .padding(12).allowsHitTesting(false)
     }
 
-    private var canSend: Bool { online && !model.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    private var canSend: Bool { !model.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     private func send() { if canSend { model.sendText() } }
 }
 
@@ -116,6 +115,7 @@ struct TransferBubble: View {
     let transfer: Transfer
     private var sent: Bool { transfer.direction == "Sent" }
     private var active: Bool { ["Preparing", "Sending", "Receiving"].contains(transfer.state) }
+    private var waiting: Bool { transfer.state == "Interrupted" && transfer.autoRetry == true }
 
     var body: some View {
         HStack {
@@ -134,6 +134,7 @@ struct TransferBubble: View {
             .padding(.horizontal, 14).padding(.vertical, 9)
             .foregroundStyle(sent ? Color.white : Color.primary)
             .background(sent ? AnyShapeStyle(Brand.cobalt) : AnyShapeStyle(.quaternary), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .opacity(waiting ? 0.6 : 1)
             .contextMenu { Button("Copy") { copy(text) } }
     }
 
@@ -143,7 +144,7 @@ struct TransferBubble: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(transfer.name).lineLimit(1).truncationMode(.middle).font(.body.weight(.medium))
                 if active { ProgressView(value: transfer.progress).controlSize(.small) }
-                if transfer.state == "Interrupted", transfer.autoRetry == true { Text("Resumes when your phone reconnects").font(.caption).foregroundStyle(.secondary).lineLimit(2) }
+                if waiting { Text(transfer.error ?? "Sends when your phone reconnects").font(.caption).foregroundStyle(.secondary).lineLimit(2) }
                 else if let error = transfer.error, transfer.state != "Complete" { Text(error).font(.caption).foregroundStyle(.orange).lineLimit(2) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -167,7 +168,7 @@ struct TransferBubble: View {
             Button { reveal(path) } label: { Image(systemName: "magnifyingglass") }.buttonStyle(.borderless).help("Show in Finder").accessibilityLabel("Show in Finder")
         } else if transfer.state == "Interrupted", sent, transfer.path != nil {
             Button("Retry") { model.retry(transfer) }.controlSize(.small)
-            if transfer.autoRetry == true {
+            if waiting {
                 Button { model.cancel(transfer) } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
                     .buttonStyle(.borderless).help("Stop resuming").accessibilityLabel("Stop resuming transfer")
             }
@@ -184,6 +185,9 @@ struct TransferBubble: View {
             Text(transfer.date, format: .dateTime.hour().minute())
             if transfer.text != nil, transfer.state == "Complete" {
                 Button("Copy") { copy(transfer.text ?? "") }.buttonStyle(.link).font(.caption)
+            } else if transfer.text != nil, sent, transfer.state == "Interrupted" {
+                if waiting { Button("Don't Send") { model.cancel(transfer) }.buttonStyle(.link).font(.caption) }
+                else { Button("Retry") { model.retry(transfer) }.buttonStyle(.link).font(.caption) }
             }
         }
         .font(.caption).foregroundStyle(.secondary).padding(.horizontal, 4)
@@ -194,6 +198,8 @@ struct TransferBubble: View {
         case "Preparing": return "Preparing…"
         case "Sending", "Receiving": return "\(transfer.state) · \(Int(transfer.progress * 100))%"
         case "Complete": return sent ? "Sent" : (transfer.text == nil ? "Saved to Downloads" : "Received")
+        case "Interrupted" where transfer.text != nil && waiting: return transfer.error ?? "Waiting"
+        case "Interrupted" where transfer.text != nil && sent: return "Not sent"
         default: return transfer.state
         }
     }

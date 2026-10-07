@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Send while the other device is offline: files and text you share from the Mac or the phone wait, then go out automatically the next time the devices connect. Clearing recent history keeps items still waiting to send.
+- Remove drag and drop onto the menu bar icon; dragging there opened the macOS desktop instead of sending. Use **Send Files…** in the menu bar menu or drop files into the window.
+
 ## 0.1.0-alpha.5
 
 - Drop files on the DropDuo menu bar icon to send them to your phone. With several paired phones, choose the target under **Send To** in the menu.

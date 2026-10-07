@@ -7,7 +7,7 @@ struct Device: Codable, Identifiable { var id: String; var name: String }
 struct Transfer: Codable, Identifiable {
     var id: String; var peer: String; var name: String; var direction: String; var state: String
     var progress: Double; var path: String?; var text: String?; var error: String?; var date: Date
-    /// Set when a sent file was cut off by a lost connection; it resumes when the peer reconnects.
+    /// Set when a send is waiting for an unreachable phone or was cut off by a lost connection; it goes out when the phone reconnects.
     var autoRetry: Bool?
 }
 @MainActor final class AppModel: ObservableObject {
@@ -72,9 +72,6 @@ struct Transfer: Codable, Identifiable {
     /// Shows an alert in the window, or a notification when the user sent from Finder or the menu bar.
     func report(_ message: String) { if windowVisible() { error = message } else { notifier.problem(message) } }
     private func name(_ peer: String) -> String { devices.first { $0.id == peer }?.name ?? "Your phone" }
-    private func unreachable(_ peer: String) -> String {
-        "\(name(peer)) isn't reachable. Open DropDuo on the phone and check both devices are on the same Wi-Fi."
-    }
     private func load<T: Decodable>(_ name: String) -> T? { guard let data = try? Data(contentsOf: stateRoot.appendingPathComponent(name)) else { return nil }; return try? JSONDecoder().decode(T.self, from: data) }
     private func save<T: Encodable>(_ object: T, _ name: String) { do { try JSONEncoder().encode(object).write(to: stateRoot.appendingPathComponent(name), options: .atomic) } catch { self.error = "Could not save app state: " + error.localizedDescription } }
     func makeTicket() {
@@ -159,8 +156,12 @@ struct Transfer: Codable, Identifiable {
         if !files.isEmpty { send(files.map { ($0, UUID().uuidString) }, to: selected) }
     }
     /// Sends one file at a time so resumed batches stay within the peer's active-transfer limit.
+    /// While the phone is unreachable, files wait in history and send when it reconnects.
     private func send(_ files: [(url: URL, id: String)], to peer: String) {
-        guard let engine = engines[peer] else { report(unreachable(peer)); return }
+        guard let engine = engines[peer] else {
+            for (file, id) in files { hold(PeerEvent(id: id, name: file.lastPathComponent, direction: "Sent", state: "Interrupted", path: file.path, error: "Waiting for \(name(peer))"), peer: peer) }
+            return
+        }
         let files = files.filter { running.insert($0.id).inserted }
         Task { for (file, id) in files {
             if transfers.first(where: { $0.id == id && $0.peer == peer })?.state == "Cancelled" { running.remove(id); continue }
@@ -175,18 +176,52 @@ struct Transfer: Codable, Identifiable {
             }
         } }
     }
-    private func resumePending(_ peer: String) {
-        let pending = transfers.filter { $0.peer == peer && $0.direction == "Sent" && $0.state == "Interrupted" && $0.autoRetry == true && !running.contains($0.id) }
-            .reversed().compactMap { transfer in transfer.path.map { (url: URL(fileURLWithPath: $0), id: transfer.id) } }
-        if !pending.isEmpty { send(Array(pending), to: peer) }
+    /// Keeps a send in history so it goes out when the phone reconnects.
+    private func hold(_ event: PeerEvent, peer: String) {
+        record(event, peer: peer)
+        if let index = transfers.firstIndex(where: { $0.id == event.id && $0.peer == peer }) { transfers[index].autoRetry = true; save(transfers, "history.json") }
     }
-    func sendText() { guard let engine = engines[selected] else { error = unreachable(selected); return }; let value = text; Task { do { try await engine.sendText(value); text = "" } catch { self.error = error.localizedDescription } } }
+    private func resumePending(_ peer: String) {
+        let pending = transfers.filter { $0.peer == peer && $0.direction == "Sent" && $0.state == "Interrupted" && $0.autoRetry == true && !running.contains($0.id) }.reversed()
+        for transfer in pending { if let text = transfer.text { send(text, id: transfer.id, to: peer) } }
+        let files = pending.compactMap { transfer in transfer.text == nil ? transfer.path.map { (url: URL(fileURLWithPath: $0), id: transfer.id) } : nil }
+        if !files.isEmpty { send(Array(files), to: peer) }
+    }
+    func sendText() {
+        do { try PeerEngine.validateText(text) } catch { self.error = error.localizedDescription; return }
+        send(text, id: UUID().uuidString, to: selected); text = ""
+    }
+    /// Sends text now, or holds it until the phone reconnects.
+    private func send(_ value: String, id: String, to peer: String) {
+        guard let engine = engines[peer] else {
+            hold(PeerEvent(id: id, name: "Text", direction: "Sent", state: "Interrupted", text: value, error: "Waiting for \(name(peer))"), peer: peer); return
+        }
+        guard running.insert(id).inserted else { return }
+        Task {
+            do { try await engine.sendText(value, id: id); running.remove(id) } catch {
+                running.remove(id)
+                if (error as? PortError)?.isInterruption == true {
+                    hold(PeerEvent(id: id, name: "Text", direction: "Sent", state: "Interrupted", text: value, error: error.localizedDescription), peer: peer)
+                    // The phone may have reconnected while this attempt was still failing on the old connection.
+                    if let current = engines[peer], current !== engine { resumePending(peer) }
+                } else {
+                    record(PeerEvent(id: id, name: "Text", direction: "Sent", state: "Interrupted", text: value, error: error.localizedDescription), peer: peer)
+                    if let index = transfers.firstIndex(where: { $0.id == id && $0.peer == peer }) { transfers[index].autoRetry = nil; save(transfers, "history.json") }
+                    report(error.localizedDescription)
+                }
+            }
+        }
+    }
     func cancel(_ transfer: Transfer) {
         if let index = transfers.firstIndex(where: { $0.id == transfer.id && $0.peer == transfer.peer }), transfers[index].autoRetry == true {
             transfers[index].autoRetry = nil; transfers[index].state = "Cancelled"; save(transfers, "history.json")
         }
         if let engine = engines[transfer.peer] { Task { await engine.cancel(transfer.id) } } }
-    func retry(_ transfer: Transfer) { guard let path = transfer.path else { return }; selected = transfer.peer; send([(URL(fileURLWithPath: path), transfer.id)], to: transfer.peer) }
+    func retry(_ transfer: Transfer) {
+        selected = transfer.peer
+        if let text = transfer.text { send(text, id: transfer.id, to: transfer.peer) }
+        else if let path = transfer.path { send([(URL(fileURLWithPath: path), transfer.id)], to: transfer.peer) }
+    }
     func forget(_ device: Device) {
         let engine = engines.removeValue(forKey: device.id); Task { await engine?.stop() }
         online.remove(device.id); SecureStore.remove(device.id); devices.removeAll { $0.id == device.id }; save(devices, "devices.json")
@@ -206,7 +241,8 @@ struct Transfer: Codable, Identifiable {
         openAtLogin = LoginItem.isEnabled || LoginItem.needsApproval
     }
     func persistSettings() { UserDefaults.standard.set(receiving, forKey: "dropduo.receiving") }
-    func clearHistory() { transfers.removeAll { !["Preparing", "Sending", "Receiving"].contains($0.state) }; save(transfers, "history.json") }
+    /// Keeps active and waiting sends, so clearing history never drops something still on its way.
+    func clearHistory() { transfers.removeAll { !["Preparing", "Sending", "Receiving"].contains($0.state) && $0.autoRetry != true }; save(transfers, "history.json") }
     #if DEBUG
     private func seedPreview() {
         let scene = ProcessInfo.processInfo.environment["DROPDUO_PREVIEW_SCENE"] ?? "device"
@@ -217,6 +253,7 @@ struct Transfer: Codable, Identifiable {
         status = "Ready on your local network"
         let now = Date()
         transfers = [
+            Transfer(id: "6", peer: phone.id, name: "Text", direction: "Sent", state: "Interrupted", progress: 0, text: "Pick up the printer cable on the way home", error: "Waiting for \(phone.name)", date: now, autoRetry: true),
             Transfer(id: "5", peer: phone.id, name: "Quarterly report.pdf", direction: "Sent", state: "Sending", progress: 0.62, path: "/tmp/Quarterly report.pdf", date: now),
             Transfer(id: "4", peer: phone.id, name: "Text", direction: "Received", state: "Complete", progress: 1, text: "https://dropduo.app/download", date: now.addingTimeInterval(-60)),
             Transfer(id: "3", peer: phone.id, name: "IMG_2041.jpg", direction: "Received", state: "Complete", progress: 1, path: "/tmp/IMG_2041.jpg", date: now.addingTimeInterval(-600)),

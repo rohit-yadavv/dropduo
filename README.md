@@ -16,7 +16,7 @@ Pair once, then send over your local network. Free and open source, with no acco
 
 1. Install on both devices: **macOS 14+** (Apple Silicon or Intel) and **Android 10+**.
 2. Connect to the same local network. Scan the Mac's pairing code on Android and approve on the Mac.
-3. Drop files on the DropDuo menu bar icon or into the Mac app, or use **Share → DropDuo** on Android. You can also send text and links.
+3. Drop files into the Mac app or use **Send Files…** from its menu bar icon, or use **Share → DropDuo** on Android. You can also send text and links.
 
 If macOS blocks the first launch, follow the [installation steps](docs/usage.md#install). Keep the Mac awake to receive. On Android, use **Save a copy** to keep received files after uninstalling.
 

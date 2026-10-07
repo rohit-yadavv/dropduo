@@ -172,13 +172,22 @@ public actor PeerEngine {
             throw error
         }
     }
-    public func sendText(_ text: String) async throws {
+    public static func validateText(_ text: String) throws {
         guard !text.isEmpty else { throw PortError.invalid("Type something to send") }
-        guard text.utf8.count <= 64_000 else { throw PortError.invalid(Self.textTooLong) }
-        let id = UUID().uuidString
-        active.insert(id); defer { active.remove(id); responses.removeValue(forKey: id) }
-        try await channel.send(Message("text", id: id, text: text))
-        guard try await wait(id).type == "complete" else { throw PortError.invalid("Text was not confirmed") }
+        guard text.utf8.count <= 64_000 else { throw PortError.invalid(textTooLong) }
+    }
+    /// Reusing `id` when re-sending held text lets the receiver show it once.
+    public func sendText(_ text: String, id: String = UUID().uuidString) async throws {
+        try Self.validateText(text)
+        guard !active.contains(id) else { throw PortError.invalid("Transfer already active") }
+        active.insert(id); responses.removeValue(forKey: id); defer { active.remove(id); responses.removeValue(forKey: id) }
+        do {
+            try await channel.send(Message("text", id: id, text: text))
+            guard try await wait(id).type == "complete" else { throw PortError.invalid("Text was not confirmed") }
+        } catch {
+            if !alive || error is NWError || (error as? PortError)?.isInterruption == true { throw PortError.interrupted(Self.connectionLost) }
+            throw error
+        }
         event(PeerEvent(id: id, name: "Text", direction: "Sent", state: "Complete", progress: 1, text: text))
     }
     private func handle(_ message: Message) async throws {

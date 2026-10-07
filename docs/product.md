@@ -4,9 +4,9 @@ Free, native Mac–Android sharing over a reachable local network. No accounts, 
 
 ## Scope
 
-- Files, photos, videos, explicit text/links. Mac: window and menu bar icon drag and drop, **Send Files…**, notifications for received items, open at login. Android: Share target and file picker.
+- Files, photos, videos, explicit text/links. Mac: drag and drop into the window, **Send Files…** from the window or menu bar, notifications for received items, open at login. Android: Share target and file picker.
 - QR pairing with Mac approval, persistent credentials, receiving controls, and device revocation.
-- Authenticated encrypted transfers with progress, cancellation, integrity verification, and resume/retry. Sends cut off by a lost connection resume automatically when the devices reconnect; other failures need a manual retry.
+- Authenticated encrypted transfers with progress, cancellation, integrity verification, and resume/retry. Files and text sent while the other device is unreachable wait on the sender, and sends cut off by a lost connection resume; both go out automatically when the devices reconnect. Other failures need a manual retry.
 - Copy selected bytes without moving originals or re-encoding. Recent holds 100 entries, not backups.
 - Mac files go to Downloads/DropDuo by pair; Android uses app storage with **Save a copy** for export. Android uninstall deletes app-specific files.
 - One Mac per Android; multiple Android peers per Mac.
@@ -14,7 +14,7 @@ Free, native Mac–Android sharing over a reachable local network. No accounts, 
 
 ## Limits
 
-Both devices must be reachable and apps available. Mac sleep stops receiving; Android's foreground service and battery policies affect availability. No guaranteed receiving after force-stop or cloud delivery queue. Retry requires retained data and an available source. Pairing never grants arbitrary file access.
+Both devices must be reachable and apps available. Mac sleep stops receiving; Android's foreground service and battery policies affect availability. No guaranteed receiving after force-stop, and no cloud delivery: waiting items send only once both apps are running on the same network again. The Mac sends waiting files from their original location, so moving or deleting them first stops the send. Retry requires retained data and an available source. Pairing never grants arbitrary file access.
 
 Clipboard monitoring, folder sync, browser transfer clients, remote control, phone notification/call mirroring, internet relays, and extra platforms require an agreed scope change. Keep the apps simple: prefer improving existing flows over adding settings or modes.
 

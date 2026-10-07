@@ -15,7 +15,7 @@ data class Transfer(val id: String, val name: String, val direction: String, val
     val path: String? = null, val text: String? = null, val error: String? = null, val autoRetry: Boolean = false)
 data class UiState(val device: String? = null, val connected: Boolean = false, val status: String = "Pair your Mac to get started",
     val receiving: Boolean = true, val history: List<Transfer> = emptyList(), val error: String? = null)
-const val MAC_UNREACHABLE = "Can't reach your Mac. Make sure it's awake with DropDuo open and on the same Wi-Fi."
+const val WAITING_FOR_MAC = "Waiting for your Mac"
 object AppState {
     lateinit var context: Application
     lateinit var secure: SecureStore
@@ -80,7 +80,8 @@ object AppState {
         runCatching { val temp = File(context.filesDir, "history.tmp"); temp.writeText(Wire.gson.toJson(history)); check(temp.renameTo(historyFile())) }
             .onFailure { error("Could not save transfer history") }
     }
-    fun sendText(text: String, onSuccess: () -> Unit = {}) { scope.launch { try { val peer = engine ?: throw IllegalStateException(MAC_UNREACHABLE); peer.sendText(text); withContext(Dispatchers.Main) { onSuccess() } } catch (e: Exception) { error(e.message ?: "Could not send text") } } }
+    /** Sends now, or holds the text until the Mac reconnects. */
+    fun sendText(text: String, onSuccess: () -> Unit = {}) { scope.launch { try { PeerEngine.validateText(text); sendStored(UUID.randomUUID().toString(), "Text", text = text); withContext(Dispatchers.Main) { onSuccess() } } catch (e: Exception) { error(e.message ?: "Could not send text") } } }
     fun importAndSend(uris: List<Uri>) {
         scope.launch {
             for (uri in uris) {
@@ -99,7 +100,7 @@ object AppState {
                     } } ?: throw IllegalStateException("Couldn't read that file. Try sharing it again from the original app.")
                     check(!cancelledImports.contains(id)) { "Transfer cancelled" }
                     imported = true
-                    sendStored(id, name, file)
+                    sendStored(id, name, file = file)
                 } catch (e: Exception) {
                     if (!imported) file?.delete()
                     val cancelled = cancelledImports.contains(id) || ui.value.history.firstOrNull { it.id == id }?.state == "Cancelled"
@@ -109,33 +110,41 @@ object AppState {
             }
         }
     }
-    /** Sends a stored copy; if the Mac is offline or the connection drops, it waits for reconnect instead of failing. */
-    private fun sendStored(id: String, name: String, file: File) {
+    /** Sends a stored file copy or text; if the Mac is offline or the connection drops, it waits for reconnect instead of failing. */
+    private fun sendStored(id: String, name: String, file: File? = null, text: String? = null) {
         check(sending.add(id)) { "Transfer already active" }
         var peer: PeerEngine? = null
-        try { peer = engine ?: throw Disconnected("Mac is offline"); peer.sendFile(file, id, name); file.delete() }
-        catch (e: java.io.IOException) { record(PeerEvent(id, name, "Sent", "Interrupted", path = file.path, error = "Resumes when your Mac reconnects"), autoRetry = true) }
-        finally { sending.remove(id) }
+        try {
+            peer = engine ?: throw Disconnected("Mac is offline")
+            if (file != null) { peer.sendFile(file, id, name); file.delete() } else peer.sendText(text!!, id)
+        } catch (e: java.io.IOException) {
+            record(PeerEvent(id, name, "Sent", "Interrupted", path = file?.path, text = text, error = if (peer == null) WAITING_FOR_MAC else "Resumes when your Mac reconnects"), autoRetry = true)
+        } finally { sending.remove(id) }
         // The Mac may have reconnected while this attempt was still failing on the old connection.
         val current = engine
         if (current != null && current !== peer && ui.value.history.firstOrNull { it.id == id }?.autoRetry == true) resumePending()
     }
-    /** Called after each connection to resume files cut off by a lost connection, oldest first. */
+    /** Called after each connection to send held items and resume ones cut off by a lost connection, oldest first. */
     fun resumePending() {
-        val rows = ui.value.history.filter { it.direction == "Sent" && it.state == "Interrupted" && it.autoRetry && it.path != null && it.id !in sending }.reversed()
+        val rows = ui.value.history.filter { it.direction == "Sent" && it.state == "Interrupted" && it.autoRetry && (it.path != null || it.text != null) && it.id !in sending }.reversed()
         if (rows.isNotEmpty()) scope.launch {
             for (row in rows) try {
                 if (ui.value.history.firstOrNull { it.id == row.id }?.autoRetry != true) continue
-                val file = File(row.path!!); require(file.exists()) { "Source unavailable. Share it again." }
-                sendStored(row.id, row.name, file)
-            } catch (e: Exception) { record(PeerEvent(row.id, row.name, "Sent", "Interrupted", path = row.path, error = e.message)) }
+                resend(row)
+            } catch (e: Exception) { record(PeerEvent(row.id, row.name, "Sent", "Interrupted", path = row.path, text = row.text, error = e.message)) }
         }
     }
-    fun retry(row: Transfer) { scope.launch { try { val file = File(row.path ?: throw IllegalStateException("Source unavailable")); require(file.exists()) { "Source unavailable. Share it again." }; sendStored(row.id, row.name, file) } catch (e: Exception) { error(e.message ?: "Retry failed") } } }
+    private fun resend(row: Transfer) {
+        if (row.text != null) return sendStored(row.id, row.name, text = row.text)
+        val file = File(row.path ?: throw IllegalStateException("Source unavailable")); require(file.exists()) { "Source unavailable. Share it again." }
+        sendStored(row.id, row.name, file = file)
+    }
+    fun retry(row: Transfer) { scope.launch { try { resend(row) } catch (e: Exception) { error(e.message ?: "Retry failed") } } }
     fun cancel(row: Transfer) {
         if (importing.contains(row.id)) cancelledImports.add(row.id)
         scope.launch { engine?.cancel(row.id); if (row.direction == "Sent" && !importing.contains(row.id)) row.path?.let { File(it).delete() }; record(PeerEvent(row.id, row.name, row.direction, "Cancelled")) }
     }
-    fun clearHistory() { synchronized(this) { ui.value.history.filter { it.direction == "Sent" && it.state !in listOf("Preparing", "Sending", "Receiving") }.forEach { row -> row.path?.let { path -> val file = File(path); if (file.parentFile == File(context.filesDir, "outgoing")) file.delete() } }; val active = ui.value.history.filter { it.state in listOf("Preparing", "Sending", "Receiving") }; ui.value = ui.value.copy(history = active); saveHistory(active) } }
+    /** Keeps active and waiting sends, so clearing history never drops something still on its way. */
+    fun clearHistory() { synchronized(this) { val (kept, cleared) = ui.value.history.partition { it.state in listOf("Preparing", "Sending", "Receiving") || it.autoRetry }; cleared.filter { it.direction == "Sent" }.forEach { row -> row.path?.let { path -> val file = File(path); if (file.parentFile == File(context.filesDir, "outgoing")) file.delete() } }; ui.value = ui.value.copy(history = kept); saveHistory(kept) } }
     fun inbox() = File(context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS), "DropDuo").apply { mkdirs() }
 }

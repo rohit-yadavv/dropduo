@@ -26,7 +26,7 @@ Pairing survives restarts. A Mac can pair several phones; a phone pairs with one
 
 ## Send
 
-- **Mac → Android:** drop files on the DropDuo menu bar icon or into the window, or use **Send Files…**. With several phones paired, pick the target under **Send To** in the menu bar menu.
+- **Mac → Android:** drop files into the window, or choose **Send Files…** from the DropDuo menu bar icon. With several phones paired, pick the target under **Send To** in that menu.
 - **Android → Mac:** in any app, **Share → DropDuo**, or use **Files** inside DropDuo.
 - **Text and links:** type or paste into the text field and send (⌘Return on Mac). Android also accepts text shared from other apps. Choose **Copy** on the receiving side.
 
@@ -37,13 +37,13 @@ Files are copied as-is, with no resizing or re-encoding. DropDuo never reads you
 - **Mac:** saved to `~/Downloads/DropDuo/`, in a folder for each phone. A notification appears when something arrives: click a file to show it in Finder, or choose **Copy** for text.
 - **Android:** kept in DropDuo's storage. Use **Open**, or **Save a copy** to keep it elsewhere. **Uninstalling DropDuo deletes these files**, so save important ones first.
 
-Recent activity keeps the last 100 transfers. Clearing it doesn't delete files.
+Recent activity keeps the last 100 transfers. Clearing it doesn't delete received files or drop items still waiting to send.
 
 ## Staying connected
 
 DropDuo opens at login on the Mac after you pair, and keeps running in the menu bar when you close its window. Turn this off under **DropDuo → Settings…**. The Mac can't receive while it sleeps.
 
-If a connection drops mid-file, the transfer resumes when the devices reconnect. For other failures, choose **Retry** on the sender while the original file still exists. **Cancel** removes partial data.
+You can send while the other device is offline, asleep, or on another network. Files and text show **Waiting for…** and go out automatically the next time the devices connect; a send cut off mid-file resumes the same way. DropDuo must be running on both devices for this, so if you tapped **Disconnect** on the phone, open DropDuo to reconnect. The Mac sends waiting files from where they are, so don't move or delete them before they go. Choose **Cancel** (or **Don't Send** for text) to drop a waiting item. For other failures, choose **Retry** on the sender while the original file still exists. **Cancel** removes partial data.
 
 To pause receiving without unpairing, use **Accept files and text from paired devices** in Mac Settings, or **Accept files and text** in Android Settings. **Forget** removes the pairing on that device; forget it on both to pair again from scratch.
 

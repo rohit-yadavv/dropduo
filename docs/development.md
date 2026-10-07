@@ -36,7 +36,7 @@ Read component `AGENTS.md`. Keep Swift/Kotlin core consistent with [the protocol
 
 Automated: Swift/JVM crypto fixtures, replay and tamper rejection, malformed frames, path and size validation, and real loopback transfers both ways with resume, cancellation, duplicates, and empty or multi-chunk files.
 
-Before a release, try on real devices: pairing approve/reject, forget, Share → DropDuo, menu bar drop, notifications, text, app restart and login launch, Android background and screen lock, Mac sleep/wake, and Wi-Fi changes. Emulators don't prove vendor battery behavior or physical-LAN discovery.
+Before a release, try on real devices: pairing approve/reject, forget, Share → DropDuo, menu bar Send Files…, notifications, text, app restart and login launch, Android background and screen lock, Mac sleep/wake, and Wi-Fi changes. Emulators don't prove vendor battery behavior or physical-LAN discovery.
 
 ## Development builds
 

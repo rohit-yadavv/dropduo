@@ -3,12 +3,14 @@ import AppKit
 /// Menu bar icon and its menu, rebuilt each time it opens so status and progress stay current.
 @MainActor final class StatusItemController: NSObject, NSMenuDelegate {
     private let model: AppModel
+    private let updater: AppUpdater
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     var openApp: () -> Void = {}
     var openSettings: () -> Void = {}
 
-    init(model: AppModel) {
+    init(model: AppModel, updater: AppUpdater) {
         self.model = model
+        self.updater = updater
         super.init()
         item.button?.image = Brand.menuIcon
         item.button?.setAccessibilityLabel("DropDuo")
@@ -47,6 +49,9 @@ import AppKit
         menu.addItem(action("Open Received Files") { [model] in NSWorkspace.shared.open(model.inboxRoot) })
         menu.addItem(.separator())
         menu.addItem(action("Settings…", key: ",") { [weak self] in self?.openSettings() })
+        let update = action(updater.availableVersion.map { "Update to \($0)…" } ?? "Check for Updates…") { [updater] in updater.check() }
+        update.isEnabled = updater.canCheck
+        menu.addItem(update)
         menu.addItem(action("Quit DropDuo", key: "q") { NSApp.terminate(nil) })
     }
 

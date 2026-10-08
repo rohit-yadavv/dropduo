@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import xml.etree.ElementTree as ET
 
 root = Path(__file__).resolve().parent.parent
 out = root / "dist/release"
@@ -28,6 +29,24 @@ for item in metadata:
     checksums.append(f"{digest}  {path.name}\n")
 if len({m['commit'] for m in metadata}) != 1:
     raise SystemExit("Platform artifacts were built from different commits.")
+if len({m.get('build') for m in metadata}) != 1:
+    raise SystemExit("Platform artifacts have different build numbers.")
+feeds = {path.name for path in out.glob('appcast-*.xml')}
+expected_feeds = {'appcast-mac-applesilicon.xml', 'appcast-mac-intel.xml'} if mode == 'distribution' else set()
+if feeds != expected_feeds:
+    raise SystemExit("Distribution releases require both signed Mac update feeds; development releases have none.")
+for item in metadata:
+    if mode != 'distribution' or item['platform'] != 'macos':
+        continue
+    chip = {'arm64': 'applesilicon', 'x86_64': 'intel'}[item['architecture']]
+    feed = ET.parse(out / f'appcast-mac-{chip}.xml').getroot().find('channel/item')
+    sparkle = '{http://www.andymatuschak.org/xml-namespaces/sparkle}'
+    if feed is None or feed.find(sparkle + 'version').text != str(item['build']) or feed.find(sparkle + 'shortVersionString').text != item['version']:
+        raise SystemExit("Mac update feed version differs from the archive.")
+    enclosure = feed.find('enclosure')
+    expected_url = f"https://github.com/rohit-yadavv/dropduo/releases/download/{tag}/{item['artifact']}"
+    if enclosure is None or enclosure.get('url') != expected_url or enclosure.get('length') != str((out / item['artifact']).stat().st_size) or not enclosure.get(sparkle + 'edSignature'):
+        raise SystemExit("Mac update feed does not match its archive.")
 (out / "SHA256SUMS").write_text(''.join(checksums))
 # An optional CHANGELOG.md section for this version leads the notes; GitHub appends the merged pull requests.
 changelog = (root / "CHANGELOG.md").read_text()

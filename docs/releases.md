@@ -38,7 +38,24 @@ For single-line Base64 on macOS: `base64 -i /path/to/file | tr -d '\n'`. Paste d
 
 Distribution verifies Android with `apksigner`; Mac uses a temporary keychain, hardened runtime, notarization, stapling, and assessment. Cleanup runs even on failure. Missing credentials or failed notarization publishes nothing. **Real-credential distribution has not yet been validated.**
 
+## In-app updates
+
+Android reads the latest published GitHub release and its `SHA256SUMS`, then verifies the downloaded APK's package, version, minimum OS and signing certificate. Keep the Android distribution key stable: an incompatible development certificate is rejected, rather than uninstalling and losing app data.
+
+Mac uses Sparkle 2.10.0. Before the first distribution release with the updater, configure a persistent Sparkle signing pair:
+
+1. Resolve the dependency with `swift package --package-path apps/macos resolve`.
+2. Run `apps/macos/.build/artifacts/sparkle/Sparkle/bin/generate_keys --account dropduo` on the maintainer's Mac. This creates or reuses a private key in the login Keychain and prints the public key.
+3. Set repository **Actions variable** `SPARKLE_PUBLIC_ED_KEY` to the printed public key. The build embeds it into the app. For a local configured build, use `DROPDUO_UPDATE_PUBLIC_KEY`.
+4. Export the private key with that tool's `--account dropduo -x /secure/path/dropduo-sparkle-key` option. Add the file's contents directly as repository **Actions secret** `SPARKLE_PRIVATE_ED_KEY`, then securely back up/remove the exported file. Never commit or paste the private key in chat or issues.
+
+Each distribution Mac job signs its ZIP, verifies the signature against the embedded public key, generates its architecture-specific feed and signs the feed. The publish job requires both feeds and matching archive/build metadata. Feeds point to immutable versioned release assets; clients fetch them through `/releases/latest/download/appcast-mac-applesilicon.xml` or `appcast-mac-intel.xml`. No separate server or website deployment is needed. Missing/mismatched Sparkle keys fail distribution releases before publishing. Development releases have no Mac feeds; their updater is disabled unless a public key is explicitly supplied for testing.
+
+Don't rotate the Sparkle key without a planned migration for installed clients. Releases preceding the updater require one manual installation. Test a real signed/notarized old→new Mac upgrade and a same-key Android installation before claiming production update reliability.
+
 ## Asset names
+
+Distribution releases also include `appcast-mac-applesilicon.xml` and `appcast-mac-intel.xml` for in-app Mac updates. Mac downloads contain Sparkle's full license at `Contents/Resources/SPARKLE-LICENSE.txt`.
 
 Each release has `dropduo-mac-applesilicon-v<version>.zip`, `dropduo-mac-intel-v<version>.zip`, `dropduo-android-v<version>.apk`, and `SHA256SUMS`. `LICENSE`, `NOTICE` and `DEPENDENCIES.md` ship inside the Mac app (`Contents/Resources`) and the APK (`assets`). The website and [install guide](usage.md#install) depend on these names; the website also recognizes the older `DropDuo-v<version>-macos-arm64` style used up to `v0.1.0-alpha.6`.
 

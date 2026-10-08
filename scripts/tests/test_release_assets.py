@@ -1,4 +1,6 @@
 import hashlib
+import base64
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -30,8 +32,8 @@ class ReleaseAssetTests(unittest.TestCase):
             (self.out / name).write_bytes(data)
             (self.out / (name + ".json")).write_text(json.dumps({"artifact": name, "version": "0.1.0-alpha.1", "mode": "development", "platform": target, "architecture": arch, "commit": self.commit, "dirty": False, "sha256": hashlib.sha256(data).hexdigest()}))
 
-    def assemble(self):
-        return subprocess.run(["python3", "scripts/release-notes.py"], cwd=self.root, env={**os.environ, "TAG": "v0.1.0-alpha.1", "MODE": "development"}, capture_output=True, text=True)
+    def assemble(self, mode="development"):
+        return subprocess.run(["python3", "scripts/release-notes.py"], cwd=self.root, env={**os.environ, "TAG": "v0.1.0-alpha.1", "MODE": mode}, capture_output=True, text=True)
 
     def test_complete_assets_produce_checksums_and_explicit_development_notes(self):
         result = self.assemble()
@@ -57,3 +59,34 @@ class ReleaseAssetTests(unittest.TestCase):
         for key, value in [("commit", "0" * 40), ("dirty", True), ("version", "0.2.0"), ("mode", "distribution")]:
             path.write_text(json.dumps({**original, key: value}))
             self.assertNotEqual(self.assemble().returncode, 0)
+
+    def test_distribution_requires_matching_update_feeds(self):
+        spec = importlib.util.spec_from_file_location("release_feed", Path(__file__).parents[1] / "update-feed.py")
+        generator = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(generator)
+        feeds = []
+        for path in self.out.glob("*.json"):
+            item = json.loads(path.read_text())
+            item.update(mode="distribution", build=100)
+            if item['platform'] == 'macos':
+                chip = {'arm64': 'applesilicon', 'x86_64': 'intel'}[item['architecture']]
+                artifact = f"dropduo-mac-{chip}-v{item['version']}.zip"
+                (self.out / item['artifact']).rename(self.out / artifact)
+                item['artifact'] = artifact
+                name, xml = generator.make_feed(item, (self.out / artifact).stat().st_size, base64.b64encode(bytes(64)).decode(), 'fixture')
+                feeds.append((name, xml))
+            path.write_text(json.dumps(item))
+        self.assertNotEqual(self.assemble("distribution").returncode, 0)
+        for name, xml in feeds:
+            (self.out / name).write_bytes(xml)
+        self.assertEqual(self.assemble("distribution").returncode, 0)
+        name, xml = feeds[0]
+        (self.out / name).write_bytes(xml.replace(b'>100<', b'>101<'))
+        self.assertNotEqual(self.assemble("distribution").returncode, 0)
+
+    def test_mismatched_build_numbers_are_rejected(self):
+        path = self.out / 'android.apk.json'
+        item = json.loads(path.read_text())
+        item['build'] = 123
+        path.write_text(json.dumps(item))
+        self.assertNotEqual(self.assemble().returncode, 0)

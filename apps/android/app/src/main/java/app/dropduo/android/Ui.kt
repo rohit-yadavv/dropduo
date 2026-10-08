@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
-class Actions(val scan: () -> Unit, val connect: () -> Unit, val files: () -> Unit, val save: (Transfer) -> Unit, val open: (Transfer) -> Unit)
+class Actions(val scan: () -> Unit, val connect: () -> Unit, val files: () -> Unit, val save: (Transfer) -> Unit, val open: (Transfer) -> Unit, val installUpdate: () -> Unit)
 
 private const val UNPAIRED_STATUS = "Pair your Mac to get started"
 private val ACTIVE = listOf("Preparing", "Sending", "Receiving")
@@ -56,7 +56,7 @@ private val ACTIVE = listOf("Preparing", "Sending", "Receiving")
         Box(Modifier.fillMaxSize().background(colors.background)) {
             Crossfade(targetState = if (state.device == null) 0 else if (settings) 2 else 1, animationSpec = tween(220), label = "screen") { screen ->
                 when (screen) {
-                    0 -> Onboarding(state.status, actions.scan) { codeSheet = true }
+                    0 -> Onboarding(state.status, actions.scan, actions.installUpdate) { codeSheet = true }
                     1 -> Home(state, actions) { settings = true }
                     else -> Settings(state, actions, onBack = { settings = false }) { codeSheet = true }
                 }
@@ -73,7 +73,7 @@ private val ACTIVE = listOf("Preparing", "Sending", "Receiving")
 
 // Onboarding
 
-@Composable private fun Onboarding(status: String, onScan: () -> Unit, onCode: () -> Unit) {
+@Composable private fun Onboarding(status: String, onScan: () -> Unit, onInstall: () -> Unit, onCode: () -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize().systemBarsPadding()) {
         Column(Modifier.verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(horizontal = 24.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Brand(Modifier.padding(top = 16.dp))
@@ -100,6 +100,8 @@ private val ACTIVE = listOf("Preparing", "Sending", "Receiving")
                 Spacer(Modifier.height(4.dp))
                 QuietButton("Enter code instead", onCode)
                 Text("Both devices need to be on the same network.", style = Type.caption, color = colors.tertiary, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                Spacer(Modifier.height(16.dp))
+                UpdateCard(onInstall, alwaysVisible = true)
             }
         }
     }
@@ -118,6 +120,7 @@ private val ACTIVE = listOf("Preparing", "Sending", "Receiving")
                 IconButton(onClick = onSettings) { Glyph(R.drawable.ic_settings, "Settings", colors.text) }
             }
         }
+        item { UpdateCard(actions.installUpdate) }
         item { DeviceCard(state, actions.connect) }
         item {
             Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -355,11 +358,13 @@ private fun kindIcon(row: Transfer) = when {
         Group { GroupRow("Clear recent history", "Received files are kept", onClick = AppState::clearHistory) }
         Text("Received files stay in DropDuo's app storage. Use Save a copy to keep them in a folder you choose. Uninstalling DropDuo removes its stored files.",
             style = Type.caption, color = colors.secondary, modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp))
+        SectionLabel("Updates")
+        UpdateCard(actions.installUpdate, alwaysVisible = true)
         Column(Modifier.fillMaxWidth().padding(top = 36.dp, bottom = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Mark(24.dp)
             Spacer(Modifier.height(10.dp))
             Text("DropDuo ${BuildConfig.VERSION_NAME}", style = Type.caption, color = colors.secondary)
-            Text("Local network only. No accounts. No analytics.", style = Type.caption, color = colors.tertiary, textAlign = TextAlign.Center)
+            Text("Sharing stays local. Updates use the internet.\nNo accounts. No analytics.", style = Type.caption, color = colors.tertiary, textAlign = TextAlign.Center)
         }
     }
     if (confirmForget) AlertDialog(onDismissRequest = { confirmForget = false }, containerColor = colors.background, shape = RoundedCornerShape(28.dp),
@@ -367,6 +372,45 @@ private fun kindIcon(row: Transfer) = when {
         text = { Text("You will need to pair again. Received files stay on this phone.", style = Type.body, color = colors.secondary) },
         confirmButton = { TextButton(onClick = { AppState.forget(context); confirmForget = false }) { Text("Forget", color = colors.danger, style = Type.bodyStrong) } },
         dismissButton = { TextButton(onClick = { confirmForget = false }) { Text("Cancel", color = colors.text, style = Type.bodyStrong) } })
+}
+
+@Composable private fun UpdateCard(onInstall: () -> Unit, alwaysVisible: Boolean = false) {
+    val update by AppUpdater.ui.collectAsState()
+    val state by AppState.ui.collectAsState()
+    var notes by rememberSaveable { mutableStateOf(false) }
+    if (!alwaysVisible && (update.release == null || (update.dismissed && !update.downloading && !update.ready))) return
+    Surface(color = colors.surface, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(update.release?.let { "DropDuo ${it.version} is available" } ?: "DropDuo ${BuildConfig.VERSION_NAME}", style = Type.bodyStrong, color = colors.text)
+            if (update.downloading) {
+                Text("Downloading · ${(update.progress * 100).toInt()}%", style = Type.caption, color = colors.secondary)
+                LinearProgressIndicator(progress = { update.progress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth(), color = colors.accent, trackColor = colors.surfaceHigh)
+                TextButton(onClick = AppUpdater::cancel) { Text("Cancel download", color = colors.text) }
+            } else if (update.release != null) {
+                if (update.ready && state.history.any { it.state in ACTIVE }) Text("Finish or cancel your transfers to install.", style = Type.caption, color = colors.secondary)
+                PrimaryButton(if (update.ready) "Install update" else "Download update", enabled = !update.checking && (!update.ready || state.history.none { it.state in ACTIVE })) {
+                    if (update.ready) onInstall() else AppUpdater.download()
+                }
+                Row {
+                    TextButton(onClick = { notes = true }) { Text("What's new", color = colors.text) }
+                    if (!alwaysVisible && !update.ready) TextButton(onClick = AppUpdater::dismiss) { Text("Later", color = colors.secondary) }
+                }
+            }
+            update.message?.let { Text(it, style = Type.caption, color = colors.secondary) }
+            if (alwaysVisible) {
+                TextButton(onClick = { AppUpdater.check(manual = true) }, enabled = !update.checking && !update.downloading && !update.ready) {
+                    Text(if (update.checking) "Checking…" else "Check for updates", color = colors.text)
+                }
+                Text("Downloads start when you choose. Android asks you to confirm installation.", style = Type.caption, color = colors.secondary)
+            }
+        }
+    }
+    if (notes) Sheet(onDismiss = { notes = false }) {
+        Text("What's new in ${update.release?.version}", style = Type.title, color = colors.text)
+        Spacer(Modifier.height(16.dp))
+        SelectionContainer { Text(update.release?.notes?.ifBlank { "No release notes were provided." }.orEmpty(), style = Type.body, color = colors.secondary,
+            modifier = Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState())) }
+    }
 }
 
 @Composable private fun Group(content: @Composable ColumnScope.() -> Unit) {

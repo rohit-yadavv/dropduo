@@ -1,0 +1,37 @@
+#!/bin/sh
+# Exercise real APK verification on a disposable emulator. No published download or key is used.
+set -eu
+cd "$(dirname "$0")/.."
+if [ -z "${ANDROID_HOME:-}" ] && [ -d "$HOME/Library/Android/sdk" ]; then
+  ANDROID_HOME="$HOME/Library/Android/sdk"; export ANDROID_HOME
+fi
+PATH="$ANDROID_HOME/platform-tools:$PATH"; export PATH
+case "$(adb shell getprop ro.kernel.qemu | tr -d '\r')" in
+  1) ;;
+  *) echo 'Use a disposable emulator; this script installs test apps.' >&2; exit 1 ;;
+esac
+mkdir -p .artifacts
+work=$(mktemp -d "$PWD/.artifacts/update-check.XXXXXX")
+trap 'rm -rf "$work"; adb shell run-as app.dropduo.android rm -rf cache/update-fixtures >/dev/null 2>&1 || true' EXIT INT TERM
+DROPDUO_VERSION=99.0.0 DROPDUO_BUILD=2000000000 ./apps/android/gradlew -p apps/android :app:assembleDebug --console=plain
+cp apps/android/app/build/outputs/apk/debug/app-debug.apk "$work/good.apk"
+# A disposable second certificate verifies that development/distribution key changes fail safely.
+keytool -genkeypair -keystore "$work/fixture.jks" -alias fixture -keyalg RSA -keysize 2048 -validity 1 \
+  -dname 'CN=DropDuo disposable update fixture' -storepass fixture-only -keypass fixture-only >/dev/null 2>&1
+"$ANDROID_HOME/build-tools/36.0.0/apksigner" sign --ks "$work/fixture.jks" --ks-key-alias fixture \
+  --ks-pass pass:fixture-only --key-pass pass:fixture-only --out "$work/other-key.apk" "$work/good.apk"
+./apps/android/gradlew -p apps/android :app:assembleDebug :app:assembleDebugAndroidTest --console=plain
+adb install -r apps/android/app/build/outputs/apk/debug/app-debug.apk
+adb install -r apps/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell run-as app.dropduo.android mkdir -p cache/update-fixtures
+adb shell "run-as app.dropduo.android sh -c 'cat > cache/update-fixtures/good.apk'" < "$work/good.apk"
+adb shell "run-as app.dropduo.android sh -c 'cat > cache/update-fixtures/other-key.apk'" < "$work/other-key.apk"
+adb shell am instrument -w -e class app.dropduo.android.UpdateVerifierTest -e dropduo.updates true \
+  app.dropduo.android.test/androidx.test.runner.AndroidJUnitRunner > "$work/result.txt"
+cat "$work/result.txt"
+python3 - "$work/result.txt" <<'PY'
+from pathlib import Path
+import sys
+if 'OK (1 test)' not in Path(sys.argv[1]).read_text():
+    raise SystemExit('Update verifier instrumentation failed.')
+PY

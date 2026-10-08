@@ -20,10 +20,14 @@ struct Transfer: Codable, Identifiable {
     @Published var status = "Starting local connection…"
     @Published var error: String?
     @Published var ticket: Ticket?
-    @Published var receiving: Bool = true { didSet { for engine in engines.values { Task { await engine.setReceiving(receiving) } } } }
+    @Published var receiving: Bool = true { didSet { for engine in engines.values { Task { await engine.setReceiving(receiving && !installingUpdate) } } } }
     @Published var text = ""
     @Published var openAtLogin = LoginItem.isEnabled
     @Published var loginError: String?
+    var installingUpdate = false
+    var hasActiveTransfers: Bool { !running.isEmpty || pendingApproval || transfers.contains { ["Preparing", "Sending", "Receiving"].contains($0.state) } }
+    func pauseReceivingForUpdate() async { for engine in engines.values { await engine.setReceiving(false) } }
+    func finishUpdateAttempt() { installingUpdate = false; for engine in engines.values { Task { await engine.setReceiving(receiving) } }; for peer in online { resumePending(peer) } }
     let inboxRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads/DropDuo", isDirectory: true)
     private let stateRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/DropDuo", isDirectory: true)
     private let server = PortServer()
@@ -125,7 +129,7 @@ struct Transfer: Codable, Identifiable {
             let inbox = try Inbox(root: inboxRoot.appendingPathComponent(id, isDirectory: true)); inbox.cleanExpired()
             let engine = PeerEngine(channel: channel, inbox: inbox) { [weak self] event in Task { @MainActor in self?.record(event, peer: id) } }
             engines[id] = engine; online.insert(id); if selected.isEmpty { selected = id }
-            await engine.setReceiving(receiving)
+            await engine.setReceiving(receiving && !installingUpdate)
             resumePending(id)
             try? await engine.run()
             if engines[id] === engine { engines.removeValue(forKey: id); online.remove(id) }
@@ -150,6 +154,7 @@ struct Transfer: Codable, Identifiable {
     }
     func chooseFiles() { let panel = NSOpenPanel(); panel.allowsMultipleSelection = true; panel.canChooseDirectories = false; if panel.runModal() == .OK { send(panel.urls) } }
     func send(_ urls: [URL]) {
+        guard !installingUpdate else { report("DropDuo is installing an update. Send again after it reopens."); return }
         guard !devices.isEmpty else { report("Pair your phone first: choose Pair a Device in DropDuo."); return }
         let files = urls.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) != true }
         if files.count < urls.count { report(files.isEmpty ? "Folders can't be sent. Open the folder and choose the files inside." : "Folders were skipped. Only files can be sent.") }
@@ -182,12 +187,14 @@ struct Transfer: Codable, Identifiable {
         if let index = transfers.firstIndex(where: { $0.id == event.id && $0.peer == peer }) { transfers[index].autoRetry = true; save(transfers, "history.json") }
     }
     private func resumePending(_ peer: String) {
+        guard !installingUpdate else { return }
         let pending = transfers.filter { $0.peer == peer && $0.direction == "Sent" && $0.state == "Interrupted" && $0.autoRetry == true && !running.contains($0.id) }.reversed()
         for transfer in pending { if let text = transfer.text { send(text, id: transfer.id, to: peer) } }
         let files = pending.compactMap { transfer in transfer.text == nil ? transfer.path.map { (url: URL(fileURLWithPath: $0), id: transfer.id) } : nil }
         if !files.isEmpty { send(Array(files), to: peer) }
     }
     func sendText() {
+        guard !installingUpdate else { report("DropDuo is installing an update. Send again after it reopens."); return }
         do { try PeerEngine.validateText(text) } catch { self.error = error.localizedDescription; return }
         send(text, id: UUID().uuidString, to: selected); text = ""
     }
@@ -218,6 +225,7 @@ struct Transfer: Codable, Identifiable {
         }
         if let engine = engines[transfer.peer] { Task { await engine.cancel(transfer.id) } } }
     func retry(_ transfer: Transfer) {
+        guard !installingUpdate else { return }
         selected = transfer.peer
         if let text = transfer.text { send(text, id: transfer.id, to: transfer.peer) }
         else if let path = transfer.path { send([(URL(fileURLWithPath: path), transfer.id)], to: transfer.peer) }

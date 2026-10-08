@@ -10,6 +10,7 @@ Free, native Mac–Android sharing over a reachable local network. No accounts, 
 - Copy selected bytes without moving originals or re-encoding. Recent holds 100 entries, not backups.
 - Mac files go to Downloads/DropDuo by pair; Android uses app storage with **Save a copy** for export. Android uninstall deletes app-specific files.
 - One Mac per Android; multiple Android peers per Mac.
+- In-app update notices, release notes, user-initiated downloads and installation. Update checks/downloads use GitHub over the internet; sharing works without it. Mac verifies signed updates and relaunches after active transfers finish. Android verifies the APK and uses the system installer confirmation, with installation available once transfers finish.
 - Error messages say which device is affected and what to check.
 
 ## Limits

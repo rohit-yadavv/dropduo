@@ -28,4 +28,4 @@ jobs:
       - name: Shell syntax
         run: |
           bash -n scripts/macos-distribution
-          sh -n scripts/build-macos scripts/check scripts/interop scripts/check-emulator
+          sh -n scripts/build-macos scripts/check scripts/interop scripts/check-emulator scripts/check-updates-emulator

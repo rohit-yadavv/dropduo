@@ -3,6 +3,7 @@ import AppKit
 
 struct SettingsView: View {
     @ObservedObject var model: AppModel
+    @ObservedObject var updater: AppUpdater
     private var version: String { Bundle.main.object(forInfoDictionaryKey: "DropDuoVersion") as? String ?? "development" }
 
     var body: some View {
@@ -35,8 +36,12 @@ struct SettingsView: View {
             }
             Section {
                 LabeledContent("Version", value: version)
+                if let available = updater.availableVersion { Text("DropDuo \(available) is available.") }
+                Button("Check for Updates…") { updater.check() }.disabled(!updater.canCheck)
+                if let message = updater.message { Text(message).foregroundStyle(.secondary) }
+                if updater.waitingForTransfers { Text("Waiting for transfers to finish before relaunching…") }
             } footer: {
-                Text("Local network only. No accounts, no cloud, no analytics. While your Mac sleeps, it can't receive.").foregroundStyle(.secondary)
+                Text("Updates use the internet. Sharing stays on your local network. No accounts or analytics. While your Mac sleeps, it can't receive.").foregroundStyle(.secondary)
             }
         }
         .onAppear { model.openAtLogin = LoginItem.isEnabled || LoginItem.needsApproval }

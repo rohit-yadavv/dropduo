@@ -7,7 +7,7 @@ if [ -z "${ANDROID_HOME:-}" ] && [ -d "$HOME/Library/Android/sdk" ]; then
 fi
 case "$scope" in
   macos) swift run --package-path apps/macos CoreChecks; swift build --package-path apps/macos --product DropDuo ;;
-  android) ./apps/android/gradlew -p apps/android :core:test :app:assembleDebug :app:lintDebug --console=plain ;;
+  android) ./apps/android/gradlew -p apps/android :core:test :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain ;;
   protocol) swift run --package-path apps/macos CoreChecks; ./apps/android/gradlew -p apps/android :core:test --console=plain; ./scripts/interop ;;
   web) python3 scripts/build-web ;;
   all) "$0" macos; "$0" android; ./scripts/interop; "$0" web ;;

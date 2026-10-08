@@ -56,7 +56,10 @@ jobs:
           - {runner: macos-15-intel, arch: x86_64}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
-    env: {DROPDUO_VERSION: "${{ needs.gate.outputs.version }}", DROPDUO_BUILD: "${{ needs.gate.outputs.build }}"}
+    env:
+      DROPDUO_VERSION: ${{ needs.gate.outputs.version }}
+      DROPDUO_BUILD: ${{ needs.gate.outputs.build }}
+      DROPDUO_UPDATE_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_ED_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {ref: "${{ needs.gate.outputs.commit }}", persist-credentials: false}
@@ -87,6 +90,11 @@ jobs:
         run: |
           codesign --verify --deep --strict dist/DropDuo.app
           ./scripts/package-download macos "$MODE"
+      - name: Generate signed in-app update feed
+        if: needs.gate.outputs.mode == 'distribution'
+        env:
+          SPARKLE_PRIVATE_ED_KEY: ${{ secrets.SPARKLE_PRIVATE_ED_KEY }}
+        run: python3 scripts/update-feed.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-macos-${{ matrix.arch }}
@@ -171,6 +179,10 @@ jobs:
           gh api "repos/$GH_REPO/releases/generate-notes" -f tag_name="$TAG" -f target_commitish="$COMMIT" --jq .body >> dist/release-notes.md
           # Creates the tag on the built commit. Never overwrites: an existing tag or release fails here.
           # Releases are never marked pre-release, so GitHub and the website offer the newest build.
-          # Only the three downloads and SHA256SUMS; per-file metadata stays in the workflow artifacts.
-          gh release create "$TAG" dist/release/*.zip dist/release/*.apk dist/release/SHA256SUMS \
+          # Downloads, checksums and signed Mac update feeds; build metadata stays in workflow artifacts.
+          set -- dist/release/*.zip dist/release/*.apk dist/release/SHA256SUMS
+          if [ -f dist/release/appcast-mac-applesilicon.xml ]; then
+            set -- "$@" dist/release/appcast-mac-applesilicon.xml dist/release/appcast-mac-intel.xml
+          fi
+          gh release create "$TAG" "$@" \
             --target "$COMMIT" --title "DropDuo $TAG" --notes-file dist/release-notes.md

@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.File
 import java.util.UUID
 
-class DropDuoApplication : Application() { override fun onCreate() { super.onCreate(); AppState.init(this) } }
+class DropDuoApplication : Application() { override fun onCreate() { super.onCreate(); AppState.init(this); AppUpdater.init(this) } }
 data class Transfer(val id: String, val name: String, val direction: String, val state: String, val progress: Double = 0.0,
     val path: String? = null, val text: String? = null, val error: String? = null, val autoRetry: Boolean = false)
 data class UiState(val device: String? = null, val connected: Boolean = false, val status: String = "Pair your Mac to get started",
@@ -23,6 +23,14 @@ object AppState {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     @Volatile var ticket: Ticket? = null
     @Volatile var engine: PeerEngine? = null
+    @Volatile var installingUpdate = false
+    val hasActiveTransfers get() = sending.isNotEmpty() || importing.isNotEmpty() || ui.value.history.any { it.state in listOf("Preparing", "Sending", "Receiving") }
+    @Synchronized fun beginUpdateInstallation(): Boolean {
+        if (hasActiveTransfers || installingUpdate) return false
+        installingUpdate = true; engine?.receivingEnabled = false
+        return true
+    }
+    @Synchronized fun finishUpdateInstallation() { installingUpdate = false; engine?.receivingEnabled = ui.value.receiving; resumePending() }
     private val importing = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private val cancelledImports = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private val sending = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
@@ -64,7 +72,7 @@ object AppState {
     fun stop(context: Context) { context.stopService(Intent(context, ConnectionService::class.java)); engine?.close(); engine = null; update { it.copy(connected = false, status = "Disconnected") } }
     fun forget(context: Context) { stop(context); ticket = null; secure.remove(); update { it.copy(device = null, status = "Pair your Mac to get started") } }
     fun setReceiving(value: Boolean) {
-        engine?.receivingEnabled = value
+        engine?.receivingEnabled = value && !installingUpdate
         context.getSharedPreferences("settings", 0).edit().putBoolean("receiving", value).apply()
         update { it.copy(receiving = value) }
     }
@@ -88,7 +96,10 @@ object AppState {
                 val id = UUID.randomUUID().toString()
                 var file: File? = null
                 var imported = false
-                importing.add(id)
+                synchronized(this@AppState) {
+                    if (installingUpdate) { error("DropDuo is installing an update. Send again after it reopens."); return@launch }
+                    importing.add(id)
+                }
                 try {
                     var name = "Shared file"
                     context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) name = it.getString(0) ?: name }
@@ -112,7 +123,10 @@ object AppState {
     }
     /** Sends a stored file copy or text; if the Mac is offline or the connection drops, it waits for reconnect instead of failing. */
     private fun sendStored(id: String, name: String, file: File? = null, text: String? = null) {
-        check(sending.add(id)) { "Transfer already active" }
+        synchronized(this) {
+            check(!installingUpdate) { "DropDuo is installing an update. Send again after it reopens." }
+            check(sending.add(id)) { "Transfer already active" }
+        }
         var peer: PeerEngine? = null
         try {
             peer = engine ?: throw Disconnected("Mac is offline")
@@ -126,6 +140,7 @@ object AppState {
     }
     /** Called after each connection to send held items and resume ones cut off by a lost connection, oldest first. */
     fun resumePending() {
+        if (installingUpdate) return
         val rows = ui.value.history.filter { it.direction == "Sent" && it.state == "Interrupted" && it.autoRetry && (it.path != null || it.text != null) && it.id !in sending }.reversed()
         if (rows.isNotEmpty()) scope.launch {
             for (row in rows) try {

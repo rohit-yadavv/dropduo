@@ -1,6 +1,6 @@
 # Install and use DropDuo
 
-DropDuo needs **macOS 14+** (Apple Silicon or Intel) and **Android 10+** on the same local network. Internet access isn't required.
+DropDuo needs **macOS 14+** (Apple Silicon or Intel) and **Android 10+** on the same local network. Sharing doesn't require internet access; update checks and downloads do.
 
 ## Install
 
@@ -17,6 +17,19 @@ You can also pick the files from the [latest release](https://github.com/rohit-y
 **Android:** open the APK and allow installs from your browser or file manager when asked. Open DropDuo and allow its connection and notification permissions.
 
 To verify a download, get its `.sha256` file and run `shasum -a 256 -c <asset>.sha256` in the same folder.
+
+## Updates
+
+DropDuo checks for new releases when opened or brought back to the foreground, at most once every 24 hours. Offline checks don't interrupt sharing. Available updates appear in the app; **Later** hides the notice for that version. Use **Check for updates** in Settings (also the Mac menu bar) to check manually. Before pairing on Android, the update controls are below the pairing buttons.
+
+Choose **Update…** on Mac or **Download update** on Android to view/download the new version. Downloads show progress and can be cancelled. Release notes are available in the Mac update window and Android's **What's new** sheet.
+
+- **Mac:** choose **Install & Relaunch** in the update window. DropDuo waits for active transfers to finish, then installs and reopens. Run the app from Applications. In-app Mac updating is available only in builds configured with the release signing key; development builds say when it isn't configured.
+- **Android:** after downloading, choose **Install update** when transfers finish. On the first attempt, Android may ask you to allow installs from **DropDuo**; return to the app and confirm the system installation prompt. If you cancel, you can retry from the app.
+
+Updates keep pairing, settings and received files. If an Android APK uses a different signing key, DropDuo rejects it and explains why; it never asks you to uninstall or deletes files. Development builds may encounter this when their debug certificate changes.
+
+Apps released before this feature need one manual upgrade to a build that includes it. After that, supported updates can be downloaded and installed through DropDuo.
 
 ## Pair once
 

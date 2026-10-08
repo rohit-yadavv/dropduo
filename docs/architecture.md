@@ -10,6 +10,8 @@ Files live in managed local folders. Small JSON files store devices and transfer
 
 ## Security
 
+Updates stay outside the local sharing protocol. Mac uses Sparkle with a public Ed25519 key embedded in the app, signed feeds and signed archives verified before extraction; the release jobs verify the archive signature against that public key. Android checks the official release's SHA-256 checksum, APK package/version, OS support and signing certificate before invoking the system installer. Downloads stream to app-owned temporary storage with size limits, HTTPS and restricted redirect hosts. No update can silently uninstall the app or discard pairing/files. Installation pauses new work and is deferred until active transfers finish. Release checks never transmit pairing credentials, filenames or file contents, and system profiling is disabled.
+
 Pairing uses a random 256-bit secret in a five-minute QR ticket plus explicit approval on the Mac. Anyone who sees an unused ticket may try to pair, so tickets expire and are used once.
 
 Sessions use fresh random nonces, HMAC transcript authentication, HKDF-SHA256 directional keys, and AES-256-GCM with sequence numbers authenticated as additional data. Replays, invalid tags, wrong versions, unknown peers, and oversized frames are rejected. This is a small protocol built from standard primitives and has not been independently audited. There is no forward secrecy: if a pair secret leaks, captured sessions can be decrypted, so re-pair after a compromise.

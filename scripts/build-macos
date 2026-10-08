@@ -6,10 +6,25 @@ swift build --package-path apps/macos -c "$configuration" --product DropDuo
 bin=$(swift build --package-path apps/macos -c "$configuration" --show-bin-path)
 app="dist/DropDuo.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+# Preserve Sparkle's versioned symlinks, helper apps and XPC services in our non-Xcode bundle.
+framework="apps/macos/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
+mkdir -p "$app/Contents/Frameworks"
+rm -rf "$app/Contents/Frameworks/Sparkle.framework"
+ditto "$framework" "$app/Contents/Frameworks/Sparkle.framework"
+cp apps/macos/.build/artifacts/sparkle/Sparkle/LICENSE "$app/Contents/Resources/SPARKLE-LICENSE.txt"
 cp "$bin/DropDuo" "$app/Contents/MacOS/DropDuo"
+# Remove SwiftPM's developer-machine framework search path from the packaged executable.
+python3 - "$app/Contents/MacOS/DropDuo" <<'PY'
+import re, subprocess, sys
+binary = sys.argv[1]
+commands = subprocess.check_output(['otool', '-l', binary], text=True)
+for path in re.findall(r'cmd LC_RPATH\n.*?path (.*?) \(offset', commands, re.S):
+    if 'PackageFrameworks' in path:
+        subprocess.run(['install_name_tool', '-delete_rpath', path, binary], check=True)
+PY
 cp apps/macos/Resources/Info.plist "$app/Contents/Info.plist"
 python3 - "$app/Contents/Info.plist" <<'PY'
-import os, plistlib, sys
+import base64, os, platform, plistlib, sys
 from pathlib import Path
 # The Release workflow sets DROPDUO_VERSION/DROPDUO_BUILD; version.properties covers local and test builds.
 version = dict(line.split('=', 1) for line in Path('version.properties').read_text().splitlines() if '=' in line)
@@ -19,6 +34,21 @@ info = plistlib.loads(path.read_bytes())
 info['CFBundleShortVersionString'] = name.split('-', 1)[0]
 info['CFBundleVersion'] = os.environ.get('DROPDUO_BUILD') or version['versionCode']
 info['DropDuoVersion'] = name
+chip = {'arm64': 'applesilicon', 'x86_64': 'intel'}[platform.machine()]
+info['SUFeedURL'] = f'https://github.com/rohit-yadavv/dropduo/releases/latest/download/appcast-mac-{chip}.xml'
+key = os.environ.get('DROPDUO_UPDATE_PUBLIC_KEY', '').strip()
+if key:
+    if len(base64.b64decode(key, validate=True)) != 32:
+        raise SystemExit('Invalid Sparkle public key.')
+    info['SUPublicEDKey'] = key
+elif os.environ.get('DROPDUO_SIGN_IDENTITY', '-') != '-':
+    raise SystemExit('Distribution builds require DROPDUO_UPDATE_PUBLIC_KEY.')
+info['SUEnableAutomaticChecks'] = False # AppUpdater makes silent, daily availability probes.
+info['SUAutomaticallyUpdate'] = False
+info['SUAllowsAutomaticUpdates'] = False
+info['SUSendProfileInfo'] = False
+info['SURequireSignedFeed'] = True
+info['SUVerifyUpdateBeforeExtraction'] = True
 path.write_bytes(plistlib.dumps(info))
 PY
 cp apps/macos/Resources/DropDuo.icns "$app/Contents/Resources/DropDuo.icns"
@@ -28,9 +58,18 @@ cp apps/macos/Sources/DropDuo/Resources/*.png "$app/Contents/Resources/"
 # Releases upload only the app, so its license and notices travel inside it.
 cp LICENSE NOTICE "$app/Contents/Resources/"
 cp docs/dependencies.md "$app/Contents/Resources/DEPENDENCIES.md"
-if [ "${DROPDUO_SIGN_IDENTITY:--}" = '-' ]; then
-  codesign --force --sign - "$app"
-else
-  codesign --force --options runtime --timestamp --sign "$DROPDUO_SIGN_IDENTITY" "$app"
-fi
+sign() {
+  if [ "${DROPDUO_SIGN_IDENTITY:--}" = '-' ]; then
+    codesign --force --sign - --preserve-metadata=entitlements "$1"
+  else
+    codesign --force --options runtime --timestamp --sign "$DROPDUO_SIGN_IDENTITY" --preserve-metadata=entitlements "$1"
+  fi
+}
+embedded="$app/Contents/Frameworks/Sparkle.framework/Versions/B"
+sign "$embedded/XPCServices/Downloader.xpc"
+sign "$embedded/XPCServices/Installer.xpc"
+sign "$embedded/Autoupdate"
+sign "$embedded/Updater.app"
+sign "$app/Contents/Frameworks/Sparkle.framework"
+sign "$app"
 printf 'Built %s (%s signing).\n' "$app" "${DROPDUO_SIGN_IDENTITY:-development ad-hoc}"

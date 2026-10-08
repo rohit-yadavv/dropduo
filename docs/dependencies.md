@@ -7,6 +7,7 @@ DropDuo's own source is Apache-2.0. Dependency licenses remain their owners' lic
 | AndroidX / Jetpack Compose | Apache-2.0 |
 | Kotlin and kotlinx.coroutines | Apache-2.0 |
 | Gson | Apache-2.0 |
+| Sparkle 2.10.0 (macOS updater) | MIT; full license ships as SPARKLE-LICENSE.txt inside the Mac app |
 | JourneyApps ZXing Android Embedded and ZXing | Apache-2.0 |
 | JUnit 4 (tests) | Eclipse Public License 1.0 |
 | Gradle wrapper/build tooling | Apache-2.0 |

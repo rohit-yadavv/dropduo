@@ -34,6 +34,10 @@ Read component `AGENTS.md`. Keep Swift/Kotlin core consistent with [the protocol
 
 ## What the checks cover
 
+`./scripts/check android` also runs JVM app tests for release parsing, SemVer ordering and checksum selection. `./scripts/check-updates-emulator` uses a disposable emulator: it builds a newer same-key APK, creates a disposable different-key APK, installs the current development app/test runner and verifies acceptance/rejection with Android's actual APK parser. It rejects bad hashes, incompatible certificates and non-newer builds. Fixtures and the temporary signing key are removed afterward. It does **not** prove the system confirmation flow, an actual installed upgrade or production signing.
+
+For Mac update UI review, use `DROPDUO_PREVIEW=1 DROPDUO_PREVIEW_SCENE=update DROPDUO_SNAPSHOT=<dir>` with a debug bundle. This adds an update banner without starting the updater, network, server or reading saved pairings. Verify signed feeds/archives with disposable keys locally; production old→new installations and preservation of pairing/files require release/device evidence.
+
 Automated: Swift/JVM crypto fixtures, replay and tamper rejection, malformed frames, path and size validation, and real loopback transfers both ways with resume, cancellation, duplicates, and empty or multi-chunk files.
 
 Before a release, try on real devices: pairing approve/reject, forget, Share → DropDuo, menu bar Send Files…, notifications, text, app restart and login launch, Android background and screen lock, Mac sleep/wake, and Wi-Fi changes. Emulators don't prove vendor battery behavior or physical-LAN discovery.

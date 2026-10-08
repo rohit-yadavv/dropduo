@@ -20,12 +20,12 @@ To verify a download, get its `.sha256` file and run `shasum -a 256 -c <asset>.s
 
 ## Updates
 
-DropDuo checks for new releases when opened or brought back to the foreground, at most once every 24 hours. Offline checks don't interrupt sharing. Available updates appear in the app; **Later** hides the notice for that version. Use **Check for updates** in Settings (also the Mac menu bar) to check manually. Before pairing on Android, the update controls are below the pairing buttons.
+DropDuo checks for new releases when opened or brought back to the foreground, at most once every 24 hours. Offline checks don't interrupt sharing. Available updates appear in the app; **Later** (the × button) hides the notice for that version. Use **Check** on Android or **Check for Updates…** in Mac Settings (also the Mac menu bar) to check manually. Before pairing on Android, the update controls are below the pairing buttons.
 
-Choose **Update…** on Mac or **Download update** on Android to view/download the new version. Downloads show progress and can be cancelled. Release notes are available in the Mac update window and Android's **What's new** sheet.
+Choose **Update…** on Mac or **Update** on Android to view/download the new version. Downloads show progress and can be cancelled. Release notes are available in the Mac update window and Android's **Details** sheet. Android's compact **Check** button checks manually.
 
 - **Mac:** choose **Install & Relaunch** in the update window. DropDuo waits for active transfers to finish, then installs and reopens. Run the app from Applications. In-app Mac updating is available only in builds configured with the release signing key; development builds say when it isn't configured.
-- **Android:** after downloading, choose **Install update** when transfers finish. On the first attempt, Android may ask you to allow installs from **DropDuo**; return to the app and confirm the system installation prompt. If you cancel, you can retry from the app.
+- **Android:** after downloading, choose **Install** when transfers finish. On the first attempt, Android may ask you to allow installs from **DropDuo**; return to the app and confirm the system installation prompt. If you cancel, you can retry from the app.
 
 Updates keep pairing, settings and received files. If an Android APK uses a different signing key, DropDuo rejects it and explains why; it never asks you to uninstall or deletes files. Development builds may encounter this when their debug certificate changes.
 

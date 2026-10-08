@@ -35,13 +35,17 @@ struct SettingsView: View {
                 Text("Keeps the latest 100 transfers. Clearing it doesn't delete any files.").foregroundStyle(.secondary)
             }
             Section {
-                LabeledContent("Version", value: version)
-                if let available = updater.availableVersion { Text("DropDuo \(available) is available.") }
-                Button("Check for Updates…") { updater.check() }.disabled(!updater.canCheck)
-                if let message = updater.message { Text(message).foregroundStyle(.secondary) }
-                if updater.waitingForTransfers { Text("Waiting for transfers to finish before relaunching…") }
+                HStack {
+                    Text("DropDuo \(version)")
+                    Spacer()
+                    Button(updater.availableVersion == nil ? "Check for Updates…" : "Update…") { updater.check() }
+                        .disabled(!updater.canCheck).controlSize(.small)
+                }
+                if let available = updater.availableVersion { Text("Update available · \(available)").font(.caption).foregroundStyle(.secondary) }
+                if let message = updater.message { Text(message).font(.caption).foregroundStyle(.secondary) }
+                if updater.waitingForTransfers { Text("Waiting for transfers to finish…").font(.caption) }
             } footer: {
-                Text("Updates use the internet. Sharing stays on your local network. No accounts or analytics. While your Mac sleeps, it can't receive.").foregroundStyle(.secondary)
+                Text("Updates use the internet. Sharing stays local.").foregroundStyle(.secondary)
             }
         }
         .onAppear { model.openAtLogin = LoginItem.isEnabled || LoginItem.needsApproval }

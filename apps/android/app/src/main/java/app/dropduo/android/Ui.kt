@@ -25,6 +25,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
@@ -379,29 +381,44 @@ private fun kindIcon(row: Transfer) = when {
     val state by AppState.ui.collectAsState()
     var notes by rememberSaveable { mutableStateOf(false) }
     if (!alwaysVisible && (update.release == null || (update.dismissed && !update.downloading && !update.ready))) return
-    Surface(color = colors.surface, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(update.release?.let { "DropDuo ${it.version} is available" } ?: "DropDuo ${BuildConfig.VERSION_NAME}", style = Type.bodyStrong, color = colors.text)
-            if (update.downloading) {
-                Text("Downloading · ${(update.progress * 100).toInt()}%", style = Type.caption, color = colors.secondary)
-                LinearProgressIndicator(progress = { update.progress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth(), color = colors.accent, trackColor = colors.surfaceHigh)
-                TextButton(onClick = AppUpdater::cancel) { Text("Cancel download", color = colors.text) }
-            } else if (update.release != null) {
-                if (update.ready && state.history.any { it.state in ACTIVE }) Text("Finish or cancel your transfers to install.", style = Type.caption, color = colors.secondary)
-                PrimaryButton(if (update.ready) "Install update" else "Download update", enabled = !update.checking && (!update.ready || state.history.none { it.state in ACTIVE })) {
-                    if (update.ready) onInstall() else AppUpdater.download()
+    val active = state.history.any { it.state in ACTIVE }
+    Surface(color = colors.surface, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(if (alwaysVisible || update.release == null) "DropDuo ${update.release?.version ?: BuildConfig.VERSION_NAME}" else "Update available",
+                        style = Type.bodyStrong, color = colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    val status = when {
+                        update.downloading -> "Downloading · ${(update.progress * 100).toInt()}%"
+                        update.checking -> "Checking…"
+                        update.ready && active -> "Waiting for transfers"
+                        update.ready -> "Ready to install"
+                        update.release != null -> if (alwaysVisible) "Update available" else update.release?.version
+                        update.message == "You're up to date." -> "Up to date"
+                        else -> null
+                    }
+                    status?.let { Text(it, style = Type.caption, color = colors.secondary) }
                 }
-                Row {
-                    TextButton(onClick = { notes = true }) { Text("What's new", color = colors.text) }
-                    if (!alwaysVisible && !update.ready) TextButton(onClick = AppUpdater::dismiss) { Text("Later", color = colors.secondary) }
+                if (update.downloading) {
+                    TextButton(onClick = AppUpdater::cancel, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Cancel", color = colors.text) }
+                } else if (update.release != null) {
+                    TextButton(onClick = { notes = true }, contentPadding = PaddingValues(horizontal = 8.dp), modifier = Modifier.semantics { contentDescription = "What's new" }) {
+                        Text("Details", color = colors.secondary, style = Type.caption)
+                    }
+                    TextButton(onClick = { if (update.ready) onInstall() else AppUpdater.download() }, enabled = !update.checking && (!update.ready || !active),
+                        contentPadding = PaddingValues(horizontal = 8.dp)) { Text(if (update.ready) "Install" else "Update", color = if (update.ready && active) colors.tertiary else colors.accent) }
+                    if (!alwaysVisible && !update.ready) IconButton(onClick = AppUpdater::dismiss, modifier = Modifier.size(40.dp)) {
+                        Glyph(R.drawable.ic_close, "Later", colors.secondary, 16.dp)
+                    }
+                } else if (alwaysVisible) {
+                    TextButton(onClick = { AppUpdater.check(manual = true) }, enabled = !update.checking, contentPadding = PaddingValues(horizontal = 8.dp),
+                        modifier = Modifier.semantics { contentDescription = "Check for updates" }) { Text("Check", color = colors.text) }
                 }
             }
-            update.message?.let { Text(it, style = Type.caption, color = colors.secondary) }
-            if (alwaysVisible) {
-                TextButton(onClick = { AppUpdater.check(manual = true) }, enabled = !update.checking && !update.downloading && !update.ready) {
-                    Text(if (update.checking) "Checking…" else "Check for updates", color = colors.text)
-                }
-                Text("Downloads start when you choose. Android asks you to confirm installation.", style = Type.caption, color = colors.secondary)
+            if (update.downloading) LinearProgressIndicator(progress = { update.progress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().height(2.dp).padding(bottom = 1.dp),
+                color = colors.accent, trackColor = colors.surfaceHigh)
+            update.message?.takeUnless { it == "You're up to date." }?.let {
+                Text(it, style = Type.caption, color = colors.secondary, modifier = Modifier.padding(bottom = 8.dp))
             }
         }
     }

@@ -113,15 +113,16 @@ struct UpdateBanner: View {
     @ObservedObject var updater: AppUpdater
     var body: some View {
         if updater.waitingForTransfers {
-            Text("The update is ready. Waiting for transfers to finish before relaunching…")
-                .font(.callout).padding(12).frame(maxWidth: .infinity).background(Color(nsColor: .windowBackgroundColor))
+            Text("Update ready · Waiting for transfers to finish")
+                .font(.caption).padding(.vertical, 6).frame(maxWidth: .infinity).background(Color(nsColor: .windowBackgroundColor))
         } else if let version = updater.availableVersion, !updater.dismissed {
             HStack {
-                Text("DropDuo \(version) is available.")
+                Text("Update available · \(version)")
                 Spacer()
-                Button("Update…") { updater.check() }.disabled(!updater.canCheck)
-                Button("Later") { updater.dismiss() }
-            }.font(.callout).padding(12).background(Color(nsColor: .windowBackgroundColor))
+                Button("Update…") { updater.check() }.disabled(!updater.canCheck).controlSize(.small)
+                Button { updater.dismiss() } label: { Image(systemName: "xmark") }
+                    .buttonStyle(.borderless).help("Later").accessibilityLabel("Later")
+            }.font(.caption).padding(.horizontal, 12).padding(.vertical, 4).background(Color(nsColor: .windowBackgroundColor))
         }
     }
 }

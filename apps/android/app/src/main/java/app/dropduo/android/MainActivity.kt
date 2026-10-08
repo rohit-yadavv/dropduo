@@ -22,7 +22,7 @@ class MainActivity : ComponentActivity() {
     }
     private val installer = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         AppState.finishUpdateInstallation()
-        AppUpdater.message("If you cancelled installation, tap Install update to try again.")
+        AppUpdater.message("If you cancelled installation, tap Install to try again.")
     }
     private var exportSource: File? = null
     private val scan = registerForActivityResult(ScanContract()) { result ->

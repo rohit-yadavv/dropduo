@@ -62,7 +62,6 @@ notes += f"{section}{status}\n\n"
 notes += f"Or pick a file below: `dropduo-mac-applesilicon-v{version}.zip` for Macs with Apple silicon (M1 or newer), "
 notes += f"`dropduo-mac-intel-v{version}.zip` for Intel Macs, and `dropduo-android-v{version}.apk` for Android 10+. "
 notes += "Unzip and move DropDuo.app to Applications. Both devices need a reachable local network. "
-notes += "License and notices are inside each download.\n\n"
+notes += "The license is inside each download.\n\n"
 notes += "Verify downloads with SHA256SUMS. Source commit: `" + metadata[0]['commit'] + "`.\n\n"
-notes += "Setup and troubleshooting: [install and use DropDuo](https://github.com/rohit-yadavv/dropduo/blob/" + tag + "/docs/usage.md).\n"
 (root / "dist/release-notes.md").write_text(notes)

@@ -217,7 +217,7 @@
     if (platform === "android") half.parentElement.classList.add("duo--android-first");
   }
 
-  // Release assets. Published names follow docs/releases.md#asset-names:
+  // Release asset names:
   // dropduo-mac-applesilicon-vVERSION.zip, dropduo-mac-intel-vVERSION.zip, dropduo-android-vVERSION.apk.
   // Releases up to v0.1.0-alpha.6 used DropDuo-vVERSION-macos-arm64[-development].zip, -macos-x86_64, -android.apk.
   const platforms = document.querySelector("[data-release-state]");

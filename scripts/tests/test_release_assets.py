@@ -17,8 +17,7 @@ class ReleaseAssetTests(unittest.TestCase):
         self.root = Path(temp.name)
         (self.root / "scripts").mkdir()
         shutil.copy2(Path(__file__).parents[1] / "release-notes.py", self.root / "scripts/release-notes.py")
-        (self.root / "docs").mkdir()
-        for name in ("LICENSE", "NOTICE", "docs/dependencies.md"):
+        for name in ("LICENSE",):
             (self.root / name).write_text("Test notice\n")
         (self.root / "CHANGELOG.md").write_text("## 0.1.0-alpha.1\n\n- Test release\n")
         (self.root / ".gitignore").write_text("dist/\n")

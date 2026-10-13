@@ -3,10 +3,10 @@ on:
   # The public site follows production; build-only runs validate PRs.
   push:
     branches: [master]
-    paths: [apps/web/**, branding/**, scripts/build-web, .github/workflows/web.yml]
+    paths: [apps/web/**, scripts/build-web, .github/workflows/web.yml]
   pull_request:
     branches: [develop, master]
-    paths: [apps/web/**, branding/**, scripts/build-web, .github/workflows/web.yml]
+    paths: [apps/web/**, scripts/build-web, .github/workflows/web.yml]
   workflow_dispatch:
 permissions:
   contents: read

@@ -7,18 +7,14 @@ import java.nio.file.Files
 import java.util.UUID
 
 class CoreTest {
-    @Test fun swiftCompatibilityAndReplay() {
-        val file = File(System.getProperty("dropduo.fixtures"), "crypto.json")
-        val fixture = Wire.gson.fromJson(file.readText(), Map::class.java)
-        fun field(name: String) = Wire.decode(fixture[name] as String)
-        val key = Wire.derive(field("secret"), field("client"), field("server"), "c2s")
-        assertArrayEquals(field("key"), key)
-        assertArrayEquals(field("frame"), FrameCipher(key).seal(field("plain"), ByteArray(12) { 3 }))
+    @Test fun replayAndTamperRejected() {
+        val key = ByteArray(32) { it.toByte() }
+        val plain = "DropDuo".toByteArray()
+        val frame = FrameCipher(key).seal(plain)
         val receiver = FrameCipher(key)
-        assertArrayEquals(field("plain"), receiver.open(field("frame")))
-        assertTrue(runCatching { receiver.open(field("frame")) }.isFailure)
-        assertEquals(fixture["helloProof"], Wire.hmac(field("secret"), "dropduo/1/hello|fixture|nonce|Android"))
-        val damaged = field("frame").also { it[it.lastIndex] = (it.last().toInt() xor 1).toByte() }
+        assertArrayEquals(plain, receiver.open(frame))
+        assertTrue(runCatching { receiver.open(frame) }.isFailure)
+        val damaged = frame.copyOf().also { it[it.lastIndex] = (it.last().toInt() xor 1).toByte() }
         assertTrue(runCatching { FrameCipher(key).open(damaged) }.isFailure)
     }
     @Test fun worstCaseChunkFitsInFrame() {

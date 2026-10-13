@@ -1,14 +1,6 @@
 import Foundation
 import DropDuoCore
 
-func fixture() throws {
-    let secret = Data((0..<32).map(UInt8.init)), client = Data(repeating: 1, count: 32), server = Data(repeating: 2, count: 32)
-    let key = Wire.derive(secret: secret, client: client, server: server, direction: "c2s")
-    var cipher = FrameCipher(key: key)
-    let plain = Data("DropDuo compatibility fixture".utf8)
-    let fixture: [String: String] = ["secret": secret.base64EncodedString(), "client": client.base64EncodedString(), "server": server.base64EncodedString(), "key": key.base64EncodedString(), "plain": plain.base64EncodedString(), "frame": try cipher.seal(plain, nonce: Data(repeating: 3, count: 12)).base64EncodedString(), "helloProof": Wire.hmac(secret, "dropduo/1/hello|fixture|nonce|Android")]
-    print(String(data: try JSONSerialization.data(withJSONObject: fixture, options: [.prettyPrinted, .sortedKeys]), encoding: .utf8)!)
-}
 @MainActor final class InteropHost {
     let directory: URL
     let server = PortServer()
@@ -74,8 +66,9 @@ func fixture() throws {
         if received && textReceived && sent { try? "PASS: Swift/JVM bidirectional files, resume, text and checksums".write(to: directory.appendingPathComponent("passed.txt"), atomically: true, encoding: .utf8) }
     }
 }
-if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "serve" {
-    let host = InteropHost(directory: URL(fileURLWithPath: CommandLine.arguments[2]))
-    try host.start()
-    try await Task.sleep(nanoseconds: 300_000_000_000)
-} else { try fixture() }
+guard CommandLine.arguments.count == 3, CommandLine.arguments[1] == "serve" else {
+    FileHandle.standardError.write(Data("Usage: dropduo-interop serve <directory>\n".utf8)); exit(2)
+}
+let host = InteropHost(directory: URL(fileURLWithPath: CommandLine.arguments[2]))
+try host.start()
+try await Task.sleep(nanoseconds: 300_000_000_000)

@@ -20,12 +20,12 @@ Pair once, then send over your local network. Free and open source, with no acco
 
 If macOS blocks the first launch, follow the [installation steps](docs/usage.md#install). Keep the Mac awake to receive. On Android, use **Save a copy** to keep received files after uninstalling.
 
-Transfers are encrypted between paired devices and files are integrity-checked. The protocol has not had an independent security audit; see [architecture and security](docs/architecture.md).
+Transfers are encrypted between paired devices and files are integrity-checked. The protocol has not had an independent security audit; see the [security policy](SECURITY.md).
 
 ## Help improve it
 
 Anyone can inspect, build, or propose changes to the code. [Report a bug](https://github.com/rohit-yadavv/dropduo/issues/new?template=bug.yml) or read the [contribution guide](CONTRIBUTING.md). Keep private files and pairing codes out of reports.
 
-[Build from source](docs/development.md) · [Product scope](docs/product.md) · [Changelog](CHANGELOG.md)
+[Build from source](docs/development.md) · [Changelog](CHANGELOG.md)
 
-Licensed under [Apache-2.0](LICENSE). See [dependency notices](docs/dependencies.md) and [security policy](SECURITY.md).
+Licensed under [Apache-2.0](LICENSE). See [dependency notices](docs/dependencies.md).

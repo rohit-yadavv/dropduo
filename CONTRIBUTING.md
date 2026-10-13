@@ -1,6 +1,6 @@
 # Contributing
 
-Bug reports, code, design, docs, and device testing are welcome. Start with the [product scope](docs/product.md), [development setup](docs/development.md), and relevant `AGENTS.md`.
+Bug reports, code, design, docs, and device testing are welcome. See [development setup](docs/development.md) to build and test.
 
 - Open a focused issue with expected/actual behavior, reproduction steps, OS versions, and app version. Never include private files, pairing codes, or credentials.
 - Run `./scripts/doctor`, then `./scripts/check <scope>`. Protocol changes need Swift/Kotlin compatibility tests and security review. Test background receiving, sleep, and Wi-Fi changes on real devices; emulators and compilation don't prove them.
@@ -15,4 +15,4 @@ To release, open a PR from `develop` into `master`, merge it once checks pass, t
 
 Commit messages use `<type>: <short imperative description>` with type feat, fix, hotfix, refactor, chore, docs, or test. Enable the check with `git config core.hooksPath .githooks`. Versions use SemVer tags `vMAJOR.MINOR.PATCH`; see [releases](docs/releases.md).
 
-Contributions use Apache-2.0; no CLA is required. See the [code of conduct](CODE_OF_CONDUCT.md) and [security policy](SECURITY.md).
+Contributions use Apache-2.0; no CLA is required. Report vulnerabilities as described in the [security policy](SECURITY.md).

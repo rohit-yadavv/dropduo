@@ -29,7 +29,7 @@ class References(HTMLParser):
 def main():
     if OUT.exists():
         shutil.rmtree(OUT)
-    shutil.copytree(SOURCE, OUT, ignore=shutil.ignore_patterns("README.md", "AGENTS.md", ".DS_Store"))
+    shutil.copytree(SOURCE, OUT, ignore=shutil.ignore_patterns(".DS_Store"))
     (OUT / "assets/brand").mkdir(parents=True, exist_ok=True)
     for name in BRAND:
         shutil.copy2(ROOT / "branding" / name, OUT / "assets/brand" / name)

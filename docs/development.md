@@ -28,13 +28,15 @@ Use `./scripts/build-macos debug` for a debug bundle. Android APK: `apps/android
 
 `./scripts/check-emulator` requires a **disposable emulator**, refuses physical devices, installs test APKs, and checks the Android service/Keystore against a Swift host. It grants notification permission and uses synthetic pairing/files. Success cleans test state; failure may leave it. Camera and physical Wi-Fi discovery are not covered.
 
-Read component `AGENTS.md`. Keep Swift/Kotlin core consistent with [the protocol](../protocol/SPEC.md) and fixtures. Never commit local SDK paths, user files, credentials, or signing keys. No release credentials are needed for development.
+Keep Swift/Kotlin core consistent with [the protocol](../protocol/SPEC.md) and fixtures. Never commit local SDK paths, user files, credentials, or signing keys. No release credentials are needed for development.
 
 `version.properties` sets both app versions for local and test builds; releases get theirs from **Actions → Release**. See [releases](releases.md) and the [Git workflow](../CONTRIBUTING.md#git-workflow).
 
 ## What the checks cover
 
 `./scripts/check android` also runs JVM app tests for release parsing, SemVer ordering and checksum selection. `./scripts/check-updates-emulator` uses a disposable emulator: it builds a newer same-key APK, creates a disposable different-key APK, installs the current development app/test runner and verifies acceptance/rejection with Android's actual APK parser. It rejects bad hashes, incompatible certificates and non-newer builds. Fixtures and the temporary signing key are removed afterward. It does **not** prove the system confirmation flow, an actual installed upgrade or production signing.
+
+Command Line Tools lack SwiftUI's macro plugins, so the Mac app avoids `@State`/`@Observable` and keeps view state in `AppModel`. For UI review, a debug bundle with `DROPDUO_PREVIEW=1` loads sample data without starting the server; `DROPDUO_PREVIEW_SCENE` picks `device`, `welcome`, `pairing`, `offline`, `empty` or `update`, and `DROPDUO_SNAPSHOT=<dir>` saves light and dark PNGs.
 
 For Mac update UI review, use `DROPDUO_PREVIEW=1 DROPDUO_PREVIEW_SCENE=update DROPDUO_SNAPSHOT=<dir>` with a debug bundle. This adds an update banner without starting the updater, network, server or reading saved pairings. Verify signed feeds/archives with disposable keys locally; production old→new installations and preservation of pairing/files require release/device evidence.
 
@@ -53,6 +55,6 @@ For untagged builds, sign into GitHub, open a successful `develop` run in [Check
 python3 -m http.server 4173 -d dist/web
 ```
 
-The [static website](../apps/web/README.md) has no build dependencies and reads GitHub release assets. `web.yml` deploys `master`; configure **Settings → Pages → Source → GitHub Actions** first.
+The static website in `apps/web` has no build dependencies and reads GitHub release assets. `web.yml` deploys `master`; configure **Settings → Pages → Source → GitHub Actions** first.
 
-After editing `branding/mark.json`, run `./scripts/generate-branding` on macOS and review the committed exports. See [branding](../branding/README.md).
+After editing `branding/mark.json`, run `./scripts/generate-branding` on macOS and review the committed exports; don't edit generated assets by hand.

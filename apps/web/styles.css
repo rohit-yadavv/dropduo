@@ -1,6 +1,6 @@
 /*
   DropDuo website.
-  Palette follows branding/README.md: ink #202124, cobalt #2558DD, white tile.
+  Palette: ink #202124, cobalt #2558DD, white tile.
   Shape rule: interactive controls are full pills, surfaces use --radius (24px),
   the app tile uses the icon's 220/1024 corner ratio.
   Layers: nav 10, skip link 20. Nothing else sets z-index.

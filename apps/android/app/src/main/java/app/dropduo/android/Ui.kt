@@ -459,7 +459,7 @@ private fun kindIcon(row: Transfer) = when {
     }
 }
 
-/** Full-color marks sit on white (branding/README.md), so dark mode gets a small white tile. */
+/** Full-color marks sit on white so dark mode gets a small white tile. */
 @Composable private fun Mark(size: Dp) {
     val tile = if (colors.dark) Modifier.background(Color.White, RoundedCornerShape(size * 0.28f)).padding(size * 0.06f) else Modifier
     Image(painterResource(R.drawable.ic_dropduo), contentDescription = null, modifier = Modifier.size(size).then(tile))

@@ -8,12 +8,13 @@ import DropDuoCore
         WindowGroup("DropDuo", id: "main") { MainView(model: delegate.model, delegate: delegate).frame(minWidth: 720, minHeight: 520).tint(Brand.cobalt) }
             .defaultSize(width: 920, height: 640)
             .commands { CommandGroup(replacing: .newItem) {} }
-        Settings { SettingsView(model: delegate.model).tint(Brand.cobalt) }
+        Settings { SettingsView(model: delegate.model, updater: delegate.updater).tint(Brand.cobalt) }
     }
 }
 
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
+    let updater = AppUpdater()
     /// SwiftUI only opens windows from inside a view, so MainView hands these over when it first appears.
     var openWindow: (() -> Void)?
     var openSettings: (() -> Void)?
@@ -24,7 +25,8 @@ import DropDuoCore
     func applicationWillFinishLaunching(_ notification: Notification) { launchedAtLogin = LoginItem.launchedAtLogin }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let status = StatusItemController(model: model)
+        updater.start(model: model)
+        let status = StatusItemController(model: model, updater: updater)
         status.openApp = { [weak self] in self?.showMain() }
         status.openSettings = { [weak self] in NSApp.activate(ignoringOtherApps: true); self?.openSettings?() }
         statusItem = status
@@ -33,12 +35,14 @@ import DropDuoCore
     }
 
     func showMain() {
+        updater.checkAutomatically()
         NSApp.activate(ignoringOtherApps: true)
         if let window = mainWindow, window.isVisible { window.makeKeyAndOrderFront(nil) } else { openWindow?() }
     }
 
     /// Closing the window keeps DropDuo in the menu bar, so the phone can still connect.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+    func applicationDidBecomeActive(_ notification: Notification) { updater.checkAutomatically() }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag { showMain() }
@@ -71,13 +75,16 @@ struct MainView: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
     var body: some View {
-        NavigationSplitView {
-            Sidebar(model: model).navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 320)
-        } detail: {
-            Group {
-                if let device = model.selectedDevice { DeviceView(model: model, device: device).id(device.id) }
-                else { WelcomeView(model: model) }
-            }.seamlessToolbar()
+        VStack(spacing: 0) {
+            UpdateBanner(updater: delegate.updater)
+            NavigationSplitView {
+                Sidebar(model: model).navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 320)
+            } detail: {
+                Group {
+                    if let device = model.selectedDevice { DeviceView(model: model, device: device).id(device.id) }
+                    else { WelcomeView(model: model) }
+                }.seamlessToolbar()
+            }
         }
         .sheet(isPresented: Binding(get: { model.ticket != nil }, set: { if !$0 { model.cancelPairing() } })) { PairingView(model: model).tint(Brand.cobalt) }
         .alert("DropDuo", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("OK") { model.error = nil } } message: { Text(model.error ?? "") }

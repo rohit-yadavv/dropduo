@@ -40,8 +40,11 @@ class ConnectionService : Service() {
                     AppState.pairConfirmed(ticket)
                     val peer = PeerEngine(channel, Inbox(AppState.inbox().resolve(ticket.pairID)).also { it.cleanExpired() }, AppState::record)
                     if (!running || AppState.ticket?.pairID != ticket.pairID) { peer.close(); continue }
-                    peer.receivingEnabled = AppState.ui.value.receiving
-                    AppState.engine = peer; AppState.update { it.copy(connected = true, device = ticket.name, status = "Connected to ${ticket.name}") }
+                    synchronized(AppState) {
+                        peer.receivingEnabled = AppState.ui.value.receiving && !AppState.installingUpdate
+                        AppState.engine = peer
+                    }
+                    AppState.update { it.copy(connected = true, device = ticket.name, status = "Connected to ${ticket.name}") }
                     AppState.resumePending()
                     peer.run()
                 } catch (e: Exception) {

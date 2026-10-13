@@ -5,10 +5,14 @@ scope=${1:-all}
 if [ -z "${ANDROID_HOME:-}" ] && [ -d "$HOME/Library/Android/sdk" ]; then
   ANDROID_HOME="$HOME/Library/Android/sdk"; export ANDROID_HOME
 fi
+core_checks() {
+  swift build --package-path apps/macos --product CoreChecks
+  "$(swift build --package-path apps/macos --show-bin-path)/CoreChecks"
+}
 case "$scope" in
-  macos) swift run --package-path apps/macos CoreChecks; swift build --package-path apps/macos --product DropDuo ;;
-  android) ./apps/android/gradlew -p apps/android :core:test :app:assembleDebug :app:lintDebug --console=plain ;;
-  protocol) swift run --package-path apps/macos CoreChecks; ./apps/android/gradlew -p apps/android :core:test --console=plain; ./scripts/interop ;;
+  macos) core_checks; swift build --package-path apps/macos --product DropDuo ;;
+  android) ./apps/android/gradlew -p apps/android :core:test :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain ;;
+  protocol) core_checks; ./apps/android/gradlew -p apps/android :core:test --console=plain; ./scripts/interop ;;
   web) python3 scripts/build-web ;;
   all) "$0" macos; "$0" android; ./scripts/interop; "$0" web ;;
   *) echo 'Usage: scripts/check [macos|android|protocol|web|all]' >&2; exit 2 ;;

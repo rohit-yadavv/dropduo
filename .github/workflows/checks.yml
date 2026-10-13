@@ -3,10 +3,10 @@ on:
   # Docs and website changes can't affect the app builds, so they skip this workflow.
   push:
     branches: [develop, master]
-    paths-ignore: ['**/*.md', 'docs/**', 'apps/web/**']
+    paths-ignore: ['**/*.md', 'apps/web/**']
   pull_request:
     branches: [develop, master]
-    paths-ignore: ['**/*.md', 'docs/**', 'apps/web/**']
+    paths-ignore: ['**/*.md', 'apps/web/**']
   workflow_dispatch:
   workflow_call:
     inputs:

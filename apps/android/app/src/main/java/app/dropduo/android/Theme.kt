@@ -9,7 +9,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 
-/** Brand colors from branding/README.md: ink, cobalt, pure white; dark mode keeps the same restraint. */
+/** Brand colors: ink, cobalt, pure white; dark mode keeps the same restraint. */
 @Immutable data class Palette(
     val background: Color, val surface: Color, val surfaceHigh: Color, val hairline: Color,
     val text: Color, val secondary: Color, val tertiary: Color,

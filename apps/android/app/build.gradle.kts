@@ -11,7 +11,7 @@ val signingPath = providers.environmentVariable("DROPDUO_ANDROID_KEYSTORE").orNu
 android {
     namespace = "app.dropduo.android"
     compileSdk = 36
-    defaultConfig { applicationId = "app.dropduo.android"; minSdk = 29; targetSdk = 36; versionCode = appVersionCode; versionName = appVersionName; testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner" }
+    defaultConfig { applicationId = "app.dropduo.android"; minSdk = 29; targetSdk = 36; versionCode = appVersionCode; versionName = appVersionName }
     buildFeatures { compose = true; buildConfig = true }
     if (signingPath != null) {
         signingConfigs.create("distribution") {
@@ -25,10 +25,21 @@ android {
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
 }
 kotlin { jvmToolchain(17) }
+// Releases upload only the APK, so its license and notices travel inside it as assets.
+abstract class CopyNotices : DefaultTask() {
+    @get:InputFiles abstract val notices: ConfigurableFileCollection
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
+    @TaskAction fun copy() {
+        val dir = outputDir.get().asFile.apply { deleteRecursively(); mkdirs() }
+        notices.forEach { it.copyTo(dir.resolve(it.name), overwrite = true) }
+    }
+}
+val copyNotices = tasks.register<CopyNotices>("copyNotices") {
+    notices.from(rootProject.file("../../LICENSE"))
+}
+androidComponents { onVariants { variant -> variant.sources.assets?.addGeneratedSourceDirectory(copyNotices, CopyNotices::outputDir) } }
 dependencies {
-    androidTestImplementation("androidx.test:runner:1.6.2")
-    androidTestImplementation("androidx.test:core:1.6.1")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    testImplementation("junit:junit:4.13.2")
     implementation(project(":core"))
     implementation("com.google.code.gson:gson:2.11.0")
     implementation(platform("androidx.compose:compose-bom:2025.08.01"))

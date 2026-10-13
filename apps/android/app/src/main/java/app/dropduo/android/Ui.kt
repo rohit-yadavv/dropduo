@@ -25,6 +25,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
@@ -33,7 +35,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
-class Actions(val scan: () -> Unit, val connect: () -> Unit, val files: () -> Unit, val save: (Transfer) -> Unit, val open: (Transfer) -> Unit)
+class Actions(val scan: () -> Unit, val connect: () -> Unit, val files: () -> Unit, val save: (Transfer) -> Unit, val open: (Transfer) -> Unit, val installUpdate: () -> Unit)
 
 private const val UNPAIRED_STATUS = "Pair your Mac to get started"
 private val ACTIVE = listOf("Preparing", "Sending", "Receiving")
@@ -56,7 +58,7 @@ private val ACTIVE = listOf("Preparing", "Sending", "Receiving")
         Box(Modifier.fillMaxSize().background(colors.background)) {
             Crossfade(targetState = if (state.device == null) 0 else if (settings) 2 else 1, animationSpec = tween(220), label = "screen") { screen ->
                 when (screen) {
-                    0 -> Onboarding(state.status, actions.scan) { codeSheet = true }
+                    0 -> Onboarding(state.status, actions.scan, actions.installUpdate) { codeSheet = true }
                     1 -> Home(state, actions) { settings = true }
                     else -> Settings(state, actions, onBack = { settings = false }) { codeSheet = true }
                 }
@@ -73,7 +75,7 @@ private val ACTIVE = listOf("Preparing", "Sending", "Receiving")
 
 // Onboarding
 
-@Composable private fun Onboarding(status: String, onScan: () -> Unit, onCode: () -> Unit) {
+@Composable private fun Onboarding(status: String, onScan: () -> Unit, onInstall: () -> Unit, onCode: () -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize().systemBarsPadding()) {
         Column(Modifier.verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(horizontal = 24.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Brand(Modifier.padding(top = 16.dp))
@@ -100,6 +102,8 @@ private val ACTIVE = listOf("Preparing", "Sending", "Receiving")
                 Spacer(Modifier.height(4.dp))
                 QuietButton("Enter code instead", onCode)
                 Text("Both devices need to be on the same network.", style = Type.caption, color = colors.tertiary, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                Spacer(Modifier.height(16.dp))
+                UpdateCard(onInstall, alwaysVisible = true)
             }
         }
     }
@@ -118,6 +122,7 @@ private val ACTIVE = listOf("Preparing", "Sending", "Receiving")
                 IconButton(onClick = onSettings) { Glyph(R.drawable.ic_settings, "Settings", colors.text) }
             }
         }
+        item { UpdateCard(actions.installUpdate) }
         item { DeviceCard(state, actions.connect) }
         item {
             Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -355,11 +360,13 @@ private fun kindIcon(row: Transfer) = when {
         Group { GroupRow("Clear recent history", "Received files are kept", onClick = AppState::clearHistory) }
         Text("Received files stay in DropDuo's app storage. Use Save a copy to keep them in a folder you choose. Uninstalling DropDuo removes its stored files.",
             style = Type.caption, color = colors.secondary, modifier = Modifier.padding(horizontal = 4.dp, vertical = 12.dp))
+        SectionLabel("Updates")
+        UpdateCard(actions.installUpdate, alwaysVisible = true)
         Column(Modifier.fillMaxWidth().padding(top = 36.dp, bottom = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Mark(24.dp)
             Spacer(Modifier.height(10.dp))
             Text("DropDuo ${BuildConfig.VERSION_NAME}", style = Type.caption, color = colors.secondary)
-            Text("Local network only. No accounts. No analytics.", style = Type.caption, color = colors.tertiary, textAlign = TextAlign.Center)
+            Text("Sharing stays local. Updates use the internet.\nNo accounts. No analytics.", style = Type.caption, color = colors.tertiary, textAlign = TextAlign.Center)
         }
     }
     if (confirmForget) AlertDialog(onDismissRequest = { confirmForget = false }, containerColor = colors.background, shape = RoundedCornerShape(28.dp),
@@ -367,6 +374,60 @@ private fun kindIcon(row: Transfer) = when {
         text = { Text("You will need to pair again. Received files stay on this phone.", style = Type.body, color = colors.secondary) },
         confirmButton = { TextButton(onClick = { AppState.forget(context); confirmForget = false }) { Text("Forget", color = colors.danger, style = Type.bodyStrong) } },
         dismissButton = { TextButton(onClick = { confirmForget = false }) { Text("Cancel", color = colors.text, style = Type.bodyStrong) } })
+}
+
+@Composable private fun UpdateCard(onInstall: () -> Unit, alwaysVisible: Boolean = false) {
+    val update by AppUpdater.ui.collectAsState()
+    val state by AppState.ui.collectAsState()
+    var notes by rememberSaveable { mutableStateOf(false) }
+    if (!alwaysVisible && (update.release == null || (update.dismissed && !update.downloading && !update.ready))) return
+    val active = state.history.any { it.state in ACTIVE }
+    Surface(color = colors.surface, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(if (alwaysVisible || update.release == null) "DropDuo ${update.release?.version ?: BuildConfig.VERSION_NAME}" else "Update available",
+                        style = Type.bodyStrong, color = colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    val status = when {
+                        update.downloading -> "Downloading · ${(update.progress * 100).toInt()}%"
+                        update.checking -> "Checking…"
+                        update.ready && active -> "Waiting for transfers"
+                        update.ready -> "Ready to install"
+                        update.release != null -> if (alwaysVisible) "Update available" else update.release?.version
+                        update.message == "You're up to date." -> "Up to date"
+                        else -> null
+                    }
+                    status?.let { Text(it, style = Type.caption, color = colors.secondary) }
+                }
+                if (update.downloading) {
+                    TextButton(onClick = AppUpdater::cancel, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("Cancel", color = colors.text) }
+                } else if (update.release != null) {
+                    TextButton(onClick = { notes = true }, contentPadding = PaddingValues(horizontal = 8.dp), modifier = Modifier.semantics { contentDescription = "What's new" }) {
+                        Text("Details", color = colors.secondary, style = Type.caption)
+                    }
+                    TextButton(onClick = { if (update.ready) onInstall() else AppUpdater.download() }, enabled = !update.checking && (!update.ready || !active),
+                        contentPadding = PaddingValues(horizontal = 8.dp)) { Text(if (update.ready) "Install" else "Update", color = if (update.ready && active) colors.tertiary else colors.accent) }
+                    if (!alwaysVisible && !update.ready) IconButton(onClick = AppUpdater::dismiss, modifier = Modifier.size(40.dp)) {
+                        Glyph(R.drawable.ic_close, "Later", colors.secondary, 16.dp)
+                    }
+                } else if (alwaysVisible) {
+                    TextButton(onClick = { AppUpdater.check(manual = true) }, enabled = !update.checking, contentPadding = PaddingValues(horizontal = 8.dp),
+                        modifier = Modifier.semantics { contentDescription = "Check for updates" }) { Text("Check", color = colors.text) }
+                }
+            }
+            if (update.downloading) LinearProgressIndicator(progress = { update.progress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().height(2.dp).padding(bottom = 1.dp),
+                color = colors.accent, trackColor = colors.surfaceHigh)
+            update.message?.takeUnless { it == "You're up to date." }?.let {
+                Text(it, style = Type.caption, color = colors.secondary, modifier = Modifier.padding(bottom = 8.dp))
+            }
+        }
+    }
+    if (notes) Sheet(onDismiss = { notes = false }) {
+        Text("What's new in ${update.release?.version}", style = Type.title, color = colors.text)
+        Spacer(Modifier.height(16.dp))
+        SelectionContainer { Text(update.release?.notes?.ifBlank { "No release notes were provided." }.orEmpty(), style = Type.body, color = colors.secondary,
+            modifier = Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState())) }
+    }
 }
 
 @Composable private fun Group(content: @Composable ColumnScope.() -> Unit) {
@@ -398,7 +459,7 @@ private fun kindIcon(row: Transfer) = when {
     }
 }
 
-/** Full-color marks sit on white (branding/README.md), so dark mode gets a small white tile. */
+/** Full-color marks sit on white so dark mode gets a small white tile. */
 @Composable private fun Mark(size: Dp) {
     val tile = if (colors.dark) Modifier.background(Color.White, RoundedCornerShape(size * 0.28f)).padding(size * 0.06f) else Modifier
     Image(painterResource(R.drawable.ic_dropduo), contentDescription = null, modifier = Modifier.size(size).then(tile))

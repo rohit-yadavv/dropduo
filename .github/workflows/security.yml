@@ -3,7 +3,7 @@ on:
   # Scan code changes once before production and weekly; earlier promotion PRs carry the same code.
   pull_request:
     branches: [master]
-    paths-ignore: ['**/*.md', 'docs/**', 'apps/web/**']
+    paths-ignore: ['**/*.md', 'apps/web/**']
   schedule:
     - cron: '19 5 * * 1'
   workflow_dispatch:

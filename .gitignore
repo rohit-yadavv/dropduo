@@ -3,6 +3,7 @@
 .build/
 build/
 .gradle/
+.kotlin/
 local.properties
 .idea/
 *.xcuserstate
@@ -20,3 +21,6 @@ __pycache__/
 .env
 .env.*
 !.env.example
+
+# Local brand source files
+/branding/

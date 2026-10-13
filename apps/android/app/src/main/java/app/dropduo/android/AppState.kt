@@ -12,7 +12,9 @@ import java.util.UUID
 
 class DropDuoApplication : Application() { override fun onCreate() { super.onCreate(); AppState.init(this); AppUpdater.init(this) } }
 data class Transfer(val id: String, val name: String, val direction: String, val state: String, val progress: Double = 0.0,
-    val path: String? = null, val text: String? = null, val error: String? = null, val autoRetry: Boolean = false)
+    val path: String? = null, val text: String? = null, val error: String? = null, val autoRetry: Boolean = false,
+    /** When the transfer started, in epoch milliseconds; 0 for history saved before times were recorded. */
+    val time: Long = 0)
 data class UiState(val device: String? = null, val connected: Boolean = false, val status: String = "Pair your Mac to get started",
     val receiving: Boolean = true, val history: List<Transfer> = emptyList(), val error: String? = null)
 const val WAITING_FOR_MAC = "Waiting for your Mac"
@@ -79,7 +81,7 @@ object AppState {
     @Synchronized fun record(event: PeerEvent, autoRetry: Boolean = false) {
         val old = ui.value.history.firstOrNull { it.id == event.id }
         val row = Transfer(event.id, old?.name ?: event.name, old?.direction ?: event.direction, event.state, event.progress,
-            event.path ?: old?.path, event.text ?: old?.text, event.error, autoRetry)
+            event.path ?: old?.path, event.text ?: old?.text, event.error, autoRetry, old?.time ?: System.currentTimeMillis())
         val history = (listOf(row) + ui.value.history.filter { it.id != event.id }).take(100)
         ui.value = ui.value.copy(history = history)
         if (event.state in listOf("Complete", "Interrupted", "Cancelled")) saveHistory(history)
@@ -162,4 +164,28 @@ object AppState {
     /** Keeps active and waiting sends, so clearing history never drops something still on its way. */
     fun clearHistory() { synchronized(this) { val (kept, cleared) = ui.value.history.partition { it.state in listOf("Preparing", "Sending", "Receiving") || it.autoRetry }; cleared.filter { it.direction == "Sent" }.forEach { row -> row.path?.let { path -> val file = File(path); if (file.parentFile == File(context.filesDir, "outgoing")) file.delete() } }; ui.value = ui.value.copy(history = kept); saveHistory(kept) } }
     fun inbox() = File(context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS), "DropDuo").apply { mkdirs() }
+    /**
+     * Debug builds only: sample state for UI review without pairing or touching saved history, opened with
+     * `adb shell am start -n app.dropduo.android/.MainActivity --es preview <home|offline|empty|onboarding|failed>`.
+     * Put an image at `<inbox>/preview/IMG_2031.jpg` to see a received-photo thumbnail.
+     */
+    fun preview(scene: String) {
+        if (!BuildConfig.DEBUG) return
+        val now = System.currentTimeMillis(); val minute = 60_000L; val day = 86_400_000L
+        val history = if (scene == "empty") emptyList() else listOf(
+            Transfer("preview-1", "IMG_2048.heic", "Sent", "Sending", 0.62, time = now),
+            Transfer("preview-2", "Text", "Received", "Complete", 1.0, text = "https://maps.app.goo.gl/dinner-friday", time = now - 4 * minute),
+            Transfer("preview-3", "Pick up the printer cable", "Sent", "Interrupted", text = "Pick up the printer cable on the way home", error = WAITING_FOR_MAC, autoRetry = true, time = now - 26 * minute),
+            Transfer("preview-4", "Lease agreement.pdf", "Received", "Complete", 1.0, path = File(inbox(), "preview/Lease agreement.pdf").path, time = now - 48 * minute),
+            Transfer("preview-5", "Beach sunset.mov", "Sent", "Interrupted", 0.3, error = "Connection lost. Retry when your Mac is back.", time = now - day),
+            Transfer("preview-6", "IMG_2031.jpg", "Received", "Complete", 1.0, path = File(inbox(), "preview/IMG_2031.jpg").path, time = now - day - 3 * 60 * minute),
+            Transfer("preview-7", "Text", "Sent", "Complete", 1.0, text = "Meeting notes are in the shared folder, check the second page.", time = now - 3 * day),
+        )
+        ui.value = when (scene) {
+            "onboarding" -> UiState()
+            "failed" -> UiState(status = "Pairing failed. Generate a new code and try again.")
+            "offline" -> UiState(device = "MacBook Pro", status = "Mac not found. Is it awake with DropDuo open, on this Wi-Fi? Retrying…", history = history.filter { it.state !in listOf("Sending", "Preparing") })
+            else -> UiState(device = "MacBook Pro", connected = true, status = "Connected to MacBook Pro", history = history)
+        }
+    }
 }

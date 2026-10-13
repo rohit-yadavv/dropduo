@@ -9,46 +9,50 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Open DropDuo at login", isOn: Binding(get: { model.openAtLogin }, set: { model.setOpenAtLogin($0) }))
-            } footer: {
-                Text(model.loginError ?? "Keeps your Mac reachable after a restart. DropDuo stays in the menu bar.")
-                    .foregroundStyle(model.loginError == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(.red))
+                Toggle(isOn: Binding(get: { model.openAtLogin }, set: { model.setOpenAtLogin($0) })) {
+                    Text("Open at login")
+                    if let error = model.loginError { Text(error).foregroundStyle(.red) }
+                }
+                Toggle(isOn: $model.receiving) {
+                    Text("Accept files and text")
+                }
+                .onChange(of: model.receiving) { _, _ in model.persistSettings() }
             }
             Section {
-                Toggle("Accept files and text from paired devices", isOn: $model.receiving)
-                    .onChange(of: model.receiving) { _, _ in model.persistSettings() }
-            } footer: {
-                Text("Only devices you approved can connect. Pausing keeps them paired.").foregroundStyle(.secondary)
-            }
-            Section {
-                LabeledContent("Received files") {
+                LabeledContent {
                     Button("Show in Finder") { NSWorkspace.shared.open(model.inboxRoot) }
+                } label: {
+                    Text("Received files")
+                    Text("Downloads › DropDuo")
                 }
-            } footer: {
-                Text("Saved in Downloads/DropDuo, in a folder for each device.").foregroundStyle(.secondary)
-            }
-            Section {
-                LabeledContent("Recent activity") {
+                LabeledContent {
                     Button("Clear History") { model.clearHistory() }.disabled(model.transfers.isEmpty)
+                } label: {
+                    Text("Recent activity")
+                    Text("Received files are kept")
                 }
-            } footer: {
-                Text("Keeps the latest 100 transfers. Clearing it doesn't delete any files.").foregroundStyle(.secondary)
             }
             Section {
-                HStack {
-                    Text("DropDuo \(version)")
-                    Spacer()
-                    Button(updater.availableVersion == nil ? "Check for Updates…" : "Update…") { updater.check() }
-                        .disabled(!updater.canCheck).controlSize(.small)
+                LabeledContent {
+                    Button(updater.availableVersion == nil ? "Check for Updates…" : "Update…") { updater.check() }.disabled(!updater.canCheck)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(nsImage: Brand.mark).resizable().frame(width: 30, height: 30).accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("DropDuo \(version)")
+                            if let status = updateStatus { Text(status).font(.caption).foregroundStyle(.secondary) }
+                        }
+                    }
                 }
-                if let available = updater.availableVersion { Text("Update available · \(available)").font(.caption).foregroundStyle(.secondary) }
-                if let message = updater.message { Text(message).font(.caption).foregroundStyle(.secondary) }
-                if updater.waitingForTransfers { Text("Waiting for transfers to finish…").font(.caption) }
-            } footer: {
-                Text("Updates use the internet. Sharing stays local.").foregroundStyle(.secondary)
             }
         }
         .onAppear { model.openAtLogin = LoginItem.isEnabled || LoginItem.needsApproval }
-        .formStyle(.grouped).frame(width: 460).fixedSize(horizontal: false, vertical: true)
+        .formStyle(.grouped).frame(width: 480).fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var updateStatus: String? {
+        if updater.waitingForTransfers { return "Installs when transfers finish" }
+        if let available = updater.availableVersion { return "Version \(available) is available" }
+        return updater.message
     }
 }

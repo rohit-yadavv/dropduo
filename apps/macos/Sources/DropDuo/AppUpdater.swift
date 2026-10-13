@@ -109,20 +109,40 @@ import SwiftUI
     func allowedSystemProfileKeys(for updater: SPUUpdater) -> [String]? { [] }
 }
 
-struct UpdateBanner: View {
+/// Sits at the bottom of the sidebar, or on the welcome screen, while an update is available or waiting to install.
+struct UpdateNotice: View {
     @ObservedObject var updater: AppUpdater
     var body: some View {
         if updater.waitingForTransfers {
-            Text("Update ready · Waiting for transfers to finish")
-                .font(.caption).padding(.vertical, 6).frame(maxWidth: .infinity).background(Color(nsColor: .windowBackgroundColor))
+            card {
+                Image(systemName: "hourglass").foregroundStyle(Brand.cobalt)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Update ready").font(.callout.weight(.semibold))
+                    Text("Installs when transfers finish").font(.caption).foregroundStyle(.secondary)
+                }
+            }
         } else if let version = updater.availableVersion, !updater.dismissed {
-            HStack {
-                Text("Update available · \(version)")
-                Spacer()
-                Button("Update…") { updater.check() }.disabled(!updater.canCheck).controlSize(.small)
-                Button { updater.dismiss() } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.borderless).help("Later").accessibilityLabel("Later")
-            }.font(.caption).padding(.horizontal, 12).padding(.vertical, 4).background(Color(nsColor: .windowBackgroundColor))
+            card {
+                Image(systemName: "arrow.down.circle.fill").font(.title3).foregroundStyle(Brand.cobalt)
+                VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Update available").font(.callout.weight(.semibold))
+                        Text("DropDuo \(version)").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Button("Update…") { updater.check() }.controlSize(.small).disabled(!updater.canCheck)
+                }
+                Spacer(minLength: 0)
+                Button { updater.dismiss() } label: { Image(systemName: "xmark").font(.caption.weight(.semibold)) }
+                    .buttonStyle(.borderless).foregroundStyle(.secondary).help("Later").accessibilityLabel("Later")
+            }
         }
+    }
+
+    private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        HStack(alignment: .top, spacing: 10, content: content)
+            .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Brand.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Brand.hairline))
+            .shadow(color: Brand.shadow, radius: 3, y: 1)
     }
 }

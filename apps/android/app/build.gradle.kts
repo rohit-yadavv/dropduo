@@ -35,7 +35,7 @@ abstract class CopyNotices : DefaultTask() {
     }
 }
 val copyNotices = tasks.register<CopyNotices>("copyNotices") {
-    notices.from(rootProject.file("../../LICENSE"))
+    notices.from(rootProject.file("../../LICENSE"), rootProject.file("../web/assets/fonts/LICENSE-geist.txt"))
 }
 androidComponents { onVariants { variant -> variant.sources.assets?.addGeneratedSourceDirectory(copyNotices, CopyNotices::outputDir) } }
 dependencies {

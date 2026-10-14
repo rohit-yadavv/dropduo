@@ -412,11 +412,22 @@ private struct FloatingPanel: ViewModifier {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         if reduceTransparency {
             content.background(Brand.panelSurface, in: shape).overlay(shape.strokeBorder(Brand.hairline))
-        } else if #available(macOS 26, *) {
-            content.background(Brand.panelSurface.opacity(0.6), in: shape).glassEffect(.regular, in: shape)
-                .overlay(shape.strokeBorder(Brand.hairline))
         } else {
-            content.background(.regularMaterial, in: shape).overlay(shape.strokeBorder(Brand.hairline)).shadow(color: Brand.shadow, radius: 8, y: 2)
+            // Older toolchains don't declare glassEffect, even inside a runtime availability check.
+            #if compiler(>=6.2)
+            if #available(macOS 26, *) {
+                content.background(Brand.panelSurface.opacity(0.6), in: shape).glassEffect(.regular, in: shape)
+                    .overlay(shape.strokeBorder(Brand.hairline))
+            } else {
+                materialPanel(content, in: shape)
+            }
+            #else
+            materialPanel(content, in: shape)
+            #endif
         }
+    }
+
+    private func materialPanel(_ content: Content, in shape: RoundedRectangle) -> some View {
+        content.background(.regularMaterial, in: shape).overlay(shape.strokeBorder(Brand.hairline)).shadow(color: Brand.shadow, radius: 8, y: 2)
     }
 }

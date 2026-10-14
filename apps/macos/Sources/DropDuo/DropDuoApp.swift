@@ -74,18 +74,20 @@ struct MainView: View {
     let delegate: AppDelegate
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
+    /// Before the first pairing there's nothing to list, so the welcome screen gets the whole window.
+    // `State` values rather than `@State`: Command Line Tools on macOS 27 ship without the SwiftUI macro plugin that `@State` needs.
+    private let columns = State(initialValue: NavigationSplitViewVisibility.all)
     var body: some View {
-        VStack(spacing: 0) {
-            UpdateBanner(updater: delegate.updater)
-            NavigationSplitView {
-                Sidebar(model: model).navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 320)
-            } detail: {
-                Group {
-                    if let device = model.selectedDevice { DeviceView(model: model, device: device).id(device.id) }
-                    else { WelcomeView(model: model) }
-                }.seamlessToolbar()
-            }
+        NavigationSplitView(columnVisibility: columns.projectedValue) {
+            Sidebar(model: model, updater: delegate.updater).navigationSplitViewColumnWidth(min: 220, ideal: 248, max: 320)
+        } detail: {
+            Group {
+                if let device = model.selectedDevice { DeviceView(model: model, device: device).id(device.id) }
+                else { WelcomeView(model: model, updater: delegate.updater) }
+            }.readableToolbar()
         }
+        .onAppear { columns.wrappedValue = model.devices.isEmpty ? .detailOnly : .all }
+        .onChange(of: model.devices.isEmpty) { _, empty in withAnimation { columns.wrappedValue = empty ? .detailOnly : .all } }
         .sheet(isPresented: Binding(get: { model.ticket != nil }, set: { if !$0 { model.cancelPairing() } })) { PairingView(model: model).tint(Brand.cobalt) }
         .alert("DropDuo", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("OK") { model.error = nil } } message: { Text(model.error ?? "") }
         .confirmationDialog("Forget \(model.confirmation?.name ?? "this device")?", isPresented: Binding(get: { model.confirmation != nil }, set: { if !$0 { model.confirmation = nil } })) {
@@ -95,52 +97,65 @@ struct MainView: View {
         .onAppear {
             delegate.openWindow = { openWindow(id: "main") }
             delegate.openSettings = { openSettings() }
+            #if DEBUG
+            if ProcessInfo.processInfo.environment["DROPDUO_PREVIEW"] == "1",
+               ProcessInfo.processInfo.environment["DROPDUO_PREVIEW_SCENE"] == "settings" { openSettings() }
+            #endif
         }
     }
 }
 
 struct Sidebar: View {
     @ObservedObject var model: AppModel
+    @ObservedObject var updater: AppUpdater
     var body: some View {
         List(selection: Binding(get: { model.selected.isEmpty ? nil : model.selected }, set: { model.selected = $0 ?? model.selected })) {
-            if !model.devices.isEmpty {
-                Section("Devices") {
-                    ForEach(model.devices) { device in
-                        DeviceRow(device: device, online: model.isOnline(device)).tag(device.id)
-                            .contextMenu { Button("Forget Device…", role: .destructive) { model.confirmation = device } }
-                    }
+            Section("Devices") {
+                ForEach(model.devices) { device in
+                    DeviceRow(device: device, online: model.isOnline(device), activity: activity(device)).tag(device.id)
+                        .contextMenu { Button("Forget Device…", role: .destructive) { model.confirmation = device } }
                 }
+                Button { model.makeTicket() } label: { AddDeviceRow() }.buttonStyle(.plain).help("Show a code to pair another phone")
             }
         }
         .listStyle(.sidebar)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(alignment: .leading, spacing: 10) {
-                Button { model.makeTicket() } label: { Label("Pair a Device", systemImage: "plus.circle") }
-                    .buttonStyle(.borderless).controlSize(.large)
-                HStack(spacing: 6) {
-                    Circle().fill(model.receiving ? Color.green : Color.orange).frame(width: 6, height: 6)
-                    Text(model.receiving ? model.status : "Receiving paused").lineLimit(2)
-                }.font(.caption).foregroundStyle(.secondary).accessibilityElement(children: .combine)
+            VStack(alignment: .leading, spacing: 12) {
+                UpdateNotice(updater: updater)
+                ReceiveStatus(model: model)
             }
-            .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 14)
         }
+    }
+
+    /// What the row says under the device name while something is moving or waiting.
+    private func activity(_ device: Device) -> String? {
+        let mine = model.transfers.filter { $0.peer == device.id }
+        if let active = mine.first(where: { ["Preparing", "Sending", "Receiving"].contains($0.state) }) {
+            return active.state == "Preparing" ? "Preparing…" : "\(active.state) \(Int(active.progress * 100))%"
+        }
+        let waiting = mine.filter { $0.state == "Interrupted" && $0.autoRetry == true }.count
+        return waiting == 0 ? nil : "\(waiting) waiting to send"
     }
 }
 
 struct DeviceRow: View {
     let device: Device
     let online: Bool
+    let activity: String?
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "smartphone").font(.system(size: 15, weight: .medium)).frame(width: 30, height: 30)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            // An explicit label color keeps the glyph dark on its white tile when the row is selected.
+            Image(systemName: "smartphone").font(.system(size: 14)).foregroundStyle(Color(nsColor: .labelColor)).frame(width: 30, height: 30)
+                .background(Brand.surface, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Brand.hairline))
                 .overlay(alignment: .bottomTrailing) {
-                    Circle().fill(online ? Color.green : Color.secondary.opacity(0.5)).frame(width: 9, height: 9)
+                    Circle().fill(online ? Color.green : Color(nsColor: .tertiaryLabelColor)).frame(width: 9, height: 9)
                         .overlay(Circle().stroke(Color(nsColor: .windowBackgroundColor), lineWidth: 2)).offset(x: 2, y: 2)
                 }
             VStack(alignment: .leading, spacing: 1) {
                 Text(device.name).lineLimit(1)
-                Text(online ? "Connected" : "Not reachable").font(.caption).foregroundStyle(.secondary)
+                Text(activity ?? (online ? "Connected" : "Not reachable")).font(.caption).foregroundStyle(.secondary).monospacedDigit().lineLimit(1)
             }
         }
         .padding(.vertical, 3)
@@ -148,43 +163,69 @@ struct DeviceRow: View {
     }
 }
 
-struct WelcomeView: View {
+private struct AddDeviceRow: View {
+    private let hover = State(initialValue: false)
+    private var hovering: Bool { hover.wrappedValue }
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "plus").font(.system(size: 12, weight: .semibold)).foregroundStyle(hovering ? Brand.cobalt : .secondary)
+                .frame(width: 30, height: 30)
+                .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(hovering ? Brand.cobalt.opacity(0.6) : Color.secondary.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+            Text("Pair a Device").foregroundStyle(hovering ? .primary : .secondary)
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 3).contentShape(Rectangle())
+        .onHover { hover.wrappedValue = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+    }
+}
+
+/// Whether this Mac can receive right now, with a one-click way back when receiving is paused.
+struct ReceiveStatus: View {
     @ObservedObject var model: AppModel
     var body: some View {
-        VStack(spacing: 28) {
-            Image(nsImage: Brand.mark).resizable().frame(width: 72, height: 72)
-                .shadow(color: .black.opacity(0.12), radius: 8, y: 3).accessibilityHidden(true)
-            VStack(spacing: 8) {
-                Text("Pair your Android phone").font(.largeTitle.weight(.semibold))
-                Text("Share files, photos, links and text over your own network.\nNo cables, accounts or cloud.")
-                    .multilineTextAlignment(.center).foregroundStyle(.secondary)
+        let ready = model.status.hasPrefix("Ready")
+        HStack(alignment: .firstTextBaseline, spacing: 7) {
+            Circle().fill(!model.receiving ? Color(nsColor: .tertiaryLabelColor) : ready ? Color.green : Color.orange).frame(width: 7, height: 7)
+                .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 3 }
+            Text(model.receiving ? model.status : "Receiving is paused").lineLimit(3)
+            if !model.receiving {
+                Button("Turn On") { model.receiving = true; model.persistSettings() }.buttonStyle(.link)
             }
-            VStack(alignment: .leading, spacing: 14) {
-                Step(number: 1, text: "Install DropDuo on your Android phone.")
-                Step(number: 2, text: "Connect both devices to the same Wi-Fi.")
-                Step(number: 3, text: "Scan the pairing code, then approve it here.")
-            }
-            Button { model.makeTicket() } label: { Text("Show Pairing Code").padding(.horizontal, 8) }
-                .buttonStyle(.borderedProminent).controlSize(.large).keyboardShortcut(.defaultAction)
         }
-        .padding(40).frame(maxWidth: .infinity, maxHeight: .infinity)
+        .font(.caption).foregroundStyle(.secondary)
+        .accessibilityElement(children: .combine)
     }
-    private struct Step: View {
-        let number: Int; let text: String
-        var body: some View {
-            HStack(spacing: 12) {
-                Text("\(number)").font(.callout.weight(.semibold).monospacedDigit()).foregroundStyle(Brand.cobalt)
-                    .frame(width: 26, height: 26).background(Brand.cobalt.opacity(0.12), in: Circle())
-                Text(text)
+}
+
+struct WelcomeView: View {
+    @ObservedObject var model: AppModel
+    @ObservedObject var updater: AppUpdater
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 24)
+            DuoLink(link: .searching, tile: 64, mark: true).frame(width: 360)
+            Text("Pair your Android phone").font(.system(size: 30, weight: .semibold)).tracking(-0.5).padding(.top, 40)
+            Button { model.makeTicket() } label: { Text("Show Pairing Code").padding(.horizontal, 8) }
+                .buttonStyle(.borderedProminent).controlSize(.extraLarge).keyboardShortcut(.defaultAction).padding(.top, 30)
+            Link(destination: URL(string: "https://rohit-yadavv.github.io/dropduo/#download")!) {
+                HStack(spacing: 3) { Text("Get DropDuo for Android"); Image(systemName: "arrow.up.right").font(.caption.weight(.semibold)) }
+            }
+            .font(.callout).padding(.top, 16)
+            Spacer(minLength: 24)
+            VStack(spacing: 12) {
+                UpdateNotice(updater: updater).frame(maxWidth: 360)
+                ReceiveStatus(model: model)
             }
         }
+        .padding(32).frame(maxWidth: .infinity, maxHeight: .infinity)
+        .navigationTitle("DropDuo")
     }
 }
 
 private extension View {
-    /// macOS 26+ draws no title-bar separator; content scrolls under the toolbar's edge effect instead.
-    /// Without this, the detail toolbar's separator overhangs the sidebar divider by a few points.
-    @ViewBuilder func seamlessToolbar() -> some View {
-        if #available(macOS 26, *) { toolbarBackgroundVisibility(.hidden, for: .windowToolbar) } else { self }
+    /// Keep the title legible when media previews scroll behind the toolbar.
+    @ViewBuilder func readableToolbar() -> some View {
+        if #available(macOS 26, *) { toolbarBackgroundVisibility(.visible, for: .windowToolbar) } else { self }
     }
 }

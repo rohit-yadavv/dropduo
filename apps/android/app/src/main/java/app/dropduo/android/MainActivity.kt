@@ -16,6 +16,7 @@ import java.io.File
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private val previewMode get() = BuildConfig.DEBUG && intent.hasExtra("preview")
     private val installPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         if (packageManager.canRequestPackageInstalls()) installUpdate()
         else AppUpdater.message("Allow installs from DropDuo to install this update. You can try again when ready.")
@@ -39,13 +40,19 @@ class MainActivity : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState); enableEdgeToEdge()
+        if (previewMode) {
+            AppState.stop(this)
+            intent.getStringExtra("preview")?.let(AppState::preview)
+        }
         setContent { DropDuoApp(Actions(scan = { scan.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt("Scan the code shown on your Mac").setBeepEnabled(false).setOrientationLocked(true)) },
             connect = ::connect, files = { files.launch(arrayOf("*/*")) }, save = { row -> row.path?.let { exportSource = File(it); export.launch(row.name) } }, open = ::openFile, installUpdate = ::installUpdate)) }
-        if (AppState.ticket != null) connect()
-        handleShare(intent)
+        if (!previewMode) {
+            if (AppState.ticket != null) connect()
+            handleShare(intent)
+        }
     }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleShare(intent) }
-    override fun onResume() { super.onResume(); AppUpdater.check() }
+    override fun onResume() { super.onResume(); if (!previewMode) AppUpdater.check() }
     private fun installUpdate() {
         if (!AppUpdater.ui.value.ready) return
         if (AppState.hasActiveTransfers) { AppUpdater.message("Finish or cancel your transfers before installing the update."); return }

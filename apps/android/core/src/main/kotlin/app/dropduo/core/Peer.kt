@@ -39,8 +39,9 @@ class SecureChannel(val socket: Socket, private val sendKey: ByteArray, private 
 }
 /** The connection dropped mid-transfer; the sender resumes automatically on reconnect. */
 class Disconnected(message: String) : IOException(message)
+/** [folder] is set on the first event of a received folder. */
 data class PeerEvent(val id: String, val name: String, val direction: String, val state: String,
-    val progress: Double = 0.0, val path: String? = null, val text: String? = null, val error: String? = null)
+    val progress: Double = 0.0, val path: String? = null, val text: String? = null, val error: String? = null, val folder: Boolean = false)
 const val CONNECTION_LOST = "Connection lost. It resumes when the devices reconnect."
 private const val PAUSED = "Receiving is paused on the other device. Turn it back on there, then retry."
 private const val TEXT_TOO_LONG = "Text is too long to send. Share it as a file instead."
@@ -125,7 +126,7 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
                     "offer" -> {
                         check(receivingEnabled) { PAUSED }; check(incoming.size < 4) { "The other device is already receiving 4 files. Retry when they finish." }
                         val offset = inbox.prepare(message); incoming[id] = message
-                        event(PeerEvent(id, message.name!!, "Received", "Receiving")); channel.send(Message("accept", id, offset = offset))
+                        event(PeerEvent(id, message.name!!, "Received", "Receiving", folder = message.kind == "folder")); channel.send(Message("accept", id, offset = offset))
                     }
                     "chunk" -> {
                         val offer = incoming[id] ?: error("Unknown transfer")

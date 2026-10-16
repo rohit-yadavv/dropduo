@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.*
 import android.net.Uri
 import android.os.*
+import android.provider.DocumentsContract
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -38,6 +39,29 @@ class MainActivity : ComponentActivity() {
                 .onFailure { AppState.error(it.message ?: "Could not save file") }
         }
     }
+    /** Saves a received folder as a new folder inside the one the user picks. */
+    private val exportFolder = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
+        val source = exportSource; exportSource = null
+        if (tree != null && source != null) AppState.scope.launchIo {
+            runCatching {
+                val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+                // Received folders are stored as "<transfer ID>-<name>".
+                val name = source.name.drop(37).ifEmpty { source.name }
+                copyFolder(source, parent, name)
+                // The snackbar also carries confirmations.
+                AppState.error("Saved $name")
+            }.onFailure { AppState.error("Couldn't save the folder. Choose another location and try again.") }
+        }
+    }
+    private fun copyFolder(source: File, parent: Uri, name: String) {
+        val folder = DocumentsContract.createDocument(contentResolver, parent, DocumentsContract.Document.MIME_TYPE_DIR, name) ?: error("Could not create folder")
+        for (child in source.listFiles().orEmpty().sortedBy { it.name }) {
+            if (child.isDirectory) { copyFolder(child, folder, child.name); continue }
+            val mime = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(child.extension.lowercase()) ?: "application/octet-stream"
+            val file = DocumentsContract.createDocument(contentResolver, folder, mime, child.name) ?: error("Could not create file")
+            contentResolver.openOutputStream(file)?.use { out -> child.inputStream().use { it.copyTo(out) } } ?: error("Could not write file")
+        }
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState); enableEdgeToEdge()
         // The save picker may return to a recreated activity.
@@ -47,7 +71,7 @@ class MainActivity : ComponentActivity() {
             intent.getStringExtra("preview")?.let(AppState::preview)
         }
         setContent { DropDuoApp(Actions(scan = { scan.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt("Scan the code shown on your Mac").setBeepEnabled(false).setOrientationLocked(true)) },
-            connect = ::connect, files = { files.launch(arrayOf("*/*")) }, save = { row -> row.path?.let { exportSource = File(it); export.launch(row.name) } }, open = ::openFile, installUpdate = ::installUpdate)) }
+            connect = ::connect, files = { files.launch(arrayOf("*/*")) }, save = { row -> row.path?.let { exportSource = File(it); if (row.folder) exportFolder.launch(null) else export.launch(row.name) } }, open = ::openFile, installUpdate = ::installUpdate)) }
         if (!previewMode) {
             if (AppState.ticket != null) connect()
             // A recreated activity or one reopened from Recents carries a share that was already sent.

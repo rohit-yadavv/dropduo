@@ -7,6 +7,8 @@ import DropDuoCore
     var body: some Scene {
         WindowGroup("DropDuo", id: "main") { MainView(model: delegate.model, delegate: delegate).frame(minWidth: 720, minHeight: 520).tint(Brand.cobalt) }
             .defaultSize(width: 920, height: 640)
+            // Files dropped on the Dock icon go to the app delegate; without this, each drop would also open another window.
+            .handlesExternalEvents(matching: [])
             .commands { CommandGroup(replacing: .newItem) {} }
         Settings { SettingsView(model: delegate.model, updater: delegate.updater).tint(Brand.cobalt) }
     }
@@ -32,7 +34,18 @@ import DropDuoCore
         statusItem = status
         model.notifier.openApp = { [weak self] in self?.showMain() }
         model.windowVisible = { [weak self] in self?.mainWindow?.isVisible == true }
+        NSApp.servicesProvider = self
+        // Lists Send with DropDuo in Finder's Services menu right away, instead of after the next login.
+        NSUpdateDynamicServices()
     }
+
+    /// Finder's Services menu item, declared under NSServices in Info.plist.
+    @objc func sendFiles(_ pasteboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString>?) {
+        model.send(pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? [])
+    }
+
+    /// Files dropped on the Dock icon.
+    func application(_ application: NSApplication, open urls: [URL]) { model.send(urls) }
 
     func showMain() {
         updater.checkAutomatically()
@@ -224,8 +237,12 @@ struct WelcomeView: View {
 }
 
 private extension View {
-    /// Keep the title legible when media previews scroll behind the toolbar.
+    /// Keep the title legible when media previews scroll behind the toolbar. The window's own toolbar background starts a
+    /// little left of the sidebar divider, so the detail column draws its own instead.
     @ViewBuilder func readableToolbar() -> some View {
-        if #available(macOS 26, *) { toolbarBackgroundVisibility(.visible, for: .windowToolbar) } else { self }
+        if #available(macOS 26, *) {
+            toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+                .safeAreaInset(edge: .top, spacing: 0) { Divider().background(Color(nsColor: .windowBackgroundColor), ignoresSafeAreaEdges: .top) }
+        } else { self }
     }
 }

@@ -19,11 +19,17 @@ class InteropTest {
         val inbox = Inbox(File(dir, "android-received"))
         val offer = Message("offer", "22222222-2222-4222-8222-222222222222", "mac.bin", source.length(), expectedHash)
         inbox.prepare(offer); inbox.append(offer, 0, source.readBytes().copyOf(120_000))
-        val received = CountDownLatch(2)
+        val received = CountDownLatch(3)
+        // What the Mac's folder should unpack to: no Finder settings file, no links.
+        fun tree(root: File) = root.walkTopDown().filter { it != root && it.name != ".DS_Store" && !java.nio.file.Files.isSymbolicLink(it.toPath()) }
+            .associate { it.relativeTo(root).path to if (it.isDirectory) "folder" else Wire.hash(it) }
         val errors = java.util.concurrent.CopyOnWriteArrayList<String>()
         val peer = PeerEngine(SecureChannel.connect(ticket, "JVM Android"), inbox) { event ->
             if (event.state == "Complete" && event.direction == "Received") {
-                if (event.path != null) { if (Wire.hash(File(event.path)) != expectedHash) errors.add("Checksum mismatch"); received.countDown() }
+                if (event.path != null && File(event.path).isDirectory) {
+                    if (tree(File(event.path)) != tree(File(dir, "Album")) || tree(File(event.path)).size != 6) errors.add("Folder mismatch: ${tree(File(event.path)).keys}")
+                    received.countDown()
+                } else if (event.path != null) { if (Wire.hash(File(event.path)) != expectedHash) errors.add("Checksum mismatch"); received.countDown() }
                 if (event.text == "Mac to Android text") received.countDown()
             }
         }
@@ -31,7 +37,7 @@ class InteropTest {
         try {
             peer.sendFile(source, "33333333-3333-4333-8333-333333333333")
             peer.sendText("Android to Mac text")
-            assertTrue("Mac file and text arrived", received.await(30, TimeUnit.SECONDS))
+            assertTrue("Mac file, text and folder arrived", received.await(30, TimeUnit.SECONDS))
             assertTrue(errors.toString(), errors.isEmpty())
             val deadline = System.currentTimeMillis() + 10000
             while (!File(dir, "passed.txt").exists() && System.currentTimeMillis() < deadline) Thread.sleep(50)

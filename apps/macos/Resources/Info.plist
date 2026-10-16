@@ -13,4 +13,17 @@
 <key>NSLocalNetworkUsageDescription</key><string>DropDuo connects to your paired Android phone to share files and text directly.</string>
 <key>NSBonjourServices</key><array><string>_dropduo._tcp</string></array>
 <key>NSHighResolutionCapable</key><true/>
+<key>NSServices</key><array><dict>
+<key>NSMenuItem</key><dict><key>default</key><string>Send with DropDuo</string></dict>
+<key>NSMessage</key><string>sendFiles</string>
+<key>NSPortName</key><string>DropDuo</string>
+<key>NSRequiredContext</key><dict/>
+<key>NSSendFileTypes</key><array><string>public.data</string><string>public.folder</string></array>
+</dict></array>
+<key>CFBundleDocumentTypes</key><array><dict>
+<key>CFBundleTypeName</key><string>File</string>
+<key>CFBundleTypeRole</key><string>Viewer</string>
+<key>LSHandlerRank</key><string>None</string>
+<key>LSItemContentTypes</key><array><string>public.data</string><string>public.folder</string></array>
+</dict></array>
 </dict></plist>

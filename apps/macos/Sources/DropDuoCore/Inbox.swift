@@ -13,7 +13,8 @@ public final class Inbox {
             name != ".", name != "..", name.utf8.count <= 218,
             !name.contains("/"), !name.contains("\\"), !name.unicodeScalars.contains(where: { $0.value < 32 }),
             let size = offer.size, size >= 0, size <= Wire.maxFile,
-            let hash = offer.sha256, hash.count == 64, hash.allSatisfy({ "0123456789abcdef".contains($0) })
+            let hash = offer.sha256, hash.count == 64, hash.allSatisfy({ "0123456789abcdef".contains($0) }),
+            offer.kind == nil || offer.kind == "folder"
         else { throw PortError.invalid("Invalid file metadata") }
     }
     private func url(_ id: String, _ suffix: String) throws -> URL {
@@ -23,6 +24,7 @@ public final class Inbox {
     public func destination(_ offer: Message) -> URL { root.appendingPathComponent(offer.id! + "-" + offer.name!) }
     public func prepare(_ offer: Message) throws -> Int64 {
         try Self.validate(offer)
+        guard offer.kind == nil else { throw PortError.invalid("This version of DropDuo can't receive folders. Update it, then try again.") }
         let metadata = try url(offer.id!, ".json"), part = try url(offer.id!, ".part")
         let target = destination(offer)
         if fm.fileExists(atPath: target.path) {

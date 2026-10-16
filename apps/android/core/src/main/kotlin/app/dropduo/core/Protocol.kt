@@ -63,8 +63,10 @@ data class Hello(val version: Int = 1, val pairID: String, val name: String, val
     fun transcript() = "dropduo/1/hello|$pairID|$nonce|$name"
 }
 data class Welcome(val version: Int = 1, val nonce: String, val proof: String)
+/** [kind] is "folder" when an offer is a folder packed as one archive (see [FolderArchive]); null for files. */
 data class Message(val type: String, val id: String? = null, val name: String? = null, val size: Long? = null,
-    val sha256: String? = null, val offset: Long? = null, val data: String? = null, val text: String? = null, val error: String? = null)
+    val sha256: String? = null, val offset: Long? = null, val data: String? = null, val text: String? = null, val error: String? = null,
+    val kind: String? = null)
 class FrameCipher(private val key: ByteArray) {
     private var sequence = 0L
     fun seal(plain: ByteArray, nonce: ByteArray = Wire.random(12)): ByteArray {

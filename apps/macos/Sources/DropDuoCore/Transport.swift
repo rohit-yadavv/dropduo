@@ -130,10 +130,13 @@ public actor PeerEngine {
             }
             try await Task.sleep(nanoseconds: 20_000_000)
         }
+        // A peer that stopped answering is gone; closing lets the devices reconnect and resume.
+        if alive { await stop() }
         throw PortError.interrupted(Self.connectionLost)
     }
     public func sendFile(_ file: URL, id: String = UUID().uuidString) async throws {
-        guard !active.contains(id), active.count < 4 else { throw PortError.invalid("Transfer already active") }
+        guard !active.contains(id) else { throw PortError.invalid("Transfer already active") }
+        guard active.count < 4 else { throw PortError.invalid("4 transfers are already in progress. Retry when they finish.") }
         active.insert(id); cancelled.remove(id); responses.removeValue(forKey: id); defer { active.remove(id); cancelled.remove(id); responses.removeValue(forKey: id) }
         do {
             let name = file.lastPathComponent
@@ -216,10 +219,11 @@ public actor PeerEngine {
                     event(PeerEvent(id: id, name: offer.name!, direction: "Received", state: "Receiving", progress: Double(next)/Double(max(1, offer.size!))))
                 case "finish":
                     guard let offer = incoming[id] else { throw PortError.invalid("Unknown transfer") }
+                    // The file is saved, so record it before the reply that may fail on a dropped connection.
                     let file = try inbox.finish(offer)
                     incoming.removeValue(forKey: id)
-                    try await channel.send(Message("complete", id: id))
                     event(PeerEvent(id: id, name: offer.name!, direction: "Received", state: "Complete", progress: 1, path: file.path))
+                    try await channel.send(Message("complete", id: id))
                 case "text":
                     guard receivingEnabled else { throw PortError.invalid(Self.paused) }
                     guard let text = message.text, text.utf8.count <= 64_000 else { throw PortError.invalid(Self.textTooLong) }

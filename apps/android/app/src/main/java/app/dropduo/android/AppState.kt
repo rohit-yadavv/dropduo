@@ -14,10 +14,14 @@ class DropDuoApplication : Application() { override fun onCreate() { super.onCre
 data class Transfer(val id: String, val name: String, val direction: String, val state: String, val progress: Double = 0.0,
     val path: String? = null, val text: String? = null, val error: String? = null, val autoRetry: Boolean = false,
     /** When the transfer started, in epoch milliseconds; 0 for history saved before times were recorded. */
-    val time: Long = 0)
+    val time: Long = 0,
+    /** The pairing a send is meant for, so a queued send never goes to a different Mac; null until one is paired. */
+    val pairID: String? = null)
 data class UiState(val device: String? = null, val connected: Boolean = false, val status: String = "Pair your Mac to get started",
     val receiving: Boolean = true, val history: List<Transfer> = emptyList(), val error: String? = null)
 const val WAITING_FOR_MAC = "Waiting for your Mac"
+private val ONGOING = listOf("Preparing", "Sending", "Receiving")
+private const val OTHER_MAC = "Not sent. Retry to send it to your current Mac."
 object AppState {
     lateinit var context: Application
     lateinit var secure: SecureStore
@@ -26,7 +30,7 @@ object AppState {
     @Volatile var ticket: Ticket? = null
     @Volatile var engine: PeerEngine? = null
     @Volatile var installingUpdate = false
-    val hasActiveTransfers get() = sending.isNotEmpty() || importing.isNotEmpty() || ui.value.history.any { it.state in listOf("Preparing", "Sending", "Receiving") }
+    val hasActiveTransfers get() = sending.isNotEmpty() || importing.isNotEmpty() || ui.value.history.any { it.state in ONGOING }
     @Synchronized fun beginUpdateInstallation(): Boolean {
         if (hasActiveTransfers || installingUpdate) return false
         installingUpdate = true; engine?.receivingEnabled = false
@@ -39,12 +43,18 @@ object AppState {
     private val pendingPair = java.util.concurrent.atomic.AtomicBoolean(false)
     private val pairingGate = Any()
     private fun historyFile() = File(context.filesDir, "history.json")
+    private fun outgoing() = File(context.filesDir, "outgoing")
     fun init(app: Application) {
         context = app; secure = SecureStore(app)
         ticket = runCatching { secure.load() }.getOrNull()
         val history = runCatching { Wire.gson.fromJson(historyFile().readText(), Array<Transfer>::class.java).toList() }.getOrDefault(emptyList())
-            // "Sending" rows finished importing, so their stored copy is complete and safe to resume.
-            .map { if (it.state in listOf("Preparing", "Sending", "Receiving")) it.copy(state = "Interrupted", autoRetry = it.direction == "Sent" && it.state == "Sending" && it.path != null) else it }
+            // Sends saved before they were tied to a Mac were meant for the one paired then.
+            .map { if (it.direction == "Sent" && it.pairID == null) it.copy(pairID = ticket?.pairID) else it }
+            // An import's copy appears under its final name only once complete, so an existing copy is safe to resume.
+            .map { if (it.state in ONGOING) it.copy(state = "Interrupted", autoRetry = it.direction == "Sent" && (it.text != null || it.path?.let { path -> File(path).isFile } == true)) else it }
+        // Copies left by imports that never finished, or by rows no longer in history.
+        val kept = history.mapNotNull { it.path }.toSet()
+        outgoing().listFiles()?.filter { it.path !in kept }?.forEach { it.delete() }
         ui.value = UiState(device = ticket?.name, history = history, receiving = app.getSharedPreferences("settings", 0).getBoolean("receiving", true))
     }
     @Synchronized fun update(transform: (UiState) -> UiState) { ui.value = transform(ui.value) }
@@ -61,7 +71,17 @@ object AppState {
         }
     }
     fun pairConfirmed(value: Ticket) {
-        synchronized(pairingGate) { if (ticket?.pairID != value.pairID) return; secure.save(value); pendingPair.set(false) }
+        synchronized(pairingGate) {
+            if (ticket?.pairID != value.pairID) return; secure.save(value)
+            if (pendingPair.getAndSet(false)) releaseQueued { it != value.pairID }
+        }
+    }
+    /** Stops waiting sends meant for another pairing; they stay in history for a manual retry. */
+    private fun releaseQueued(other: (String) -> Boolean) {
+        synchronized(this) {
+            val history = ui.value.history.map { if (it.autoRetry && it.state == "Interrupted" && it.pairID?.let(other) == true) it.copy(autoRetry = false, error = OTHER_MAC) else it }
+            ui.value = ui.value.copy(history = history); saveHistory(history)
+        }
     }
     fun pairFailed(attempted: Ticket) {
         if (ticket?.pairID != attempted.pairID) return
@@ -72,31 +92,45 @@ object AppState {
     }
     fun start(context: Context) { androidx.core.content.ContextCompat.startForegroundService(context, Intent(context, ConnectionService::class.java)) }
     fun stop(context: Context) { context.stopService(Intent(context, ConnectionService::class.java)); engine?.close(); engine = null; update { it.copy(connected = false, status = "Disconnected") } }
-    fun forget(context: Context) { stop(context); ticket = null; secure.remove(); update { it.copy(device = null, status = "Pair your Mac to get started") } }
+    fun forget(context: Context) {
+        val forgotten = ticket?.pairID
+        stop(context); ticket = null; secure.remove(); update { it.copy(device = null, status = "Pair your Mac to get started") }
+        if (forgotten != null) releaseQueued { it == forgotten }
+    }
     fun setReceiving(value: Boolean) {
         engine?.receivingEnabled = value && !installingUpdate
         context.getSharedPreferences("settings", 0).edit().putBoolean("receiving", value).apply()
         update { it.copy(receiving = value) }
     }
-    @Synchronized fun record(event: PeerEvent, autoRetry: Boolean = false) {
+    /** [pairID] is the Mac the transfer is with, when known; it replaces the one stored on the row. */
+    @Synchronized fun record(event: PeerEvent, autoRetry: Boolean = false, pairID: String? = null) {
         val old = ui.value.history.firstOrNull { it.id == event.id }
         val row = Transfer(event.id, old?.name ?: event.name, old?.direction ?: event.direction, event.state, event.progress,
-            event.path ?: old?.path, event.text ?: old?.text, event.error, autoRetry, old?.time ?: System.currentTimeMillis())
-        val history = (listOf(row) + ui.value.history.filter { it.id != event.id }).take(100)
+            event.path ?: old?.path, event.text ?: old?.text, event.error, autoRetry, old?.time ?: System.currentTimeMillis(), pairID ?: old?.pairID)
+        val history = limit(listOf(row) + ui.value.history.filter { it.id != event.id })
         ui.value = ui.value.copy(history = history)
-        if (event.state in listOf("Complete", "Interrupted", "Cancelled")) saveHistory(history)
+        // New rows are saved right away so a send survives the app closing before it finishes.
+        if (old == null || event.state in listOf("Complete", "Interrupted", "Cancelled")) saveHistory(history)
     }
+    /** History is also the send queue, so only finished rows count toward its limit. */
+    private fun limit(history: List<Transfer>): List<Transfer> { var finished = 0; return history.filter { it.state in ONGOING || it.autoRetry || ++finished <= 100 } }
+    private fun cancelled(id: String) = ui.value.history.firstOrNull { it.id == id }?.state == "Cancelled"
     private fun saveHistory(history: List<Transfer>) {
         runCatching { val temp = File(context.filesDir, "history.tmp"); temp.writeText(Wire.gson.toJson(history)); check(temp.renameTo(historyFile())) }
             .onFailure { error("Could not save transfer history") }
     }
     /** Sends now, or holds the text until the Mac reconnects. */
-    fun sendText(text: String, onSuccess: () -> Unit = {}) { scope.launch { try { PeerEngine.validateText(text); sendStored(UUID.randomUUID().toString(), "Text", text = text); withContext(Dispatchers.Main) { onSuccess() } } catch (e: Exception) { error(e.message ?: "Could not send text") } } }
+    fun sendText(text: String, onSuccess: () -> Unit = {}) {
+        val pairID = ticket?.pairID
+        scope.launch { try { PeerEngine.validateText(text); sendStored(UUID.randomUUID().toString(), "Text", pairID, text = text); withContext(Dispatchers.Main) { onSuccess() } } catch (e: Exception) { error(e.message ?: "Could not send text") } }
+    }
     fun importAndSend(uris: List<Uri>) {
+        val pairID = ticket?.pairID
         scope.launch {
             for (uri in uris) {
                 val id = UUID.randomUUID().toString()
                 var file: File? = null
+                var part: File? = null
                 var imported = false
                 synchronized(this@AppState) {
                     if (installingUpdate) { error("DropDuo is installing an update. Send again after it reopens."); return@launch }
@@ -105,17 +139,19 @@ object AppState {
                 try {
                     var name = "Shared file"
                     context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) name = it.getString(0) ?: name }
-                    val dir = File(context.filesDir, "outgoing").apply { mkdirs() }; file = File(dir, id)
-                    record(PeerEvent(id, name, "Sent", "Preparing", path = file.path))
-                    context.contentResolver.openInputStream(uri)?.use { source -> file.outputStream().use { out ->
+                    val dir = outgoing().apply { mkdirs() }; file = File(dir, id); part = File(dir, "$id.part")
+                    record(PeerEvent(id, name, "Sent", "Preparing", path = file.path), pairID = pairID)
+                    context.contentResolver.openInputStream(uri)?.use { source -> part.outputStream().use { out ->
                         val buffer = ByteArray(Wire.CHUNK_SIZE); var total = 0L
                         while (true) { check(!cancelledImports.contains(id)) { "Transfer cancelled" }; val n = source.read(buffer); if (n < 0) break; total += n; require(total <= Wire.MAX_FILE) { "Files larger than 32 GB can't be sent" }; require(context.filesDir.usableSpace > n + 1024*1024) { "Not enough free space on this phone to prepare the file" }; out.write(buffer, 0, n) }
                     } } ?: throw IllegalStateException("Couldn't read that file. Try sharing it again from the original app.")
                     check(!cancelledImports.contains(id)) { "Transfer cancelled" }
+                    // The copy appears under its final name only once complete, which marks it resumable after a restart.
+                    check(part.renameTo(file)) { "Couldn't prepare the file. Try sharing it again." }
                     imported = true
-                    sendStored(id, name, file = file)
+                    sendStored(id, name, pairID, file = file)
                 } catch (e: Exception) {
-                    if (!imported) file?.delete()
+                    part?.delete(); if (!imported) file?.delete()
                     val cancelled = cancelledImports.contains(id) || ui.value.history.firstOrNull { it.id == id }?.state == "Cancelled"
                     record(PeerEvent(id, "Shared file", "Sent", if (cancelled) "Cancelled" else "Interrupted", path = if (imported) file?.path else null, error = e.message))
                     if (!cancelled) error(e.message ?: "Could not send file")
@@ -123,18 +159,25 @@ object AppState {
             }
         }
     }
-    /** Sends a stored file copy or text; if the Mac is offline or the connection drops, it waits for reconnect instead of failing. */
-    private fun sendStored(id: String, name: String, file: File? = null, text: String? = null) {
+    /**
+     * Sends a stored file copy or text; if the Mac is offline or the connection drops, it waits for reconnect instead of failing.
+     * [pairID] is the Mac the send is meant for; null sends to whichever Mac is paired.
+     */
+    private fun sendStored(id: String, name: String, pairID: String?, file: File? = null, text: String? = null) {
         synchronized(this) {
             check(!installingUpdate) { "DropDuo is installing an update. Send again after it reopens." }
             check(sending.add(id)) { "Transfer already active" }
         }
         var peer: PeerEngine? = null
         try {
-            peer = engine ?: throw Disconnected("Mac is offline")
-            if (file != null) { peer.sendFile(file, id, name); file.delete() } else peer.sendText(text!!, id)
-        } catch (e: java.io.IOException) {
-            record(PeerEvent(id, name, "Sent", "Interrupted", path = file?.path, text = text, error = if (peer == null) WAITING_FOR_MAC else "Resumes when your Mac reconnects"), autoRetry = true)
+            val target = ticket?.pairID
+            peer = engine?.takeIf { pairID == null || pairID == target } ?: throw Disconnected("Mac is offline")
+            if (file != null) { peer.sendFile(file, id, name); file.delete() }
+            else { record(PeerEvent(id, name, "Sent", "Sending", text = text), pairID = target); peer.sendText(text!!, id) }
+        } catch (e: Exception) {
+            if (cancelled(id)) return
+            if (e !is java.io.IOException) { record(PeerEvent(id, name, "Sent", "Interrupted", path = file?.path, text = text, error = e.message)); throw e }
+            record(PeerEvent(id, name, "Sent", "Interrupted", path = file?.path, text = text, error = if (peer == null) WAITING_FOR_MAC else "Resumes when your Mac reconnects"), autoRetry = true, pairID = pairID)
         } finally { sending.remove(id) }
         // The Mac may have reconnected while this attempt was still failing on the old connection.
         val current = engine
@@ -143,7 +186,8 @@ object AppState {
     /** Called after each connection to send held items and resume ones cut off by a lost connection, oldest first. */
     fun resumePending() {
         if (installingUpdate) return
-        val rows = ui.value.history.filter { it.direction == "Sent" && it.state == "Interrupted" && it.autoRetry && (it.path != null || it.text != null) && it.id !in sending }.reversed()
+        val current = ticket?.pairID ?: return
+        val rows = ui.value.history.filter { it.direction == "Sent" && it.state == "Interrupted" && it.autoRetry && (it.pairID == null || it.pairID == current) && (it.path != null || it.text != null) && it.id !in sending }.reversed()
         if (rows.isNotEmpty()) scope.launch {
             for (row in rows) try {
                 if (ui.value.history.firstOrNull { it.id == row.id }?.autoRetry != true) continue
@@ -151,18 +195,19 @@ object AppState {
             } catch (e: Exception) { record(PeerEvent(row.id, row.name, "Sent", "Interrupted", path = row.path, text = row.text, error = e.message)) }
         }
     }
-    private fun resend(row: Transfer) {
-        if (row.text != null) return sendStored(row.id, row.name, text = row.text)
+    private fun resend(row: Transfer, pairID: String? = row.pairID) {
+        if (row.text != null) return sendStored(row.id, row.name, pairID, text = row.text)
         val file = File(row.path ?: throw IllegalStateException("Source unavailable")); require(file.exists()) { "Source unavailable. Share it again." }
-        sendStored(row.id, row.name, file = file)
+        sendStored(row.id, row.name, pairID, file = file)
     }
-    fun retry(row: Transfer) { scope.launch { try { resend(row) } catch (e: Exception) { error(e.message ?: "Retry failed") } } }
+    /** Retrying by hand sends to the Mac paired now, even if the row was meant for an earlier one. */
+    fun retry(row: Transfer) { val pairID = ticket?.pairID; scope.launch { try { resend(row, pairID) } catch (e: Exception) { error(e.message ?: "Retry failed") } } }
     fun cancel(row: Transfer) {
         if (importing.contains(row.id)) cancelledImports.add(row.id)
         scope.launch { engine?.cancel(row.id); if (row.direction == "Sent" && !importing.contains(row.id)) row.path?.let { File(it).delete() }; record(PeerEvent(row.id, row.name, row.direction, "Cancelled")) }
     }
     /** Keeps active and waiting sends, so clearing history never drops something still on its way. */
-    fun clearHistory() { synchronized(this) { val (kept, cleared) = ui.value.history.partition { it.state in listOf("Preparing", "Sending", "Receiving") || it.autoRetry }; cleared.filter { it.direction == "Sent" }.forEach { row -> row.path?.let { path -> val file = File(path); if (file.parentFile == File(context.filesDir, "outgoing")) file.delete() } }; ui.value = ui.value.copy(history = kept); saveHistory(kept) } }
+    fun clearHistory() { synchronized(this) { val (kept, cleared) = ui.value.history.partition { it.state in ONGOING || it.autoRetry }; cleared.filter { it.direction == "Sent" }.forEach { row -> row.path?.let { path -> val file = File(path); if (file.parentFile == outgoing()) file.delete() } }; ui.value = ui.value.copy(history = kept); saveHistory(kept) } }
     fun inbox() = File(context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS), "DropDuo").apply { mkdirs() }
     /**
      * Debug builds only: sample state for UI review without pairing or touching saved history, opened with

@@ -36,4 +36,47 @@ class PeerTest {
         }
         assertFalse("Reader must stop on disconnect", reader.isAlive)
     }
+    @Test fun savedFileIsRecordedCompleteWhenTheReplyFails() {
+        val root = Files.createTempDirectory("dropduo-peer").toFile()
+        val (local, remote) = sockets()
+        val client = SecureChannel(remote, ByteArray(32) { 2 }, ByteArray(32) { 1 })
+        val events = CopyOnWriteArrayList<PeerEvent>()
+        val peer = PeerEngine(SecureChannel(local, ByteArray(32) { 1 }, ByteArray(32) { 2 }), Inbox(root), events::add)
+        val reader = thread { runCatching { peer.run() } }
+        try {
+            val source = File(root, "source").apply { writeText("abc") }
+            val id = UUID.randomUUID().toString()
+            client.send(Message("offer", id, "file.txt", 3, Wire.hash(source)))
+            assertEquals("accept", client.receive().type)
+            client.send(Message("chunk", id, offset = 0, data = Wire.b64("abc".toByteArray())))
+            assertEquals("ack", client.receive().type)
+            local.shutdownOutput()
+            client.send(Message("finish", id))
+            reader.join(5000)
+            assertTrue(events.toString(), events.any { it.id == id && it.state == "Complete" && it.path != null })
+        } finally { client.close(); peer.close(); reader.join(5000); root.deleteRecursively() }
+    }
+    @Test fun cancelledTextStopsWaitingAndIsNotConfirmed() {
+        val root = Files.createTempDirectory("dropduo-peer").toFile()
+        val (local, remote) = sockets()
+        val events = CopyOnWriteArrayList<PeerEvent>()
+        val peer = PeerEngine(SecureChannel(local, ByteArray(32) { 1 }, ByteArray(32) { 2 }), Inbox(root), events::add)
+        val id = UUID.randomUUID().toString()
+        var failure: Throwable? = null
+        val sender = thread { failure = runCatching { peer.sendText("hello", id) }.exceptionOrNull() }
+        try {
+            Thread.sleep(200); peer.cancel(id); sender.join(5000)
+            assertFalse("Cancelled text must stop waiting", sender.isAlive)
+            assertNotNull(failure)
+            assertTrue(events.toString(), events.any { it.id == id && it.state == "Cancelled" })
+            assertFalse(events.any { it.id == id && it.state == "Complete" })
+        } finally { remote.close(); peer.close(); root.deleteRecursively() }
+    }
+    private fun sockets(): Pair<Socket, Socket> {
+        val listener = ServerSocket(0)
+        val local = Socket("127.0.0.1", listener.localPort)
+        val remote = listener.accept(); listener.close()
+        remote.soTimeout = 5000
+        return local to remote
+    }
 }

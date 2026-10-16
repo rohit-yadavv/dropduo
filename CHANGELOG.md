@@ -4,6 +4,14 @@ Each [GitHub release](https://github.com/rohit-yadavv/dropduo/releases) lists th
 
 ## Unreleased
 
+- Update both apps together: the Mac now admits a phone only after it proves it holds the session keys, so a recorded connection attempt can't take over the phone's connection. Older Android versions can't connect to this Mac version.
+- Items waiting to send from the phone go only to the Mac they were meant for; after pairing a different Mac, tap Retry to send them there.
+- Sends in progress survive the app closing and resume on reconnect, and waiting sends no longer drop out of a long history.
+- Reconnect automatically when the other device stops responding mid-transfer, instead of staying stuck until reconnecting by hand.
+- Fix dropping more than four files on the Mac leaving some stuck at "Preparing"; dropped files now send one after another.
+- Fix cancelling a text on Android, rotating the phone after sharing sending the share again, and Save a copy writing an empty file after the screen was recreated.
+- Fix a received file staying at "Receiving" when the connection dropped right as it finished.
+
 ## 0.1.0-alpha.6
 
 - Send while the other device is offline: files and text you share from the Mac or the phone wait, then go out automatically the next time the devices connect. Clearing recent history keeps items still waiting to send.

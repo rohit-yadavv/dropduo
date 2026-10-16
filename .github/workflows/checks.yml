@@ -42,7 +42,7 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent dist/DropDuo.app "dist/DropDuo-macos-${ARCH}-development.zip"
           cd dist
           shasum -a 256 "DropDuo-macos-${ARCH}-development.zip" > "DropDuo-macos-${ARCH}-development.zip.sha256"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dropduo-macos-${{ matrix.arch }}-development
           path: |
@@ -65,7 +65,7 @@ jobs:
           cp apps/android/app/build/outputs/apk/debug/app-debug.apk dist/DropDuo-android-development.apk
           cd dist
           sha256sum DropDuo-android-development.apk > DropDuo-android-development.apk.sha256
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dropduo-android-development
           path: dist/
@@ -73,7 +73,7 @@ jobs:
           retention-days: 30
       - name: Upload Android reports
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-reports
           path: |

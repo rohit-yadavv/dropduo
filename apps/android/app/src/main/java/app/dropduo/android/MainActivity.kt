@@ -40,6 +40,8 @@ class MainActivity : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState); enableEdgeToEdge()
+        // The save picker may return to a recreated activity.
+        exportSource = savedInstanceState?.getString("exportSource")?.let(::File)
         if (previewMode) {
             AppState.stop(this)
             intent.getStringExtra("preview")?.let(AppState::preview)
@@ -48,9 +50,11 @@ class MainActivity : ComponentActivity() {
             connect = ::connect, files = { files.launch(arrayOf("*/*")) }, save = { row -> row.path?.let { exportSource = File(it); export.launch(row.name) } }, open = ::openFile, installUpdate = ::installUpdate)) }
         if (!previewMode) {
             if (AppState.ticket != null) connect()
-            handleShare(intent)
+            // A recreated activity or one reopened from Recents carries a share that was already sent.
+            if (savedInstanceState == null && intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) handleShare(intent)
         }
     }
+    override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); exportSource?.let { outState.putString("exportSource", it.path) } }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleShare(intent) }
     override fun onResume() { super.onResume(); if (!previewMode) AppUpdater.check() }
     private fun installUpdate() {

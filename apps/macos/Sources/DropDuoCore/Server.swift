@@ -42,10 +42,12 @@ public final class PortServer: @unchecked Sendable {
                     let server = Wire.random(32), serverNonce = server.base64EncodedString()
                     let proof = Wire.hmac(secret, "dropduo/1/welcome|\(hello.pairID)|\(hello.nonce)|\(serverNonce)")
                     try await framed.send(JSONEncoder().encode(Welcome(nonce: serverNonce, proof: proof)))
-                    timeout.cancel()
                     let channel = SecureChannel(framed: framed,
                         sendKey: Wire.derive(secret: secret, client: client, server: server, direction: "s2c"),
                         receiveKey: Wire.derive(secret: secret, client: client, server: server, direction: "c2s"))
+                    // A replayed hello gets this far without the secret; only the real phone can seal a frame for this session.
+                    guard try await channel.receive().type == "ready" else { throw PortError.invalid("Unsupported or invalid handshake") }
+                    timeout.cancel()
                     await self.onPeer(hello.pairID, hello.name, channel)
                 } catch { timeout.cancel(); framed.close(); self.onError(error.localizedDescription) }
             }

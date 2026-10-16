@@ -12,16 +12,22 @@ class Inbox(val root: File) {
             require(!offer.name.isNullOrEmpty() && offer.name != "." && offer.name != ".." && offer.name.toByteArray().size <= 218 &&
                 !offer.name.contains('/') && !offer.name.contains('\\') && offer.name.none { it.code < 32 }) { "Invalid filename" }
             require(offer.size != null && offer.size in 0..Wire.MAX_FILE && offer.sha256?.matches(Regex("[0-9a-f]{64}")) == true) { "Invalid file metadata" }
+            require(offer.kind == null || offer.kind == "folder") { "This version of DropDuo can't receive this. Update it, then try again." }
         }
     }
     private fun part(id: String, suffix: String): File {
         require(UUID.fromString(id).toString().equals(id, true)); return File(partials, id + suffix)
     }
+    /** Where a received file is saved; a received folder is unpacked into a directory here. */
     fun destination(offer: Message) = File(root, "${offer.id}-${offer.name}")
+    /** A folder appears at its destination only once fully unpacked, so one already there is complete. */
+    private fun completed(offer: Message, target: File) =
+        if (offer.kind == "folder") require(target.isDirectory) { "Completed folder changed" }
+        else require(target.length() == offer.size && Wire.hash(target) == offer.sha256) { "Completed file changed" }
     @Synchronized fun prepare(offer: Message): Long {
         validate(offer)
         val target = destination(offer)
-        if (target.exists()) { require(target.length() == offer.size && Wire.hash(target) == offer.sha256) { "Completed file changed" }; return offer.size!! }
+        if (target.exists()) { completed(offer, target); return offer.size!! }
         val meta = part(offer.id!!, ".json"); val file = part(offer.id, ".part")
         if (meta.exists()) {
             val old = Wire.gson.fromJson(meta.readText(), Message::class.java)
@@ -30,7 +36,8 @@ class Inbox(val root: File) {
         if (!file.exists()) file.createNewFile()
         val offset = file.length()
         require(offset <= offer.size!!) { "Invalid partial size" }
-        require(offer.size - offset < root.usableSpace) { "Not enough free space on the receiving device" }
+        // A folder needs room for its archive and, briefly, its unpacked copy.
+        require(offer.size - offset + (if (offer.kind == "folder") offer.size else 0) < root.usableSpace) { "Not enough free space on the receiving device" }
         return offset
     }
     @Synchronized fun append(offer: Message, offset: Long, data: ByteArray): Long {
@@ -41,11 +48,16 @@ class Inbox(val root: File) {
         return offset + data.size
     }
     @Synchronized fun finish(offer: Message): File {
-        val target = destination(offer); if (target.exists()) { require(target.length() == offer.size && Wire.hash(target) == offer.sha256) { "Completed file changed" }; return target }
+        val target = destination(offer); if (target.exists()) { completed(offer, target); return target }
         val file = part(offer.id!!, ".part")
         if (file.length() != offer.size || Wire.hash(file) != offer.sha256) { cancel(offer.id); error("Integrity verification failed; retry the file") }
-        require(file.renameTo(target)) { "Could not save received file" }; part(offer.id, ".json").delete(); return target
+        if (offer.kind == "folder") {
+            val unpacked = part(offer.id, ".folder").apply { deleteRecursively() }
+            try { FolderArchive.extract(file, unpacked) } catch (e: Exception) { cancel(offer.id); throw e }
+            require(unpacked.renameTo(target)) { "Could not save the received folder" }; file.delete()
+        } else require(file.renameTo(target)) { "Could not save received file" }
+        part(offer.id, ".json").delete(); return target
     }
-    @Synchronized fun cancel(id: String) { part(id, ".part").delete(); part(id, ".json").delete() }
-    fun cleanExpired() { partials.listFiles()?.filter { it.lastModified() < System.currentTimeMillis() - 7L * 86400_000 }?.forEach { it.delete() } }
+    @Synchronized fun cancel(id: String) { part(id, ".part").delete(); part(id, ".json").delete(); part(id, ".folder").deleteRecursively() }
+    fun cleanExpired() { partials.listFiles()?.filter { it.lastModified() < System.currentTimeMillis() - 7L * 86400_000 }?.forEach { it.deleteRecursively() } }
 }

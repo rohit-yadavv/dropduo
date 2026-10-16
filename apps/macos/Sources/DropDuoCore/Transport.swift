@@ -142,21 +142,23 @@ public actor PeerEngine {
             let name = file.lastPathComponent
             event(PeerEvent(id: id, name: name, direction: "Sent", state: "Preparing"))
             let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
-            guard attributes[.type] as? FileAttributeType == .typeRegular, let number = attributes[.size] as? NSNumber
-            else { throw PortError.invalid("Only files can be sent, not folders") }
-            guard number.int64Value <= Wire.maxFile else { throw PortError.invalid("Files larger than 32 GB can't be sent") }
-            let size = number.int64Value
-            let hash = try await Task.detached { try Wire.hash(file) }.value
+            let type = attributes[.type] as? FileAttributeType
+            guard type == .typeRegular || type == .typeDirectory, let length = (attributes[.size] as? NSNumber)?.int64Value
+            else { throw PortError.invalid("Only files and folders can be sent") }
+            let payload = try await Task.detached { type == .typeDirectory ? try Payload(folder: file) : Payload(file: file, size: length) }.value
+            guard payload.size <= Wire.maxFile else { throw PortError.invalid("Files larger than 32 GB can't be sent") }
+            let size = payload.size
+            let hash = try await Task.detached { try payload.hash() }.value
             if cancelled.contains(id) { throw PortError.invalid("Transfer cancelled") }
-            let offer = Message("offer", id: id, name: name, size: size, sha256: hash)
+            let offer = Message("offer", id: id, name: name, size: size, sha256: hash, kind: payload.isFolder ? "folder" : nil)
             try Inbox.validate(offer); try await channel.send(offer)
             let response = try await wait(id)
             guard response.type == "accept", let offset = response.offset, offset >= 0, offset <= size else { throw PortError.invalid("Invalid resume response") }
-            let handle = try FileHandle(forReadingFrom: file); defer { try? handle.close() }
-            try handle.seek(toOffset: UInt64(offset)); var sent = offset
+            let reader = Payload.Reader(payload); var sent = offset
             while sent < size {
                 if cancelled.contains(id) { throw PortError.invalid("Transfer cancelled") }
-                guard let chunk = try handle.read(upToCount: min(Wire.chunkSize, Int(size - sent))), !chunk.isEmpty else { throw PortError.invalid("Source file changed") }
+                let chunk = try reader.read(at: sent, count: min(Wire.chunkSize, Int(size - sent)))
+                guard !chunk.isEmpty else { throw PortError.invalid("Source file changed") }
                 try await channel.send(Message("chunk", id: id, offset: sent, data: chunk.base64EncodedString()))
                 let ack = try await wait(id)
                 guard ack.type == "ack", ack.offset == sent + Int64(chunk.count) else { throw PortError.invalid("Invalid transfer acknowledgement") }

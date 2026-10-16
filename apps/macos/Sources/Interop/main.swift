@@ -8,6 +8,7 @@ import DropDuoCore
     let pairID = "11111111-1111-4111-8111-111111111111"
     let outboundID = "22222222-2222-4222-8222-222222222222"
     let inboundID = "33333333-3333-4333-8333-333333333333"
+    let folderID = "44444444-4444-4444-8444-444444444444"
     var received = false
     var textReceived = false
     var sent = false
@@ -17,6 +18,15 @@ import DropDuoCore
         let source = directory.appendingPathComponent("mac.bin")
         let bytes = Data((0..<800123).map { UInt8($0 % 251) })
         try bytes.write(to: source)
+        // The JVM side compares what it unpacks with this folder, minus what a send skips.
+        let album = directory.appendingPathComponent("Album")
+        try FileManager.default.createDirectory(at: album.appendingPathComponent("Trip/Day 2"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: album.appendingPathComponent("Empty"), withIntermediateDirectories: true)
+        try bytes.write(to: album.appendingPathComponent("Trip/Day 2/clip.bin"))
+        try Data("café".utf8).write(to: album.appendingPathComponent("Trip/notes ü.txt"))
+        try Data().write(to: album.appendingPathComponent("empty.txt"))
+        try Data("view settings".utf8).write(to: album.appendingPathComponent(".DS_Store"))
+        try FileManager.default.createSymbolicLink(at: album.appendingPathComponent("link"), withDestinationURL: source)
         let inbox = try Inbox(root: directory.appendingPathComponent("received"))
         let offer = Message("offer", id: inboundID, name: "android.bin", size: Int64(bytes.count), sha256: try Wire.hash(source))
         _ = try inbox.prepare(offer); _ = try inbox.append(offer, offset: 0, data: bytes.prefix(120_000))
@@ -36,11 +46,11 @@ import DropDuoCore
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: self.directory.appendingPathComponent("ticket.txt").path) } catch { print("Failed to write test ticket") }
         } }
         server.onPeer = { [weak self] _, _, channel in
-            guard let self else { return }; await self.run(channel, source: source, inbox: inbox, expectedHash: hash)
+            guard let self else { return }; await self.run(channel, source: source, album: album, inbox: inbox, expectedHash: hash)
         }
         try server.start(port: 0, serviceName: "DropDuo-Interop")
     }
-    func run(_ channel: SecureChannel, source: URL, inbox: Inbox, expectedHash: String) async {
+    func run(_ channel: SecureChannel, source: URL, album: URL, inbox: Inbox, expectedHash: String) async {
         let engine = PeerEngine(channel: channel, inbox: inbox) { [weak self] event in Task { @MainActor in
             guard let self else { return }
             if event.direction == "Received", event.state == "Complete", let path = event.path {
@@ -53,6 +63,7 @@ import DropDuoCore
         do {
             try await engine.sendFile(source, id: outboundID)
             try await engine.sendText("Mac to Android text")
+            try await engine.sendFile(album, id: folderID)
             sent = true; finishIfReady()
             let deadline = Date().addingTimeInterval(30)
             while !(received && textReceived), Date() < deadline { try await Task.sleep(nanoseconds: 10_000_000) }
@@ -63,7 +74,7 @@ import DropDuoCore
         } catch { print("Interop: " + error.localizedDescription); await engine.stop(); receive.cancel() }
     }
     func finishIfReady() {
-        if received && textReceived && sent { try? "PASS: Swift/JVM bidirectional files, resume, text and checksums".write(to: directory.appendingPathComponent("passed.txt"), atomically: true, encoding: .utf8) }
+        if received && textReceived && sent { try? "PASS: Swift/JVM bidirectional files, resume, text, checksums and a folder".write(to: directory.appendingPathComponent("passed.txt"), atomically: true, encoding: .utf8) }
     }
 }
 guard CommandLine.arguments.count == 3, CommandLine.arguments[1] == "serve" else {

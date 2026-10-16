@@ -162,14 +162,12 @@ struct Transfer: Codable, Identifiable {
         // New rows are saved right away so a send survives the app quitting before it finishes.
         if existing == nil || ["Complete", "Interrupted", "Cancelled"].contains(event.state) { save(transfers, "history.json") }
     }
-    func chooseFiles() { let panel = NSOpenPanel(); panel.allowsMultipleSelection = true; panel.canChooseDirectories = false; if panel.runModal() == .OK { send(panel.urls) } }
+    func chooseFiles() { let panel = NSOpenPanel(); panel.allowsMultipleSelection = true; panel.canChooseDirectories = true; if panel.runModal() == .OK { send(panel.urls) } }
     func send(_ urls: [URL]) {
         guard !installingUpdate else { report("DropDuo is installing an update. Send again after it reopens."); return }
         guard !devices.isEmpty else { report("Pair your phone first: choose Pair a Device in DropDuo."); return }
-        let files = urls.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) != true }
-        if files.count < urls.count { report(files.isEmpty ? "Folders can't be sent. Open the folder and choose the files inside." : "Folders were skipped. Only files can be sent.") }
-        guard !files.isEmpty else { return }
-        send(files.map { ($0, UUID().uuidString) }, to: selected)
+        guard !urls.isEmpty else { return }
+        send(urls.map { ($0, UUID().uuidString) }, to: selected)
         // Sent from Finder or the menu bar, nothing on screen shows that the files are waiting.
         if engines[selected] == nil, !windowVisible() { notifier.problem("\(name(selected)) isn't reachable. The files send when it reconnects.") }
     }

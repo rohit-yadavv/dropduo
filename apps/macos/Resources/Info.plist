@@ -18,12 +18,12 @@
 <key>NSMessage</key><string>sendFiles</string>
 <key>NSPortName</key><string>DropDuo</string>
 <key>NSRequiredContext</key><dict/>
-<key>NSSendFileTypes</key><array><string>public.data</string></array>
+<key>NSSendFileTypes</key><array><string>public.data</string><string>public.folder</string></array>
 </dict></array>
 <key>CFBundleDocumentTypes</key><array><dict>
 <key>CFBundleTypeName</key><string>File</string>
 <key>CFBundleTypeRole</key><string>Viewer</string>
 <key>LSHandlerRank</key><string>None</string>
-<key>LSItemContentTypes</key><array><string>public.data</string></array>
+<key>LSItemContentTypes</key><array><string>public.data</string><string>public.folder</string></array>
 </dict></array>
 </dict></plist>

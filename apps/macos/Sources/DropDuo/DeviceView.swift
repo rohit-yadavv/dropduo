@@ -70,7 +70,7 @@ struct DeviceView: View {
             Text("Drop files here")
                 .font(.title2.weight(.semibold)).multilineTextAlignment(.center).padding(.top, 32)
             Button("Choose Files…") { model.chooseFiles() }.controlSize(.large).padding(.top, 22)
-            Text("Or right-click files in Finder and choose Send with DropDuo.")
+            Text("Or right-click files and folders in Finder and choose Send with DropDuo.")
                 .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.top, 18)
         }
         .padding(40)
@@ -171,9 +171,10 @@ struct TransferItem: View {
     private var waiting: Bool { transfer.state == "Interrupted" && transfer.autoRetry == true }
     private var failed: Bool { transfer.state == "Interrupted" && !waiting }
     private var complete: Bool { transfer.state == "Complete" }
-    /// The file on this Mac, when it's still there.
+    /// The file or folder on this Mac, when it's still there.
     private var file: URL? { transfer.path.flatMap { FileManager.default.fileExists(atPath: $0) ? URL(fileURLWithPath: $0) : nil } }
-    private var type: UTType? { UTType(filenameExtension: (transfer.name as NSString).pathExtension) }
+    private var folder: Bool { file.flatMap { try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory } ?? false }
+    private var type: UTType? { folder ? .folder : UTType(filenameExtension: (transfer.name as NSString).pathExtension) }
     private var media: Bool { type.map { $0.conforms(to: .image) || $0.conforms(to: .movie) } ?? false }
 
     var body: some View {
@@ -305,6 +306,7 @@ struct TransferItem: View {
 
     /// Kind and size, like "JPEG image, 2.4 MB".
     private var detail: String? {
+        if folder { return "Folder" }
         let size = file.flatMap { (try? $0.resourceValues(forKeys: [.fileSizeKey]))?.fileSize }.map { ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file) }
         let parts = [type?.localizedDescription.map { $0.prefix(1).uppercased() + $0.dropFirst() }, size].compactMap { $0 }
         return parts.isEmpty ? nil : parts.joined(separator: ", ")

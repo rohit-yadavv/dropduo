@@ -424,8 +424,9 @@ private enum class Link { On, Searching, Off }
             })) }
             row.text?.let { text -> add(SheetButton(R.drawable.ic_copy, "Copy", act { copy(context, text) })) }
             if (row.state == "Complete" && row.direction == "Received" && row.path != null) {
-                add(SheetButton(R.drawable.ic_open, "Open", act { actions.open(row) }))
-                add(SheetButton(R.drawable.ic_save, "Save a copy", act { actions.save(row) }))
+                // No app can open a folder in DropDuo's storage, so folders are saved somewhere first.
+                if (!row.folder) add(SheetButton(R.drawable.ic_open, "Open", act { actions.open(row) }))
+                add(SheetButton(R.drawable.ic_save, if (row.folder) "Save to a folder" else "Save a copy", act { actions.save(row) }))
             }
             if (canRetry(row)) add(0, SheetButton(R.drawable.ic_retry, "Retry now", act { AppState.retry(row) }))
         }
@@ -706,19 +707,20 @@ private fun segment(first: Boolean, last: Boolean): RoundedCornerShape {
 
 // Transfer details
 
-private enum class Kind { Text, Link, Image, Video, File }
+private enum class Kind { Text, Link, Image, Video, Folder, File }
 private enum class Tone { Normal, Waiting, Problem }
 private val IMAGES = setOf("jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "bmp", "tiff")
 private val VIDEOS = setOf("mp4", "mov", "m4v", "mkv", "webm", "avi", "3gp")
 
 private fun kindOf(row: Transfer) = when {
     row.text != null -> if (linkOf(row.text) != null) Kind.Link else Kind.Text
+    row.folder -> Kind.Folder
     row.name.substringAfterLast('.', "").lowercase() in IMAGES -> Kind.Image
     row.name.substringAfterLast('.', "").lowercase() in VIDEOS -> Kind.Video
     else -> Kind.File
 }
 private fun kindIcon(row: Transfer) = when (kindOf(row)) {
-    Kind.Text -> R.drawable.ic_text; Kind.Link -> R.drawable.ic_link; Kind.Image -> R.drawable.ic_image; Kind.Video -> R.drawable.ic_video; Kind.File -> R.drawable.ic_file
+    Kind.Text -> R.drawable.ic_text; Kind.Link -> R.drawable.ic_link; Kind.Image -> R.drawable.ic_image; Kind.Video -> R.drawable.ic_video; Kind.Folder -> R.drawable.ic_folder; Kind.File -> R.drawable.ic_file
 }
 /** A shared text counts as a link only when it is a single web address. */
 private fun linkOf(text: String): Uri? = text.trim().takeIf { it.none(Char::isWhitespace) && (it.startsWith("https://", true) || it.startsWith("http://", true)) }

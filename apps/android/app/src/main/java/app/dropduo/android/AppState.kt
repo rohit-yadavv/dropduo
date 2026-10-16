@@ -16,7 +16,9 @@ data class Transfer(val id: String, val name: String, val direction: String, val
     /** When the transfer started, in epoch milliseconds; 0 for history saved before times were recorded. */
     val time: Long = 0,
     /** The pairing a send is meant for, so a queued send never goes to a different Mac; null until one is paired. */
-    val pairID: String? = null)
+    val pairID: String? = null,
+    /** A folder from the Mac; once received, [path] is the unpacked folder. */
+    val folder: Boolean = false)
 data class UiState(val device: String? = null, val connected: Boolean = false, val status: String = "Pair your Mac to get started",
     val receiving: Boolean = true, val history: List<Transfer> = emptyList(), val error: String? = null)
 const val WAITING_FOR_MAC = "Waiting for your Mac"
@@ -106,7 +108,8 @@ object AppState {
     @Synchronized fun record(event: PeerEvent, autoRetry: Boolean = false, pairID: String? = null) {
         val old = ui.value.history.firstOrNull { it.id == event.id }
         val row = Transfer(event.id, old?.name ?: event.name, old?.direction ?: event.direction, event.state, event.progress,
-            event.path ?: old?.path, event.text ?: old?.text, event.error, autoRetry, old?.time ?: System.currentTimeMillis(), pairID ?: old?.pairID)
+            event.path ?: old?.path, event.text ?: old?.text, event.error, autoRetry, old?.time ?: System.currentTimeMillis(), pairID ?: old?.pairID,
+            event.folder || old?.folder == true)
         val history = limit(listOf(row) + ui.value.history.filter { it.id != event.id })
         ui.value = ui.value.copy(history = history)
         // New rows are saved right away so a send survives the app closing before it finishes.
@@ -222,6 +225,7 @@ object AppState {
             Transfer("preview-2", "Text", "Received", "Complete", 1.0, text = "https://maps.app.goo.gl/dinner-friday", time = now - 4 * minute),
             Transfer("preview-3", "Pick up the printer cable", "Sent", "Interrupted", text = "Pick up the printer cable on the way home", error = WAITING_FOR_MAC, autoRetry = true, time = now - 26 * minute),
             Transfer("preview-4", "Lease agreement.pdf", "Received", "Complete", 1.0, path = File(inbox(), "preview/Lease agreement.pdf").path, time = now - 48 * minute),
+            Transfer("preview-8", "Wedding photos", "Received", "Complete", 1.0, path = File(inbox(), "preview/Wedding photos").path, time = now - 50 * minute, folder = true),
             Transfer("preview-5", "Beach sunset.mov", "Sent", "Interrupted", 0.3, error = "Connection lost. Retry when your Mac is back.", time = now - day),
             Transfer("preview-6", "IMG_2031.jpg", "Received", "Complete", 1.0, path = File(inbox(), "preview/IMG_2031.jpg").path, time = now - day - 3 * 60 * minute),
             Transfer("preview-7", "Text", "Sent", "Complete", 1.0, text = "Meeting notes are in the shared folder, check the second page.", time = now - 3 * day),

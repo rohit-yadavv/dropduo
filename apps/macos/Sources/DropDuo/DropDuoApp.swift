@@ -237,8 +237,12 @@ struct WelcomeView: View {
 }
 
 private extension View {
-    /// Keep the title legible when media previews scroll behind the toolbar.
+    /// Keep the title legible when media previews scroll behind the toolbar. The window's own toolbar background starts a
+    /// little left of the sidebar divider, so the detail column draws its own instead.
     @ViewBuilder func readableToolbar() -> some View {
-        if #available(macOS 26, *) { toolbarBackgroundVisibility(.visible, for: .windowToolbar) } else { self }
+        if #available(macOS 26, *) {
+            toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+                .safeAreaInset(edge: .top, spacing: 0) { Divider().background(Color(nsColor: .windowBackgroundColor), ignoresSafeAreaEdges: .top) }
+        } else { self }
     }
 }

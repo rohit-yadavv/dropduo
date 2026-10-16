@@ -70,6 +70,8 @@ struct DeviceView: View {
             Text("Drop files here")
                 .font(.title2.weight(.semibold)).multilineTextAlignment(.center).padding(.top, 32)
             Button("Choose Files…") { model.chooseFiles() }.controlSize(.large).padding(.top, 22)
+            Text("Or right-click files in Finder and choose Send with DropDuo.")
+                .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.top, 18)
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

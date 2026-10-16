@@ -4,6 +4,7 @@ Each [GitHub release](https://github.com/rohit-yadavv/dropduo/releases) lists th
 
 ## Unreleased
 
+- Send from Finder: right-click files and choose **Send with DropDuo** (under **Services** on some Macs), or drop them on DropDuo's Dock icon. They go to the phone selected in DropDuo, and wait if it's not reachable.
 - Update both apps together: the Mac now admits a phone only after it proves it holds the session keys, so a recorded connection attempt can't take over the phone's connection. Older Android versions can't connect to this Mac version.
 - Items waiting to send from the phone go only to the Mac they were meant for; after pairing a different Mac, tap Retry to send them there.
 - Sends in progress survive the app closing and resume on reconnect, and waiting sends no longer drop out of a long history.

@@ -168,7 +168,10 @@ struct Transfer: Codable, Identifiable {
         guard !devices.isEmpty else { report("Pair your phone first: choose Pair a Device in DropDuo."); return }
         let files = urls.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) != true }
         if files.count < urls.count { report(files.isEmpty ? "Folders can't be sent. Open the folder and choose the files inside." : "Folders were skipped. Only files can be sent.") }
-        if !files.isEmpty { send(files.map { ($0, UUID().uuidString) }, to: selected) }
+        guard !files.isEmpty else { return }
+        send(files.map { ($0, UUID().uuidString) }, to: selected)
+        // Sent from Finder or the menu bar, nothing on screen shows that the files are waiting.
+        if engines[selected] == nil, !windowVisible() { notifier.problem("\(name(selected)) isn't reachable. The files send when it reconnects.") }
     }
     /// Sends one file at a time per phone, including separate drops, so sends stay within the peer's active-transfer limit.
     /// While the phone is unreachable, files wait in history and send when it reconnects.

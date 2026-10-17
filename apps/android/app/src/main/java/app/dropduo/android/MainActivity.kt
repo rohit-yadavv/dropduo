@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
         result.contents?.let { AppState.pair(it); connect() }
     }
     private val files = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> if (uris.isNotEmpty()) AppState.importAndSend(uris) }
-    private val photo = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let { AppState.importAndSend(listOf(it)) } }
+    private val photos = registerForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { uris -> if (uris.isNotEmpty()) AppState.importAndSend(uris) }
     private val notifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { AppState.start(this) }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState); enableEdgeToEdge()
@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
             intent.getStringExtra("preview")?.let(AppState::preview)
         }
         setContent { DropDuoApp(Actions(scan = { scan.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt("Scan the code shown on your Mac").setBeepEnabled(false).setOrientationLocked(true)) },
-            connect = ::connect, files = { files.launch(arrayOf("*/*")) }, photo = { photo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
+            connect = ::connect, files = { files.launch(arrayOf("*/*")) }, photos = { photos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
             open = ::openFile, keepConnected = ::keepConnected, installUpdate = ::installUpdate)) }
         if (!previewMode) {
             if (AppState.ticket != null) connect()

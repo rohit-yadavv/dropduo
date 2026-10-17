@@ -20,10 +20,13 @@ struct SettingsView: View {
             }
             Section {
                 LabeledContent {
-                    Button("Show in Finder") { NSWorkspace.shared.open(model.inboxRoot) }
+                    HStack {
+                        Button("Change…") { model.chooseReceivedFolder() }
+                        Button("Show in Finder") { model.showReceivedFolder() }
+                    }
                 } label: {
                     Text("Received files")
-                    Text("Downloads › DropDuo")
+                    Text(model.receivedFolderName)
                 }
                 LabeledContent {
                     Button("Clear History") { model.clearHistory() }.disabled(model.transfers.isEmpty)

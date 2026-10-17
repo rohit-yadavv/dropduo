@@ -51,7 +51,10 @@ import AppKit
         let send = action("Send Files…", image: "square.and.arrow.up") { [model] in NSApp.activate(ignoringOtherApps: true); model.chooseFiles() }
         send.isEnabled = !model.selected.isEmpty
         menu.addItem(send)
-        menu.addItem(action("Open Received Files", image: "folder") { [model] in NSWorkspace.shared.open(model.inboxRoot) })
+        let clipboard = action("Send Clipboard", image: "doc.on.clipboard") { [model] in model.sendClipboard() }
+        clipboard.isEnabled = !model.selected.isEmpty
+        menu.addItem(clipboard)
+        menu.addItem(action("Open Received Files", image: "folder") { [model] in model.showReceivedFolder() })
         menu.addItem(.separator())
         menu.addItem(action("Settings…", key: ",", image: "gearshape") { [weak self] in self?.openSettings() })
         let update = action(updater.availableVersion.map { "Update to \($0)…" } ?? "Check for Updates…", image: "arrow.down.circle") { [updater] in updater.check() }

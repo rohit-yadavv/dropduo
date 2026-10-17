@@ -39,9 +39,14 @@ import DropDuoCore
         NSUpdateDynamicServices()
     }
 
-    /// Finder's Services menu item, declared under NSServices in Info.plist.
+    /// Send with DropDuo in the Services menu, for files in Finder; declared under NSServices in Info.plist.
     @objc func sendFiles(_ pasteboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString>?) {
         model.send(pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? [])
+    }
+
+    /// Send with DropDuo for text selected in any app.
+    @objc func sendText(_ pasteboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString>?) {
+        if let text = pasteboard.string(forType: .string) { model.send(text: text) }
     }
 
     /// Files dropped on the Dock icon.
@@ -105,7 +110,7 @@ struct MainView: View {
         .alert("DropDuo", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("OK") { model.error = nil } } message: { Text(model.error ?? "") }
         .confirmationDialog("Forget \(model.confirmation?.name ?? "this device")?", isPresented: Binding(get: { model.confirmation != nil }, set: { if !$0 { model.confirmation = nil } })) {
             if let device = model.confirmation { Button("Forget Device", role: .destructive) { model.forget(device); model.confirmation = nil } }
-        } message: { Text("It will need to pair again before it can share with this Mac. Received files stay in Downloads.") }
+        } message: { Text("It will need to pair again before it can share with this Mac. Received files stay on this Mac.") }
         .background(WindowReader { delegate.attach($0) })
         .onAppear {
             delegate.openWindow = { openWindow(id: "main") }

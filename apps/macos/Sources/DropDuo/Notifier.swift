@@ -1,7 +1,8 @@
 import AppKit
 import UserNotifications
+import DropDuoCore
 
-/// Posts "received" and "sent" banners, and handles their Show in Finder / Copy actions.
+/// Posts "received" and "sent" banners, and handles their Show in Finder, Open and Copy actions.
 @MainActor final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     /// Looks up a transfer by ID so notification payloads never carry file paths or shared text.
     var lookup: (String) -> Transfer? = { _ in nil }
@@ -15,9 +16,13 @@ import UserNotifications
         center.delegate = self
         let reveal = UNNotificationAction(identifier: "reveal", title: "Show in Finder")
         let copy = UNNotificationAction(identifier: "copy", title: "Copy")
+        let open = UNNotificationAction(identifier: "open", title: "Open Link")
+        let code = UNNotificationAction(identifier: "code", title: "Copy Code")
         center.setNotificationCategories([
             UNNotificationCategory(identifier: "file", actions: [reveal], intentIdentifiers: []),
-            UNNotificationCategory(identifier: "text", actions: [copy], intentIdentifiers: [])
+            UNNotificationCategory(identifier: "text", actions: [copy], intentIdentifiers: []),
+            UNNotificationCategory(identifier: "link", actions: [open, copy], intentIdentifiers: []),
+            UNNotificationCategory(identifier: "code", actions: [code, copy], intentIdentifiers: [])
         ])
     }
 
@@ -28,11 +33,14 @@ import UserNotifications
         center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
-    func received(_ transfer: Transfer, from device: String) {
-        if transfer.text != nil {
-            post(id: transfer.id, title: "Text from \(device)", body: String(transfer.text!.prefix(200)), category: "text")
+    /// `folder` is where a file was saved, like "Downloads › DropDuo".
+    func received(_ transfer: Transfer, from device: String, folder: String? = nil) {
+        if let text = transfer.text {
+            if webLink(text) != nil { post(id: transfer.id, title: "Link from \(device)", body: text, category: "link") }
+            else if let code = OneTimeCode.find(in: text) { post(id: transfer.id, title: "Code \(code) from \(device)", body: String(text.prefix(200)), category: "code") }
+            else { post(id: transfer.id, title: "Text from \(device)", body: String(text.prefix(200)), category: "text") }
         } else {
-            post(id: transfer.id, title: "\(transfer.name) from \(device)", body: "Saved to Downloads/DropDuo. Click to show it in Finder.", category: "file")
+            post(id: transfer.id, title: "\(transfer.name) from \(device)", body: "Saved to \(folder ?? "your received files"). Click to show it in Finder.", category: "file")
         }
     }
 
@@ -66,11 +74,17 @@ import UserNotifications
     private func handle(_ action: String, id: String) {
         let transfer = lookup(id)
         if let text = transfer?.text, action == "copy" {
-            NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
+            copy(text)
+        } else if let code = transfer?.text.flatMap({ OneTimeCode.find(in: $0) }), action == "code" {
+            copy(code)
+        } else if let link = transfer?.text.flatMap(webLink), action == "open" || action == UNNotificationDefaultActionIdentifier {
+            NSWorkspace.shared.open(link)
         } else if let path = transfer?.path, transfer?.direction == "Received", FileManager.default.fileExists(atPath: path) {
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
         } else {
             openApp()
         }
     }
+
+    private func copy(_ text: String) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string) }
 }

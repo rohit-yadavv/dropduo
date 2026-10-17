@@ -23,10 +23,13 @@ data class Transfer(val id: String, val name: String, val direction: String, val
     val saved: String? = null,
     /** Live estimates use a monotonic clock and are never restored from history. */
     @Transient val stats: TransferProgress? = null)
-/** [askBackground] is set while Android may stop DropDuo in the background and the user hasn't said no; [reveal] is a transfer to show. */
+/**
+ * [askBackground] is set while Android may stop DropDuo in the background and the user hasn't said no; [reveal] is a transfer to show;
+ * [unreachable] is set while the paired Mac can't be reached.
+ */
 data class UiState(val device: String? = null, val connected: Boolean = false, val status: String = "Pair your Mac to get started",
     val receiving: Boolean = true, val history: List<Transfer> = emptyList(), val error: String? = null,
-    val askBackground: Boolean = false, val reveal: String? = null)
+    val askBackground: Boolean = false, val reveal: String? = null, val unreachable: Boolean = false)
 const val WAITING_FOR_MAC = "Waiting for your Mac"
 private val ONGOING = listOf("Preparing", "Sending", "Receiving", "Verifying")
 private const val OTHER_MAC = "Not sent. Retry to send it to your current Mac."
@@ -105,7 +108,7 @@ object AppState {
         }
     }
     fun start(context: Context) { androidx.core.content.ContextCompat.startForegroundService(context, Intent(context, ConnectionService::class.java)) }
-    fun stop(context: Context) { context.stopService(Intent(context, ConnectionService::class.java)); engine?.close(); engine = null; update { it.copy(connected = false, status = "Disconnected") } }
+    fun stop(context: Context) { context.stopService(Intent(context, ConnectionService::class.java)); engine?.close(); engine = null; update { it.copy(connected = false, unreachable = false, status = "Disconnected") } }
     fun forget(context: Context) {
         val forgotten = ticket?.pairID
         stop(context); ticket = null; secure.remove(); update { it.copy(device = null, status = "Pair your Mac to get started") }
@@ -282,7 +285,7 @@ object AppState {
         ui.value = when (scene) {
             "onboarding" -> UiState()
             "failed" -> UiState(status = "Pairing failed. Generate a new code and try again.")
-            "offline" -> UiState(device = "MacBook Pro", status = "Mac not found. Is it awake with DropDuo open, on this Wi-Fi? Retrying…", history = history.filter { it.state !in listOf("Sending", "Preparing") })
+            "offline" -> UiState(device = "MacBook Pro", status = "Can't reach MacBook Pro. Retrying…", unreachable = true, history = history.filter { it.state !in listOf("Sending", "Preparing") })
             else -> UiState(device = "MacBook Pro", connected = true, status = "Connected to MacBook Pro", history = history)
         }
     }

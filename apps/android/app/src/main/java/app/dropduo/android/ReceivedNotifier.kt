@@ -31,9 +31,13 @@ object ReceivedNotifier {
         when {
             single == null -> builder.setContentTitle("${unseen.size} items from $device").setContentText(unseen.joinToString { title(it) })
                 .setStyle(Notification.InboxStyle().also { style -> unseen.take(6).forEach { style.addLine(title(it)) } })
-            single.text != null -> builder.setContentTitle("${if (linkOf(single.text) != null) "Link" else "Text"} from $device")
-                .setContentText(single.text).setStyle(Notification.BigTextStyle().bigText(single.text))
-                .addAction(Notification.Action.Builder(null, "Copy", action(context, "copy", single.id)).build())
+            single.text != null -> {
+                val code = codeIn(single)
+                builder.setContentTitle(when { code != null -> "Code $code from $device"; linkOf(single.text) != null -> "Link from $device"; else -> "Text from $device" })
+                    .setContentText(single.text).setStyle(Notification.BigTextStyle().bigText(single.text))
+                if (code != null) builder.addAction(Notification.Action.Builder(null, "Copy code", action(context, "code", single.id)).build())
+                builder.addAction(Notification.Action.Builder(null, "Copy", action(context, "copy", single.id)).build())
+            }
             else -> builder.setContentTitle("${single.name} from $device").setContentText(SharedStorage.place(single)?.let { place ->
                 if (single.folder) "Saved to $place" else "Saved to $place. Tap to open." } ?: "Tap to open it in DropDuo.")
         }
@@ -52,7 +56,8 @@ object ReceivedNotifier {
 class NotificationActions : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
-            "copy" -> AppState.ui.value.history.firstOrNull { it.id == intent.getStringExtra(MainActivity.TRANSFER) }?.text?.let { text ->
+            "copy", "code" -> AppState.ui.value.history.firstOrNull { it.id == intent.getStringExtra(MainActivity.TRANSFER) }
+                ?.let { if (intent.action == "code") codeIn(it) else it.text }?.let { text ->
                 copy(context, text)
                 // Android 13 and later confirm copies on their own.
                 if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()

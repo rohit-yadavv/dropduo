@@ -240,7 +240,7 @@ public actor PeerEngine {
                     // The file is saved, so record it before the reply that may fail on a dropped connection.
                     let file = try inbox.finish(offer)
                     incoming.removeValue(forKey: id)
-                    event(PeerEvent(id: id, name: offer.name!, direction: "Received", state: "Complete", progress: 1, path: file.path))
+                    event(PeerEvent(id: id, name: offer.name!, direction: "Received", state: "Complete", progress: 1, path: file?.path))
                     try await channel.send(Message("complete", id: id))
                     incomingActivities.removeValue(forKey: id)
                 case "text":

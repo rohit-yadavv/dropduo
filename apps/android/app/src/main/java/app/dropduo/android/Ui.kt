@@ -58,7 +58,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class Actions(val scan: () -> Unit, val connect: () -> Unit, val files: () -> Unit, val photo: () -> Unit, val open: (Transfer) -> Unit, val keepConnected: () -> Unit,
+class Actions(val scan: () -> Unit, val connect: () -> Unit, val files: () -> Unit, val photos: () -> Unit, val open: (Transfer) -> Unit, val keepConnected: () -> Unit,
               val installUpdate: () -> Unit)
 
 private const val UNPAIRED_STATUS = "Pair your Mac to get started"
@@ -140,6 +140,7 @@ private enum class Screen { Pairing, Home, Settings }
 
 @Composable private fun Home(state: UiState, actions: Actions, onSettings: () -> Unit) {
     var textSheet by remember { mutableStateOf(false) }
+    var checklist by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -154,11 +155,11 @@ private enum class Screen { Pairing, Home, Settings }
             }
         }
         item(key = "update") { UpdateCard(actions.installUpdate, Modifier.padding(bottom = 12.dp)) }
-        item(key = "device") { DeviceCard(state, actions.connect) }
+        item(key = "device") { DeviceCard(state, actions.connect) { checklist = true } }
         if (state.askBackground && state.connected) item(key = "background") { KeepConnectedCard(actions.keepConnected, Modifier.animateItem().padding(top = 12.dp)) }
-        item(key = "send") { SendActions(actions.files) { textSheet = true } }
+        item(key = "send") { SendActions(actions.photos, actions.files) { textSheet = true } }
         item(key = "recent") { Text("Recent", style = Type.title, color = colors.text, modifier = Modifier.padding(start = 6.dp, top = 32.dp)) }
-        if (state.history.isEmpty()) item(key = "empty") { EmptyRecent(actions.photo) }
+        if (state.history.isEmpty()) item(key = "empty") { EmptyRecent() }
         days.forEach { (day, rows) ->
             item(key = "day-$day") { Text(dayLabel(context, day), style = Type.captionStrong, color = colors.secondary, modifier = Modifier.animateItem().padding(start = 6.dp, top = 18.dp, bottom = 8.dp)) }
             itemsIndexed(rows, key = { _, row -> row.id }) { index, row ->
@@ -167,10 +168,11 @@ private enum class Screen { Pairing, Home, Settings }
         }
     }
     if (textSheet) TextSheet(state.connected) { textSheet = false }
+    if (checklist) ReachabilitySheet(state.device ?: "your Mac", onRetry = { AppState.stop(context); actions.connect() }) { checklist = false }
     state.history.firstOrNull { it.id == selected }?.let { row -> TransferSheet(row, actions) { selected = null } }
 }
 
-@Composable private fun DeviceCard(state: UiState, onConnect: () -> Unit) {
+@Composable private fun DeviceCard(state: UiState, onConnect: () -> Unit, onChecklist: () -> Unit) {
     val pending = !state.connected && state.status.endsWith("…")
     val active = state.history.firstOrNull { it.state in ACTIVE }.takeIf { state.connected }
     val link = when { state.connected -> Link.On; pending -> Link.Searching; else -> Link.Off }
@@ -199,10 +201,10 @@ private enum class Screen { Pairing, Home, Settings }
                         Text(label, style = Type.caption, color = colors.heroSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
-                if (!state.connected && !pending) {
+                if (!state.connected && (state.unreachable || !pending)) {
                     Spacer(Modifier.width(12.dp))
-                    TapSurface(onConnect, shape = CircleShape, color = colors.onHero, contentColor = colors.hero) {
-                        Text("Connect", style = Type.bodyStrong, modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp))
+                    TapSurface(if (state.unreachable) onChecklist else onConnect, shape = CircleShape, color = colors.onHero, contentColor = colors.hero) {
+                        Text(if (state.unreachable) "What to check" else "Connect", style = Type.bodyStrong, modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp))
                     }
                 }
             }
@@ -210,47 +212,44 @@ private enum class Screen { Pairing, Home, Settings }
     }
 }
 
-@Composable private fun SendActions(onFiles: () -> Unit, onText: () -> Unit) {
+/** Photos lead, since they're what people send most; files and text sit beside them. */
+@Composable private fun SendActions(onPhotos: () -> Unit, onFiles: () -> Unit, onText: () -> Unit) {
     val largeText = LocalDensity.current.fontScale > 1.2f
     BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 12.dp)) {
         val stacked = maxWidth < 360.dp || largeText
-        @Composable fun Files(modifier: Modifier) {
-            TapSurface(onFiles, modifier, RoundedCornerShape(24.dp), colors.accent, colors.onAccent) {
+        @Composable fun Photos(modifier: Modifier) {
+            TapSurface(onPhotos, modifier, RoundedCornerShape(24.dp), colors.accent, colors.onAccent) {
                 Row(Modifier.padding(horizontal = 18.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(42.dp).background(colors.onAccent.copy(alpha = 0.16f), CircleShape), contentAlignment = Alignment.Center) {
-                        Glyph(R.drawable.ic_plus, null, colors.onAccent, size = 22.dp)
+                        Glyph(R.drawable.ic_image, null, colors.onAccent, size = 22.dp)
                     }
                     Spacer(Modifier.width(14.dp))
-                    Text("Send files", style = Type.headline, color = colors.onAccent, modifier = Modifier.weight(1f))
+                    Text("Send photos", style = Type.headline, color = colors.onAccent, modifier = Modifier.weight(1f))
                 }
             }
         }
-        @Composable fun TextAction(modifier: Modifier) {
-            TapSurface(onText, modifier, RoundedCornerShape(24.dp), colors.surface, colors.text) {
-                if (stacked) {
-                    Row(Modifier.padding(horizontal = 24.dp, vertical = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Glyph(R.drawable.ic_text, null, colors.text, size = 22.dp)
-                        Spacer(Modifier.width(22.dp))
-                        Text("Send text", style = Type.headline, color = colors.text)
-                    }
-                } else {
-                    Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.Center) {
-                        Glyph(R.drawable.ic_text, null, colors.text, size = 22.dp)
-                        Spacer(Modifier.height(6.dp))
-                        Text("Text", style = Type.headline, color = colors.text)
-                    }
+        @Composable fun Secondary(onClick: () -> Unit, icon: Int, label: String, modifier: Modifier) {
+            TapSurface(onClick, modifier, RoundedCornerShape(if (stacked) 24.dp else 20.dp), colors.surface, colors.text) {
+                Row(Modifier.padding(horizontal = if (stacked) 24.dp else 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Glyph(icon, null, colors.text, size = 22.dp)
+                    Spacer(Modifier.width(if (stacked) 22.dp else 12.dp))
+                    Text(if (stacked) "Send ${label.lowercase()}" else label, style = Type.headline, color = colors.text)
                 }
             }
         }
         if (stacked) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Files(Modifier.fillMaxWidth().heightIn(min = 88.dp))
-                TextAction(Modifier.fillMaxWidth().heightIn(min = 88.dp))
+                Photos(Modifier.fillMaxWidth().heightIn(min = 88.dp))
+                Secondary(onFiles, R.drawable.ic_file, "Files", Modifier.fillMaxWidth().heightIn(min = 64.dp))
+                Secondary(onText, R.drawable.ic_text, "Text", Modifier.fillMaxWidth().heightIn(min = 64.dp))
             }
         } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Files(Modifier.weight(1.7f).heightIn(min = 88.dp))
-                TextAction(Modifier.weight(1f).heightIn(min = 88.dp))
+            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Photos(Modifier.weight(1.6f).fillMaxHeight())
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Secondary(onFiles, R.drawable.ic_file, "Files", Modifier.fillMaxWidth().heightIn(min = 56.dp))
+                    Secondary(onText, R.drawable.ic_text, "Text", Modifier.fillMaxWidth().heightIn(min = 56.dp))
+                }
             }
         }
     }
@@ -273,8 +272,7 @@ private enum class Screen { Pairing, Home, Settings }
     }
 }
 
-/** Until something is shared, offers a photo to try it, since that's what most people send first. */
-@Composable private fun EmptyRecent(onPhoto: () -> Unit) {
+@Composable private fun EmptyRecent() {
     Column(Modifier.fillMaxWidth().padding(top = 12.dp).background(colors.surface, RoundedCornerShape(24.dp)).padding(horizontal = 28.dp, vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally) {
         Row(horizontalArrangement = Arrangement.spacedBy((-8).dp)) {
@@ -289,14 +287,6 @@ private enum class Screen { Pairing, Home, Settings }
         Text("Nothing shared yet", style = Type.headline, color = colors.text)
         Spacer(Modifier.height(6.dp))
         Text("Send a photo to see it on your Mac.", style = Type.caption, color = colors.secondary, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(18.dp))
-        TapSurface(onPhoto, shape = CircleShape, color = colors.surfaceHigh, contentColor = colors.text) {
-            Row(Modifier.padding(start = 14.dp, end = 16.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Glyph(R.drawable.ic_image, null, colors.text, size = 18.dp)
-                Spacer(Modifier.width(8.dp))
-                Text("Choose a photo", style = Type.bodyStrong)
-            }
-        }
     }
 }
 
@@ -428,6 +418,34 @@ private enum class Link { On, Searching, Off }
     }
 }
 
+/** What usually keeps the phone from reaching the Mac, with a way to try again. */
+@Composable private fun ReachabilitySheet(mac: String, onRetry: () -> Unit, onDismiss: () -> Unit) {
+    Sheet(onDismiss) {
+        Text("Can't reach $mac", style = Type.title, color = colors.text)
+        Spacer(Modifier.height(4.dp))
+        Text("DropDuo keeps trying. These usually fix it:", style = Type.caption, color = colors.secondary)
+        listOf(
+            "Same Wi-Fi" to "Your phone and Mac need to be on the same Wi-Fi network.",
+            "Mac awake, DropDuo running" to "DropDuo can stay in the Mac's menu bar with its window closed. A sleeping Mac can't connect.",
+            "Local Network access on the Mac" to "In System Settings › Privacy & Security › Local Network, turn on DropDuo.",
+            "Guest or office Wi-Fi" to "Some networks stop devices from reaching each other. Try another network.",
+        ).forEachIndexed { i, (title, detail) ->
+            Row(Modifier.padding(top = 18.dp)) {
+                Box(Modifier.size(26.dp).background(colors.accentSoft, CircleShape), contentAlignment = Alignment.Center) {
+                    Text("${i + 1}", style = Type.captionStrong, color = colors.accentText)
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = Type.bodyStrong, color = colors.text)
+                    Text(detail, style = Type.caption, color = colors.secondary)
+                }
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+        PrimaryButton("Try again", R.drawable.ic_retry) { onRetry(); onDismiss() }
+    }
+}
+
 @Composable private fun PairCodeSheet(onPair: (String) -> Unit, onDismiss: () -> Unit) {
     var code by rememberSaveable { mutableStateOf("") }
     Sheet(onDismiss) {
@@ -446,6 +464,7 @@ private enum class Link { On, Searching, Off }
     val context = LocalContext.current
     val preview = rememberThumbnail(row, 720)
     val link = row.text?.let(::linkOf)
+    val code = codeIn(row)
     Sheet(onDismiss) {
         if (preview != null) {
             Image(preview, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth()
@@ -476,6 +495,7 @@ private enum class Link { On, Searching, Off }
         fun act(block: () -> Unit) = { block(); onDismiss() }
         val buttons = buildList {
             link?.let { uri -> add(SheetButton(R.drawable.ic_open, "Open link", act { openLink(context, uri) })) }
+            code?.let { add(SheetButton(R.drawable.ic_copy, "Copy code", act { copy(context, it) })) }
             row.text?.let { text -> add(SheetButton(R.drawable.ic_copy, "Copy", act { copy(context, text) })) }
             // Android has no common way to open a folder; where it was saved is shown instead.
             if (row.state == "Complete" && row.direction == "Received" && !row.folder && (row.saved != null || row.path != null))
@@ -774,6 +794,8 @@ private fun kindOf(row: Transfer) = when {
 private fun kindIcon(row: Transfer) = when (kindOf(row)) {
     Kind.Text -> R.drawable.ic_text; Kind.Link -> R.drawable.ic_link; Kind.Image -> R.drawable.ic_image; Kind.Video -> R.drawable.ic_video; Kind.Folder -> R.drawable.ic_folder; Kind.File -> R.drawable.ic_file
 }
+/** A sign-in code in a received text, offered by itself; a link is opened instead. */
+fun codeIn(row: Transfer) = row.text?.takeIf { row.direction == "Received" && linkOf(it) == null }?.let(app.dropduo.core.OneTimeCode::find)
 /** A shared text counts as a link only when it is a single web address. */
 fun linkOf(text: String): Uri? = text.trim().takeIf { it.none(Char::isWhitespace) && (it.startsWith("https://", true) || it.startsWith("http://", true)) }
     ?.let(Uri::parse)?.takeIf { !it.host.isNullOrEmpty() }

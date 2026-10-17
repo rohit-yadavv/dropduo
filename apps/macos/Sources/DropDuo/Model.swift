@@ -13,6 +13,13 @@ struct Transfer: Codable, Identifiable {
     var stats: TransferProgress? = nil
     private enum CodingKeys: String, CodingKey { case id, peer, name, direction, state, progress, path, text, error, date, autoRetry }
 }
+/// A shared text counts as a link only when it is a single web address.
+func webLink(_ text: String) -> URL? {
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.contains(where: \.isWhitespace), let url = URL(string: trimmed), let scheme = url.scheme?.lowercased(),
+          ["http", "https"].contains(scheme), url.host() != nil else { return nil }
+    return url
+}
 @MainActor final class AppModel: ObservableObject {
     @Published var targeted = false
     @Published var confirmation: Device?
@@ -32,8 +39,14 @@ struct Transfer: Codable, Identifiable {
     var hasActiveTransfers: Bool { !running.isEmpty || pendingApproval || transfers.contains { Self.ongoing.contains($0.state) } }
     func pauseReceivingForUpdate() async { for engine in engines.values { await engine.setReceiving(false) } }
     func finishUpdateAttempt() { installingUpdate = false; for engine in engines.values { Task { await engine.setReceiving(receiving) } }; for peer in online { resumePending(peer) } }
-    let inboxRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads/DropDuo", isDirectory: true)
+    static let defaultReceivedFolder = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads/DropDuo", isDirectory: true)
+    /// Where received files end up, under their own names; chosen in Settings.
+    @Published var receivedFolder = UserDefaults.standard.url(forKey: "dropduo.receivedFolder") ?? AppModel.defaultReceivedFolder
+    var receivedFolderName: String { Self.displayName(of: receivedFolder) }
     private let stateRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/DropDuo", isDirectory: true)
+    /// Files still arriving, one folder per phone; finished ones move to `receivedFolder`.
+    private let inboxRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/DropDuo/Inbox", isDirectory: true)
+    private var delivering: Set<String> = []
     private let server = PortServer()
     private var engines: [String: PeerEngine] = [:]
     private var running: Set<String> = []
@@ -61,6 +74,7 @@ struct Transfer: Codable, Identifiable {
         }
         receiving = UserDefaults.standard.object(forKey: "dropduo.receiving") as? Bool ?? true
         selected = devices.first?.id ?? ""
+        tidyOldInbox(); pruneClipboardImages()
         server.lookup = { [weak self] hello in
             guard let self else { throw PortError.invalid("App closed") }; return try await self.authenticate(hello)
         }
@@ -168,10 +182,58 @@ struct Transfer: Codable, Identifiable {
             kept += 1; return kept <= 100
         }
         if finished, let transfer = transfers.first(where: { $0.id == event.id && $0.peer == peer }) {
-            if transfer.direction == "Received" { notifier.received(transfer, from: name(peer)) } else { notifier.sent(transfer, to: name(peer)) }
+            if transfer.direction == "Sent" { notifier.sent(transfer, to: name(peer)) }
+            else if transfer.text != nil { notifier.received(transfer, from: name(peer)) }
+            // A file sent again after it already moved has no path, and was announced the first time.
+            else if let path = event.path { deliver(transfer, from: URL(fileURLWithPath: path)) }
         }
         // New rows are saved right away so a send survives the app quitting before it finishes.
         if existing == nil || ["Complete", "Interrupted", "Cancelled"].contains(event.state) { save(transfers, "history.json") }
+    }
+    /// Moves a finished file into the chosen folder under its own name, then announces it.
+    private func deliver(_ transfer: Transfer, from file: URL) {
+        guard delivering.insert(transfer.id).inserted else { return }
+        let folders = [receivedFolder, Self.defaultReceivedFolder]
+        // Moving to another disk copies, which can take a while for a large file.
+        Task.detached { [weak self] in
+            // A missing folder, like one on an unplugged drive, falls back to Downloads › DropDuo.
+            var placed: URL?
+            for folder in folders where placed == nil { placed = try? ReceivedFolder.place(file, named: transfer.name, in: folder) }
+            await self?.delivered(transfer, at: placed)
+        }
+    }
+    private func delivered(_ transfer: Transfer, at placed: URL?) {
+        delivering.remove(transfer.id)
+        guard let placed else { report("Couldn't save \(transfer.name) to \(receivedFolderName). Use Show in Finder in DropDuo to find it."); return }
+        guard let index = transfers.firstIndex(where: { $0.id == transfer.id && $0.peer == transfer.peer }) else { return }
+        transfers[index].path = placed.path; save(transfers, "history.json")
+        notifier.received(transfers[index], from: name(transfer.peer), folder: Self.displayName(of: placed.deletingLastPathComponent()))
+    }
+    func chooseReceivedFolder() {
+        let panel = NSOpenPanel(); panel.canChooseFiles = false; panel.canChooseDirectories = true; panel.canCreateDirectories = true
+        panel.directoryURL = receivedFolder; panel.prompt = "Choose"; panel.message = "Choose where files from your phone are saved."
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+        receivedFolder = folder; UserDefaults.standard.set(folder, forKey: "dropduo.receivedFolder")
+    }
+    func showReceivedFolder() {
+        try? FileManager.default.createDirectory(at: receivedFolder, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(receivedFolder)
+    }
+    /// Like "Downloads › DropDuo".
+    static func displayName(of folder: URL) -> String {
+        let home = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.pathComponents
+        let parts = folder.standardizedFileURL.pathComponents
+        let shown = parts.starts(with: home) ? parts.dropFirst(home.count) : parts.dropFirst(parts.count > 2 && parts[1] == "Volumes" ? 2 : 1)
+        return shown.isEmpty ? folder.lastPathComponent : shown.joined(separator: " › ")
+    }
+    /// Earlier versions kept files still arriving inside Downloads › DropDuo, in a folder per phone. Those leftovers go, and the folders too once empty; received files stay.
+    private func tidyOldInbox() {
+        let fm = FileManager.default
+        for device in devices {
+            let old = Self.defaultReceivedFolder.appendingPathComponent(device.id, isDirectory: true)
+            try? fm.removeItem(at: old.appendingPathComponent(".partial", isDirectory: true))
+            if (try? fm.contentsOfDirectory(atPath: old.path))?.isEmpty == true { try? fm.removeItem(at: old) }
+        }
     }
     func chooseFiles() { let panel = NSOpenPanel(); panel.allowsMultipleSelection = true; panel.canChooseDirectories = true; if panel.runModal() == .OK { send(panel.urls) } }
     func send(_ urls: [URL]) {
@@ -229,6 +291,36 @@ struct Transfer: Codable, Identifiable {
         guard !installingUpdate else { report("DropDuo is installing an update. Send again after it reopens."); return }
         do { try PeerEngine.validateText(text) } catch { self.error = error.localizedDescription; return }
         send(text, id: UUID().uuidString, to: selected); text = ""
+    }
+    /// Text from outside the window: the Services menu or the clipboard.
+    func send(text value: String) {
+        guard !installingUpdate else { report("DropDuo is installing an update. Send again after it reopens."); return }
+        guard !devices.isEmpty else { report("Pair your phone first: choose Pair a Device in DropDuo."); return }
+        do { try PeerEngine.validateText(value) } catch { report(error.localizedDescription); return }
+        send(value, id: UUID().uuidString, to: selected)
+        if engines[selected] == nil, !windowVisible() { notifier.problem("\(name(selected)) isn't reachable. The text sends when it reconnects.") }
+    }
+    /// Sends what's on the clipboard: files copied in Finder, then text, then an image such as a screenshot.
+    func sendClipboard() {
+        let board = NSPasteboard.general
+        if let files = board.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !files.isEmpty { send(files); return }
+        if let text = board.string(forType: .string), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { send(text: text); return }
+        guard let image = board.data(forType: .png) ?? board.data(forType: .tiff).flatMap({ NSBitmapImageRep(data: $0)?.representation(using: .png, properties: [:]) }) else {
+            report("The clipboard is empty. Copy some text, an image or files first."); return
+        }
+        // Named like a screenshot: "Clipboard image 2026-10-17 at 09.41.05.png".
+        let stamp = DateFormatter(); stamp.locale = Locale(identifier: "en_US_POSIX"); stamp.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
+        let folder = stateRoot.appendingPathComponent("Clipboard", isDirectory: true)
+        let file = folder.appendingPathComponent("Clipboard image \(stamp.string(from: Date())).png")
+        do { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true); try image.write(to: file) } catch { report("Couldn't send the clipboard image: " + error.localizedDescription); return }
+        send([file])
+    }
+    /// Clipboard images are sent from DropDuo's own folder; ones a month old are long gone to the phone.
+    private func pruneClipboardImages() {
+        let folder = stateRoot.appendingPathComponent("Clipboard", isDirectory: true), cutoff = Date().addingTimeInterval(-30 * 86400)
+        for file in (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? [] {
+            if let date = try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate, date < cutoff { try? FileManager.default.removeItem(at: file) }
+        }
     }
     /// Sends text now, or holds it until the phone reconnects.
     private func send(_ value: String, id: String, to peer: String) {
@@ -297,6 +389,7 @@ struct Transfer: Codable, Identifiable {
         status = "Ready on your local network"
         let now = Date()
         transfers = [
+            Transfer(id: "7", peer: phone.id, name: "Text", direction: "Received", state: "Complete", progress: 1, text: "Your sign-in code is 482913", date: now),
             Transfer(id: "6", peer: phone.id, name: "Text", direction: "Sent", state: "Interrupted", progress: 0, text: "Pick up the printer cable on the way home", error: "Waiting for \(phone.name)", date: now, autoRetry: true),
             Transfer(id: "5", peer: phone.id, name: "Quarterly report.pdf", direction: "Sent", state: "Sending", progress: 0.62, path: "/tmp/Quarterly report.pdf", date: now, stats: previewProgress()),
             Transfer(id: "4", peer: phone.id, name: "Text", direction: "Received", state: "Complete", progress: 1, text: "https://dropduo.app/download", date: now.addingTimeInterval(-60)),

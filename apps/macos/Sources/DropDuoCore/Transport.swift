@@ -82,9 +82,14 @@ public struct PeerEvent: Sendable {
     public var path: String?
     public var text: String?
     public var error: String?
-    public init(id: String, name: String, direction: String, state: String, progress: Double = 0, path: String? = nil, text: String? = nil, error: String? = nil) {
+    public var transferredBytes: Int64?
+    public var totalBytes: Int64?
+    public var sampledAt = ProcessInfo.processInfo.systemUptime
+    public init(id: String, name: String, direction: String, state: String, progress: Double = 0, path: String? = nil, text: String? = nil, error: String? = nil,
+                transferredBytes: Int64? = nil, totalBytes: Int64? = nil) {
         self.id = id; self.name = name; self.direction = direction; self.state = state
         self.progress = progress; self.path = path; self.text = text; self.error = error
+        self.transferredBytes = transferredBytes; self.totalBytes = totalBytes
     }
 }
 public actor PeerEngine {
@@ -92,6 +97,7 @@ public actor PeerEngine {
     private let inbox: Inbox
     private let event: @Sendable (PeerEvent) -> Void
     private var incoming: [String: Message] = [:]
+    private var incomingActivities: [String: TransferActivity] = [:]
     private var responses: [String: Message] = [:]
     private var cancelled: Set<String> = []
     private var active: Set<String> = []
@@ -109,13 +115,15 @@ public actor PeerEngine {
             alive = false
             for offer in incoming.values { event(PeerEvent(id: offer.id!, name: offer.name!, direction: "Received", state: "Interrupted", error: "Connection lost. The sender can retry when the devices reconnect.")) }
             incoming.removeAll()
+            incomingActivities.removeAll()
         }
         while alive { try await handle(channel.receive()) }
     }
-    public func stop() async { alive = false; await channel.close() }
+    public func stop() async { alive = false; incomingActivities.removeAll(); await channel.close() }
     public func cancel(_ id: String) async {
         guard active.contains(id) || incoming[id] != nil else { return }
         cancelled.insert(id); incoming.removeValue(forKey: id); try? inbox.cancel(id)
+        incomingActivities.removeValue(forKey: id)
         try? await channel.send(Message("cancel", id: id))
         event(PeerEvent(id: id, name: "Transfer", direction: "", state: "Cancelled"))
         if !active.contains(id) { cancelled.remove(id) }
@@ -130,36 +138,44 @@ public actor PeerEngine {
             }
             try await Task.sleep(nanoseconds: 20_000_000)
         }
+        // A peer that stopped answering is gone; closing lets the devices reconnect and resume.
+        if alive { await stop() }
         throw PortError.interrupted(Self.connectionLost)
     }
     public func sendFile(_ file: URL, id: String = UUID().uuidString) async throws {
-        guard !active.contains(id), active.count < 4 else { throw PortError.invalid("Transfer already active") }
+        guard !active.contains(id) else { throw PortError.invalid("Transfer already active") }
+        guard active.count < 4 else { throw PortError.invalid("4 transfers are already in progress. Retry when they finish.") }
         active.insert(id); cancelled.remove(id); responses.removeValue(forKey: id); defer { active.remove(id); cancelled.remove(id); responses.removeValue(forKey: id) }
+        let activity = TransferActivity(); defer { activity.end() }
         do {
             let name = file.lastPathComponent
             event(PeerEvent(id: id, name: name, direction: "Sent", state: "Preparing"))
             let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
-            guard attributes[.type] as? FileAttributeType == .typeRegular, let number = attributes[.size] as? NSNumber
-            else { throw PortError.invalid("Only files can be sent, not folders") }
-            guard number.int64Value <= Wire.maxFile else { throw PortError.invalid("Files larger than 32 GB can't be sent") }
-            let size = number.int64Value
-            let hash = try await Task.detached { try Wire.hash(file) }.value
+            let type = attributes[.type] as? FileAttributeType
+            guard type == .typeRegular || type == .typeDirectory, let length = (attributes[.size] as? NSNumber)?.int64Value
+            else { throw PortError.invalid("Only files and folders can be sent") }
+            let payload = try await Task.detached { type == .typeDirectory ? try Payload(folder: file) : Payload(file: file, size: length) }.value
+            guard payload.size <= Wire.maxFile else { throw PortError.invalid("Files larger than 32 GB can't be sent") }
+            let size = payload.size
+            let hash = try await Task.detached { try payload.hash() }.value
             if cancelled.contains(id) { throw PortError.invalid("Transfer cancelled") }
-            let offer = Message("offer", id: id, name: name, size: size, sha256: hash)
+            let offer = Message("offer", id: id, name: name, size: size, sha256: hash, kind: payload.isFolder ? "folder" : nil)
             try Inbox.validate(offer); try await channel.send(offer)
             let response = try await wait(id)
             guard response.type == "accept", let offset = response.offset, offset >= 0, offset <= size else { throw PortError.invalid("Invalid resume response") }
-            let handle = try FileHandle(forReadingFrom: file); defer { try? handle.close() }
-            try handle.seek(toOffset: UInt64(offset)); var sent = offset
+            let reader = Payload.Reader(payload); var sent = offset
+            event(PeerEvent(id: id, name: name, direction: "Sent", state: "Sending", progress: size == 0 ? 1 : Double(sent)/Double(size), transferredBytes: sent, totalBytes: size))
             while sent < size {
                 if cancelled.contains(id) { throw PortError.invalid("Transfer cancelled") }
-                guard let chunk = try handle.read(upToCount: min(Wire.chunkSize, Int(size - sent))), !chunk.isEmpty else { throw PortError.invalid("Source file changed") }
+                let chunk = try reader.read(at: sent, count: min(Wire.chunkSize, Int(size - sent)))
+                guard !chunk.isEmpty else { throw PortError.invalid("Source file changed") }
                 try await channel.send(Message("chunk", id: id, offset: sent, data: chunk.base64EncodedString()))
                 let ack = try await wait(id)
                 guard ack.type == "ack", ack.offset == sent + Int64(chunk.count) else { throw PortError.invalid("Invalid transfer acknowledgement") }
                 sent += Int64(chunk.count)
-                event(PeerEvent(id: id, name: name, direction: "Sent", state: "Sending", progress: size == 0 ? 1 : Double(sent)/Double(size)))
+                event(PeerEvent(id: id, name: name, direction: "Sent", state: "Sending", progress: Double(sent)/Double(size), transferredBytes: sent, totalBytes: size))
             }
+            event(PeerEvent(id: id, name: name, direction: "Sent", state: "Verifying", progress: 1, transferredBytes: sent, totalBytes: size))
             try await channel.send(Message("finish", id: id))
             guard try await wait(id).type == "complete" else { throw PortError.invalid("File was not confirmed") }
             event(PeerEvent(id: id, name: name, direction: "Sent", state: "Complete", progress: 1, path: file.path))
@@ -181,6 +197,7 @@ public actor PeerEngine {
         try Self.validateText(text)
         guard !active.contains(id) else { throw PortError.invalid("Transfer already active") }
         active.insert(id); responses.removeValue(forKey: id); defer { active.remove(id); responses.removeValue(forKey: id) }
+        let activity = TransferActivity(); defer { activity.end() }
         do {
             try await channel.send(Message("text", id: id, text: text))
             guard try await wait(id).type == "complete" else { throw PortError.invalid("Text was not confirmed") }
@@ -197,6 +214,7 @@ public actor PeerEngine {
         case "cancel":
             guard active.contains(id) || incoming[id] != nil else { return }
             cancelled.insert(id); incoming.removeValue(forKey: id); try? inbox.cancel(id)
+            incomingActivities.removeValue(forKey: id)
             event(PeerEvent(id: id, name: "Transfer", direction: "", state: "Cancelled"))
             if !active.contains(id) { cancelled.remove(id) }
         default:
@@ -205,29 +223,36 @@ public actor PeerEngine {
                 case "offer":
                     guard receivingEnabled else { throw PortError.invalid(Self.paused) }
                     guard incoming.count < 4 else { throw PortError.invalid("The other device is already receiving 4 files. Retry when they finish.") }
+                    let activity = TransferActivity()
                     let offset = try inbox.prepare(message); incoming[id] = message
-                    event(PeerEvent(id: id, name: message.name!, direction: "Received", state: "Receiving", progress: 0))
+                    incomingActivities[id] = activity
+                    event(PeerEvent(id: id, name: message.name!, direction: "Received", state: "Receiving", progress: message.size == 0 ? 1 : Double(offset)/Double(message.size!), transferredBytes: offset, totalBytes: message.size))
                     try await channel.send(Message("accept", id: id, offset: offset))
                 case "chunk":
                     guard let offer = incoming[id], let offset = message.offset, let encoded = message.data,
                         let bytes = Data(base64Encoded: encoded) else { throw PortError.invalid("Unknown transfer or invalid chunk") }
                     let next = try inbox.append(offer, offset: offset, data: bytes)
                     try await channel.send(Message("ack", id: id, offset: next))
-                    event(PeerEvent(id: id, name: offer.name!, direction: "Received", state: "Receiving", progress: Double(next)/Double(max(1, offer.size!))))
+                    event(PeerEvent(id: id, name: offer.name!, direction: "Received", state: "Receiving", progress: Double(next)/Double(max(1, offer.size!)), transferredBytes: next, totalBytes: offer.size))
                 case "finish":
                     guard let offer = incoming[id] else { throw PortError.invalid("Unknown transfer") }
+                    event(PeerEvent(id: id, name: offer.name!, direction: "Received", state: "Verifying", progress: 1, transferredBytes: offer.size, totalBytes: offer.size))
+                    // The file is saved, so record it before the reply that may fail on a dropped connection.
                     let file = try inbox.finish(offer)
                     incoming.removeValue(forKey: id)
+                    event(PeerEvent(id: id, name: offer.name!, direction: "Received", state: "Complete", progress: 1, path: file?.path))
                     try await channel.send(Message("complete", id: id))
-                    event(PeerEvent(id: id, name: offer.name!, direction: "Received", state: "Complete", progress: 1, path: file.path))
+                    incomingActivities.removeValue(forKey: id)
                 case "text":
                     guard receivingEnabled else { throw PortError.invalid(Self.paused) }
                     guard let text = message.text, text.utf8.count <= 64_000 else { throw PortError.invalid(Self.textTooLong) }
+                    let activity = TransferActivity(); defer { activity.end() }
                     event(PeerEvent(id: id, name: "Text", direction: "Received", state: "Complete", progress: 1, text: text))
                     try await channel.send(Message("complete", id: id))
                 default: throw PortError.invalid("Unsupported message")
                 }
             } catch {
+                incomingActivities.removeValue(forKey: id)
                 if let offer = incoming.removeValue(forKey: id) { event(PeerEvent(id: id, name: offer.name!, direction: "Received", state: "Interrupted", error: error.localizedDescription)) }
                 try await channel.send(Message("error", id: id, error: error.localizedDescription))
             }

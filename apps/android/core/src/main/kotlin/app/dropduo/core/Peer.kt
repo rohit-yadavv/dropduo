@@ -30,15 +30,19 @@ class SecureChannel(val socket: Socket, private val sendKey: ByteArray, private 
                 require(welcome.version == 1 && server.size == 32 && Wire.verify(welcome.proof, secret,
                     "dropduo/1/welcome|${ticket.pairID}|${hello.nonce}|${welcome.nonce}")) { "Mac authentication failed" }
                 socket.soTimeout = 0
+                // The Mac admits the connection only after this first sealed frame, so a replayed hello can't take it over.
                 return SecureChannel(socket, Wire.derive(secret, client, server, "c2s"), Wire.derive(secret, client, server, "s2c"))
+                    .also { it.send(Message("ready", UUID.randomUUID().toString())) }
             } catch (error: Exception) { socket.close(); throw error }
         }
     }
 }
 /** The connection dropped mid-transfer; the sender resumes automatically on reconnect. */
 class Disconnected(message: String) : IOException(message)
+/** [folder] is set on the first event of a received folder. */
 data class PeerEvent(val id: String, val name: String, val direction: String, val state: String,
-    val progress: Double = 0.0, val path: String? = null, val text: String? = null, val error: String? = null)
+    val progress: Double = 0.0, val path: String? = null, val text: String? = null, val error: String? = null, val folder: Boolean = false,
+    val transferredBytes: Long? = null, val totalBytes: Long? = null, val sampledAt: Double = TransferProgress.now())
 const val CONNECTION_LOST = "Connection lost. It resumes when the devices reconnect."
 private const val PAUSED = "Receiving is paused on the other device. Turn it back on there, then retry."
 private const val TEXT_TOO_LONG = "Text is too long to send. Share it as a file instead."
@@ -66,10 +70,13 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
             val reply = responses.getValue(id).poll(100, TimeUnit.MILLISECONDS) ?: continue
             check(reply.type != "error") { reply.error ?: "Transfer rejected" }; return reply
         }
+        // A peer that stopped answering is gone; closing lets the devices reconnect and resume.
+        if (alive) close()
         throw Disconnected(CONNECTION_LOST)
     }
     fun sendFile(file: File, id: String = UUID.randomUUID().toString(), displayName: String = file.name) {
-        check(active.size < 4 && active.add(id)) { "Transfer already active" }
+        check(active.size < 4) { "4 transfers are already in progress. Retry when they finish." }
+        check(active.add(id)) { "Transfer already active" }
         cancelled.remove(id); responses[id] = LinkedBlockingQueue(8)
         try {
             event(PeerEvent(id, displayName, "Sent", "Preparing"))
@@ -80,6 +87,7 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
             val reply = wait(id)
             check(reply.type == "accept" && reply.offset != null && reply.offset in 0..size) { "Invalid resume response" }
             var sent = reply.offset!!
+            event(PeerEvent(id, displayName, "Sent", "Sending", if (size == 0L) 1.0 else sent.toDouble()/size, transferredBytes = sent, totalBytes = size))
             RandomAccessFile(file, "r").use { source ->
                 source.seek(sent); val buffer = ByteArray(Wire.CHUNK_SIZE)
                 while (sent < size) {
@@ -88,9 +96,10 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
                     check(count > 0) { "Source file changed" }
                     channel.send(Message("chunk", id, offset = sent, data = Wire.b64(buffer.copyOf(count))))
                     val ack = wait(id); check(ack.type == "ack" && ack.offset == sent + count) { "Invalid transfer acknowledgement" }
-                    sent += count; event(PeerEvent(id, displayName, "Sent", "Sending", if (size == 0L) 1.0 else sent.toDouble()/size))
+                    sent += count; event(PeerEvent(id, displayName, "Sent", "Sending", sent.toDouble()/size, transferredBytes = sent, totalBytes = size))
                 }
             }
+            event(PeerEvent(id, displayName, "Sent", "Verifying", 1.0, transferredBytes = sent, totalBytes = size))
             channel.send(Message("finish", id)); check(wait(id).type == "complete") { "File was not confirmed" }
             event(PeerEvent(id, displayName, "Sent", "Complete", 1.0, file.path))
         } catch (error: Exception) {
@@ -100,11 +109,14 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
     }
     /** Reusing [id] when re-sending held text lets the receiver show it once. */
     fun sendText(text: String, id: String = UUID.randomUUID().toString()) {
-        validateText(text); check(responses.putIfAbsent(id, LinkedBlockingQueue(8)) == null) { "Transfer already active" }
+        validateText(text); check(active.add(id)) { "Transfer already active" }
+        cancelled.remove(id); responses[id] = LinkedBlockingQueue(8)
         try {
             channel.send(Message("text", id, text = text)); check(wait(id).type == "complete") { "Text was not confirmed" }
             event(PeerEvent(id, "Text", "Sent", "Complete", 1.0, text = text))
-        } finally { responses.remove(id) }
+        } catch (error: Exception) {
+            if (cancelled.contains(id)) event(PeerEvent(id, "Text", "Sent", "Cancelled", text = text)); throw error
+        } finally { active.remove(id); cancelled.remove(id); responses.remove(id) }
     }
     private fun handle(message: Message) {
         val id = message.id ?: error("Missing message ID")
@@ -117,18 +129,21 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
                     "offer" -> {
                         check(receivingEnabled) { PAUSED }; check(incoming.size < 4) { "The other device is already receiving 4 files. Retry when they finish." }
                         val offset = inbox.prepare(message); incoming[id] = message
-                        event(PeerEvent(id, message.name!!, "Received", "Receiving")); channel.send(Message("accept", id, offset = offset))
+                        event(PeerEvent(id, message.name!!, "Received", "Receiving", if (message.size == 0L) 1.0 else offset.toDouble()/message.size!!,
+                            folder = message.kind == "folder", transferredBytes = offset, totalBytes = message.size)); channel.send(Message("accept", id, offset = offset))
                     }
                     "chunk" -> {
                         val offer = incoming[id] ?: error("Unknown transfer")
                         val next = inbox.append(offer, message.offset ?: error("Missing offset"), Wire.decode(message.data ?: error("Missing chunk")))
                         channel.send(Message("ack", id, offset = next))
-                        event(PeerEvent(id, offer.name!!, "Received", "Receiving", next.toDouble()/maxOf(1L, offer.size!!)))
+                        event(PeerEvent(id, offer.name!!, "Received", "Receiving", next.toDouble()/maxOf(1L, offer.size!!), transferredBytes = next, totalBytes = offer.size))
                     }
                     "finish" -> {
                         val offer = incoming[id] ?: error("Unknown transfer")
-                        val file = inbox.finish(offer); incoming.remove(id); channel.send(Message("complete", id))
-                        event(PeerEvent(id, offer.name!!, "Received", "Complete", 1.0, file.path))
+                        event(PeerEvent(id, offer.name!!, "Received", "Verifying", 1.0, transferredBytes = offer.size, totalBytes = offer.size))
+                        // The file is saved, so record it before the reply that may fail on a dropped connection.
+                        val file = inbox.finish(offer); incoming.remove(id)
+                        event(PeerEvent(id, offer.name!!, "Received", "Complete", 1.0, file?.path)); channel.send(Message("complete", id))
                     }
                     "text" -> {
                         check(receivingEnabled) { PAUSED }; check(message.text != null && message.text.toByteArray().size <= 64000) { TEXT_TOO_LONG }

@@ -94,10 +94,12 @@ public struct Message: Codable {
     public var data: String?
     public var text: String?
     public var error: String?
+    /// "folder" when an offer is a folder packed as a ``Payload``; absent for files.
+    public var kind: String?
     public init(_ type: String, id: String? = nil, name: String? = nil, size: Int64? = nil, sha256: String? = nil,
-                offset: Int64? = nil, data: String? = nil, text: String? = nil, error: String? = nil) {
+                offset: Int64? = nil, data: String? = nil, text: String? = nil, error: String? = nil, kind: String? = nil) {
         self.type = type; self.id = id; self.name = name; self.size = size; self.sha256 = sha256
-        self.offset = offset; self.data = data; self.text = text; self.error = error
+        self.offset = offset; self.data = data; self.text = text; self.error = error; self.kind = kind
     }
 }
 public struct FrameCipher {

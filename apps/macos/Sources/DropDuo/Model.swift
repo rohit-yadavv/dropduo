@@ -9,6 +9,16 @@ struct Transfer: Codable, Identifiable {
     var progress: Double; var path: String?; var text: String?; var error: String?; var date: Date
     /// Set when a send is waiting for an unreachable phone or was cut off by a lost connection; it goes out when the phone reconnects.
     var autoRetry: Bool?
+    /// Live estimates use a monotonic clock and are never restored from history.
+    var stats: TransferProgress? = nil
+    private enum CodingKeys: String, CodingKey { case id, peer, name, direction, state, progress, path, text, error, date, autoRetry }
+}
+/// A shared text counts as a link only when it is a single web address.
+func webLink(_ text: String) -> URL? {
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.contains(where: \.isWhitespace), let url = URL(string: trimmed), let scheme = url.scheme?.lowercased(),
+          ["http", "https"].contains(scheme), url.host() != nil else { return nil }
+    return url
 }
 @MainActor final class AppModel: ObservableObject {
     @Published var targeted = false
@@ -25,14 +35,23 @@ struct Transfer: Codable, Identifiable {
     @Published var openAtLogin = LoginItem.isEnabled
     @Published var loginError: String?
     var installingUpdate = false
-    var hasActiveTransfers: Bool { !running.isEmpty || pendingApproval || transfers.contains { ["Preparing", "Sending", "Receiving"].contains($0.state) } }
+    static let ongoing = ["Preparing", "Sending", "Receiving", "Verifying"]
+    var hasActiveTransfers: Bool { !running.isEmpty || pendingApproval || transfers.contains { Self.ongoing.contains($0.state) } }
     func pauseReceivingForUpdate() async { for engine in engines.values { await engine.setReceiving(false) } }
     func finishUpdateAttempt() { installingUpdate = false; for engine in engines.values { Task { await engine.setReceiving(receiving) } }; for peer in online { resumePending(peer) } }
-    let inboxRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads/DropDuo", isDirectory: true)
+    static let defaultReceivedFolder = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads/DropDuo", isDirectory: true)
+    /// Where received files end up, under their own names; chosen in Settings.
+    @Published var receivedFolder = UserDefaults.standard.url(forKey: "dropduo.receivedFolder") ?? AppModel.defaultReceivedFolder
+    var receivedFolderName: String { Self.displayName(of: receivedFolder) }
     private let stateRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/DropDuo", isDirectory: true)
+    /// Files still arriving, one folder per phone; finished ones move to `receivedFolder`.
+    private let inboxRoot = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/DropDuo/Inbox", isDirectory: true)
+    private var delivering: Set<String> = []
     private let server = PortServer()
     private var engines: [String: PeerEngine] = [:]
     private var running: Set<String> = []
+    /// The last file batch queued for each phone; batches wait for it so sends stay within the peer's active-transfer limit.
+    private var sendQueues: [String: Task<Void, Never>] = [:]
     private var pending: Ticket?
     private var pendingApproval = false
     private var port = 53318
@@ -49,12 +68,13 @@ struct Transfer: Codable, Identifiable {
         UserDefaults.standard.set(hostID, forKey: "dropduo.hostID")
         try? FileManager.default.createDirectory(at: stateRoot, withIntermediateDirectories: true)
         devices = load("devices.json") ?? []; transfers = load("history.json") ?? []
-        for index in transfers.indices where ["Preparing", "Sending", "Receiving"].contains(transfers[index].state) {
+        for index in transfers.indices where Self.ongoing.contains(transfers[index].state) {
             transfers[index].state = "Interrupted"
-            if transfers[index].direction == "Sent", transfers[index].path != nil { transfers[index].autoRetry = true }
+            if transfers[index].direction == "Sent", transfers[index].path != nil || transfers[index].text != nil { transfers[index].autoRetry = true }
         }
         receiving = UserDefaults.standard.object(forKey: "dropduo.receiving") as? Bool ?? true
         selected = devices.first?.id ?? ""
+        tidyOldInbox(); pruneClipboardImages()
         server.lookup = { [weak self] hello in
             guard let self else { throw PortError.invalid("App closed") }; return try await self.authenticate(hello)
         }
@@ -136,45 +156,119 @@ struct Transfer: Codable, Identifiable {
         } catch { self.error = error.localizedDescription; await channel.close() }
     }
     private func record(_ event: PeerEvent, peer: String) {
-        let finished = event.state == "Complete" && transfers.first(where: { $0.id == event.id && $0.peer == peer })?.state != "Complete"
-        if let index = transfers.firstIndex(where: { $0.id == event.id && $0.peer == peer }) {
+        let existing = transfers.firstIndex(where: { $0.id == event.id && $0.peer == peer })
+        let finished = event.state == "Complete" && existing.map { transfers[$0].state } != "Complete"
+        var stats: TransferProgress?
+        if let total = event.totalBytes, let bytes = event.transferredBytes {
+            if let index = existing, transfers[index].stats?.totalBytes == total,
+               ["Sending", "Receiving", "Verifying"].contains(transfers[index].state) {
+                stats = transfers[index].stats; stats?.advance(bytes: bytes, at: event.sampledAt)
+            } else { stats = TransferProgress(totalBytes: total, transferredBytes: bytes, at: event.sampledAt) }
+        }
+        if let index = existing {
             transfers[index].state = event.state; transfers[index].progress = event.progress
+            transfers[index].stats = stats
             transfers[index].path = event.path ?? transfers[index].path
             transfers[index].text = event.text ?? transfers[index].text; transfers[index].error = event.error
             if ["Complete", "Cancelled"].contains(event.state) { transfers[index].autoRetry = nil }
         } else {
             transfers.insert(Transfer(id: event.id, peer: peer, name: event.name, direction: event.direction, state: event.state,
-                progress: event.progress, path: event.path, text: event.text, error: event.error, date: Date()), at: 0)
+                progress: event.progress, path: event.path, text: event.text, error: event.error, date: Date(), stats: stats), at: 0)
         }
-        transfers = Array(transfers.prefix(100))
+        // History is also the send queue, so only finished rows count toward its limit.
+        var kept = 0
+        transfers = transfers.filter { row in
+            if Self.ongoing.contains(row.state) || row.autoRetry == true { return true }
+            kept += 1; return kept <= 100
+        }
         if finished, let transfer = transfers.first(where: { $0.id == event.id && $0.peer == peer }) {
-            if transfer.direction == "Received" { notifier.received(transfer, from: name(peer)) } else { notifier.sent(transfer, to: name(peer)) }
+            if transfer.direction == "Sent" { notifier.sent(transfer, to: name(peer)) }
+            else if transfer.text != nil { notifier.received(transfer, from: name(peer)) }
+            // A file sent again after it already moved has no path, and was announced the first time.
+            else if let path = event.path { deliver(transfer, from: URL(fileURLWithPath: path)) }
         }
-        if ["Complete", "Interrupted", "Cancelled"].contains(event.state) { save(transfers, "history.json") }
+        // New rows are saved right away so a send survives the app quitting before it finishes.
+        if existing == nil || ["Complete", "Interrupted", "Cancelled"].contains(event.state) { save(transfers, "history.json") }
     }
-    func chooseFiles() { let panel = NSOpenPanel(); panel.allowsMultipleSelection = true; panel.canChooseDirectories = false; if panel.runModal() == .OK { send(panel.urls) } }
+    /// Moves a finished file into the chosen folder under its own name, then announces it.
+    private func deliver(_ transfer: Transfer, from file: URL) {
+        guard delivering.insert(transfer.id).inserted else { return }
+        let folders = [receivedFolder, Self.defaultReceivedFolder]
+        // Moving to another disk copies, which can take a while for a large file.
+        Task.detached { [weak self] in
+            // A missing folder, like one on an unplugged drive, falls back to Downloads › DropDuo.
+            var placed: URL?
+            for folder in folders where placed == nil { placed = try? ReceivedFolder.place(file, named: transfer.name, in: folder) }
+            await self?.delivered(transfer, at: placed)
+        }
+    }
+    private func delivered(_ transfer: Transfer, at placed: URL?) {
+        delivering.remove(transfer.id)
+        guard let placed else { report("Couldn't save \(transfer.name) to \(receivedFolderName). Use Show in Finder in DropDuo to find it."); return }
+        guard let index = transfers.firstIndex(where: { $0.id == transfer.id && $0.peer == transfer.peer }) else { return }
+        transfers[index].path = placed.path; save(transfers, "history.json")
+        notifier.received(transfers[index], from: name(transfer.peer), folder: Self.displayName(of: placed.deletingLastPathComponent()))
+    }
+    func chooseReceivedFolder() {
+        let panel = NSOpenPanel(); panel.canChooseFiles = false; panel.canChooseDirectories = true; panel.canCreateDirectories = true
+        panel.directoryURL = receivedFolder; panel.prompt = "Choose"; panel.message = "Choose where files from your phone are saved."
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+        receivedFolder = folder; UserDefaults.standard.set(folder, forKey: "dropduo.receivedFolder")
+    }
+    func showReceivedFolder() {
+        try? FileManager.default.createDirectory(at: receivedFolder, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(receivedFolder)
+    }
+    /// Like "Downloads › DropDuo".
+    static func displayName(of folder: URL) -> String {
+        let home = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.pathComponents
+        let parts = folder.standardizedFileURL.pathComponents
+        let shown = parts.starts(with: home) ? parts.dropFirst(home.count) : parts.dropFirst(parts.count > 2 && parts[1] == "Volumes" ? 2 : 1)
+        return shown.isEmpty ? folder.lastPathComponent : shown.joined(separator: " › ")
+    }
+    /// Earlier versions kept files still arriving inside Downloads › DropDuo, in a folder per phone. Those leftovers go, and the folders too once empty; received files stay.
+    private func tidyOldInbox() {
+        let fm = FileManager.default
+        for device in devices {
+            let old = Self.defaultReceivedFolder.appendingPathComponent(device.id, isDirectory: true)
+            try? fm.removeItem(at: old.appendingPathComponent(".partial", isDirectory: true))
+            if (try? fm.contentsOfDirectory(atPath: old.path))?.isEmpty == true { try? fm.removeItem(at: old) }
+        }
+    }
+    func chooseFiles() { let panel = NSOpenPanel(); panel.allowsMultipleSelection = true; panel.canChooseDirectories = true; if panel.runModal() == .OK { send(panel.urls) } }
     func send(_ urls: [URL]) {
         guard !installingUpdate else { report("DropDuo is installing an update. Send again after it reopens."); return }
         guard !devices.isEmpty else { report("Pair your phone first: choose Pair a Device in DropDuo."); return }
-        let files = urls.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) != true }
-        if files.count < urls.count { report(files.isEmpty ? "Folders can't be sent. Open the folder and choose the files inside." : "Folders were skipped. Only files can be sent.") }
-        if !files.isEmpty { send(files.map { ($0, UUID().uuidString) }, to: selected) }
+        guard !urls.isEmpty else { return }
+        send(urls.map { ($0, UUID().uuidString) }, to: selected)
+        // Sent from Finder or the menu bar, nothing on screen shows that the files are waiting.
+        if engines[selected] == nil, !windowVisible() { notifier.problem("\(name(selected)) isn't reachable. The files send when it reconnects.") }
     }
-    /// Sends one file at a time so resumed batches stay within the peer's active-transfer limit.
+    /// Sends one file at a time per phone, including separate drops, so sends stay within the peer's active-transfer limit.
     /// While the phone is unreachable, files wait in history and send when it reconnects.
     private func send(_ files: [(url: URL, id: String)], to peer: String) {
-        guard let engine = engines[peer] else {
+        guard engines[peer] != nil else {
             for (file, id) in files { hold(PeerEvent(id: id, name: file.lastPathComponent, direction: "Sent", state: "Interrupted", path: file.path, error: "Waiting for \(name(peer))"), peer: peer) }
             return
         }
         let files = files.filter { running.insert($0.id).inserted }
-        Task { for (file, id) in files {
+        guard !files.isEmpty else { return }
+        for (file, id) in files { record(PeerEvent(id: id, name: file.lastPathComponent, direction: "Sent", state: "Preparing", path: file.path), peer: peer) }
+        let previous = sendQueues[peer]
+        sendQueues[peer] = Task { await previous?.value; for (file, id) in files {
             if transfers.first(where: { $0.id == id && $0.peer == peer })?.state == "Cancelled" { running.remove(id); continue }
-            record(PeerEvent(id: id, name: file.lastPathComponent, direction: "Sent", state: "Preparing", path: file.path), peer: peer)
+            guard let engine = engines[peer] else {
+                running.remove(id)
+                hold(PeerEvent(id: id, name: file.lastPathComponent, direction: "Sent", state: "Interrupted", path: file.path, error: "Waiting for \(name(peer))"), peer: peer)
+                continue
+            }
             do { try await engine.sendFile(file, id: id); running.remove(id) } catch {
                 running.remove(id)
                 let interrupted = (error as? PortError)?.isInterruption == true
-                if let index = transfers.firstIndex(where: { $0.id == id && $0.peer == peer }) { transfers[index].autoRetry = interrupted ? true : nil; save(transfers, "history.json") }
+                guard let index = transfers.firstIndex(where: { $0.id == id && $0.peer == peer }), transfers[index].state != "Cancelled" else { continue }
+                // A send refused before it started has no engine event to end it.
+                if Self.ongoing.contains(transfers[index].state) { transfers[index].state = "Interrupted"; transfers[index].error = error.localizedDescription }
+                transfers[index].autoRetry = interrupted ? true : nil; save(transfers, "history.json")
                 if !interrupted { report(error.localizedDescription) }
                 // The phone may have reconnected while this attempt was still failing on the old connection.
                 else if let current = engines[peer], current !== engine { resumePending(peer) }
@@ -198,15 +292,47 @@ struct Transfer: Codable, Identifiable {
         do { try PeerEngine.validateText(text) } catch { self.error = error.localizedDescription; return }
         send(text, id: UUID().uuidString, to: selected); text = ""
     }
+    /// Text from outside the window: the Services menu or the clipboard.
+    func send(text value: String) {
+        guard !installingUpdate else { report("DropDuo is installing an update. Send again after it reopens."); return }
+        guard !devices.isEmpty else { report("Pair your phone first: choose Pair a Device in DropDuo."); return }
+        do { try PeerEngine.validateText(value) } catch { report(error.localizedDescription); return }
+        send(value, id: UUID().uuidString, to: selected)
+        if engines[selected] == nil, !windowVisible() { notifier.problem("\(name(selected)) isn't reachable. The text sends when it reconnects.") }
+    }
+    /// Sends what's on the clipboard: files copied in Finder, then text, then an image such as a screenshot.
+    func sendClipboard() {
+        let board = NSPasteboard.general
+        if let files = board.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !files.isEmpty { send(files); return }
+        if let text = board.string(forType: .string), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { send(text: text); return }
+        guard let image = board.data(forType: .png) ?? board.data(forType: .tiff).flatMap({ NSBitmapImageRep(data: $0)?.representation(using: .png, properties: [:]) }) else {
+            report("The clipboard is empty. Copy some text, an image or files first."); return
+        }
+        // Named like a screenshot: "Clipboard image 2026-10-17 at 09.41.05.png".
+        let stamp = DateFormatter(); stamp.locale = Locale(identifier: "en_US_POSIX"); stamp.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
+        let folder = stateRoot.appendingPathComponent("Clipboard", isDirectory: true)
+        let file = folder.appendingPathComponent("Clipboard image \(stamp.string(from: Date())).png")
+        do { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true); try image.write(to: file) } catch { report("Couldn't send the clipboard image: " + error.localizedDescription); return }
+        send([file])
+    }
+    /// Clipboard images are sent from DropDuo's own folder; ones a month old are long gone to the phone.
+    private func pruneClipboardImages() {
+        let folder = stateRoot.appendingPathComponent("Clipboard", isDirectory: true), cutoff = Date().addingTimeInterval(-30 * 86400)
+        for file in (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? [] {
+            if let date = try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate, date < cutoff { try? FileManager.default.removeItem(at: file) }
+        }
+    }
     /// Sends text now, or holds it until the phone reconnects.
     private func send(_ value: String, id: String, to peer: String) {
         guard let engine = engines[peer] else {
             hold(PeerEvent(id: id, name: "Text", direction: "Sent", state: "Interrupted", text: value, error: "Waiting for \(name(peer))"), peer: peer); return
         }
         guard running.insert(id).inserted else { return }
+        record(PeerEvent(id: id, name: "Text", direction: "Sent", state: "Sending", text: value), peer: peer)
         Task {
             do { try await engine.sendText(value, id: id); running.remove(id) } catch {
                 running.remove(id)
+                if transfers.first(where: { $0.id == id && $0.peer == peer })?.state == "Cancelled" { return }
                 if (error as? PortError)?.isInterruption == true {
                     hold(PeerEvent(id: id, name: "Text", direction: "Sent", state: "Interrupted", text: value, error: error.localizedDescription), peer: peer)
                     // The phone may have reconnected while this attempt was still failing on the old connection.
@@ -220,8 +346,10 @@ struct Transfer: Codable, Identifiable {
         }
     }
     func cancel(_ transfer: Transfer) {
-        if let index = transfers.firstIndex(where: { $0.id == transfer.id && $0.peer == transfer.peer }), transfers[index].autoRetry == true {
-            transfers[index].autoRetry = nil; transfers[index].state = "Cancelled"; save(transfers, "history.json")
+        // Ends sends here too: waiting and queued ones aren't in the engine, and its event arrives after the send's own error.
+        if let index = transfers.firstIndex(where: { $0.id == transfer.id && $0.peer == transfer.peer }),
+           transfers[index].direction == "Sent", transfers[index].state != "Complete" {
+            transfers[index].autoRetry = nil; transfers[index].state = "Cancelled"; transfers[index].error = nil; save(transfers, "history.json")
         }
         if let engine = engines[transfer.peer] { Task { await engine.cancel(transfer.id) } } }
     func retry(_ transfer: Transfer) {
@@ -250,7 +378,7 @@ struct Transfer: Codable, Identifiable {
     }
     func persistSettings() { UserDefaults.standard.set(receiving, forKey: "dropduo.receiving") }
     /// Keeps active and waiting sends, so clearing history never drops something still on its way.
-    func clearHistory() { transfers.removeAll { !["Preparing", "Sending", "Receiving"].contains($0.state) && $0.autoRetry != true }; save(transfers, "history.json") }
+    func clearHistory() { transfers.removeAll { !Self.ongoing.contains($0.state) && $0.autoRetry != true }; save(transfers, "history.json") }
     #if DEBUG
     private func seedPreview() {
         let scene = ProcessInfo.processInfo.environment["DROPDUO_PREVIEW_SCENE"] ?? "device"
@@ -261,13 +389,18 @@ struct Transfer: Codable, Identifiable {
         status = "Ready on your local network"
         let now = Date()
         transfers = [
+            Transfer(id: "7", peer: phone.id, name: "Text", direction: "Received", state: "Complete", progress: 1, text: "Your sign-in code is 482913", date: now),
             Transfer(id: "6", peer: phone.id, name: "Text", direction: "Sent", state: "Interrupted", progress: 0, text: "Pick up the printer cable on the way home", error: "Waiting for \(phone.name)", date: now, autoRetry: true),
-            Transfer(id: "5", peer: phone.id, name: "Quarterly report.pdf", direction: "Sent", state: "Sending", progress: 0.62, path: "/tmp/Quarterly report.pdf", date: now),
+            Transfer(id: "5", peer: phone.id, name: "Quarterly report.pdf", direction: "Sent", state: "Sending", progress: 0.62, path: "/tmp/Quarterly report.pdf", date: now, stats: previewProgress()),
             Transfer(id: "4", peer: phone.id, name: "Text", direction: "Received", state: "Complete", progress: 1, text: "https://dropduo.app/download", date: now.addingTimeInterval(-60)),
             Transfer(id: "3", peer: phone.id, name: "IMG_2041.jpg", direction: "Received", state: "Complete", progress: 1, path: "/tmp/IMG_2041.jpg", date: now.addingTimeInterval(-600)),
             Transfer(id: "2", peer: phone.id, name: "Holiday clip.mov", direction: "Sent", state: "Interrupted", progress: 0.3, path: "/tmp/Holiday clip.mov", error: "Connection interrupted", date: now.addingTimeInterval(-3600)),
             Transfer(id: "1", peer: phone.id, name: "Text", direction: "Sent", state: "Complete", progress: 1, text: "Meeting notes are in the shared folder, check the second page.", date: now.addingTimeInterval(-90000))
         ]
+    }
+    private func previewProgress() -> TransferProgress {
+        var stats = TransferProgress(totalBytes: 340_000_000, transferredBytes: 200_800_000, at: ProcessInfo.processInfo.systemUptime - 2)
+        stats.advance(bytes: 210_800_000); return stats
     }
     #endif
 }

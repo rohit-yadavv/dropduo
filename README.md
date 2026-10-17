@@ -14,9 +14,9 @@ Pair once, then send over your local network. Free and open source, with no acco
 
 1. Install on both devices: **macOS 14+** (Apple Silicon or Intel) and **Android 10+**.
 2. Connect to the same local network. Scan the Mac's pairing code on Android and approve on the Mac.
-3. Drop files into the Mac app or use **Send Files…** from its menu bar icon, or use **Share → DropDuo** on Android. You can also send text and links.
+3. Drop files or folders into the Mac app, right-click them in Finder and choose **Send with DropDuo**, or use **Send Files…** from its menu bar icon. On Android, use **Share → DropDuo**. You can also send text and links.
 
-If macOS blocks the first launch, open **System Settings → Privacy & Security** and click **Open Anyway** ([more help](https://rohit-yadavv.github.io/dropduo/mac-install.html)). Keep the Mac awake to receive. On Android, use **Save a copy** to keep received files after uninstalling.
+If macOS blocks the first launch, open **System Settings → Privacy & Security** and click **Open Anyway** ([more help](https://rohit-yadavv.github.io/dropduo/mac-install.html)). Keep the Mac awake to receive. On Android, received photos and videos go to your gallery, and other files to **Downloads › DropDuo**.
 
 Transfers are encrypted between paired devices and files are integrity-checked. The protocol hasn't had an independent security audit. Please report security issues privately through GitHub rather than in a public issue.
 

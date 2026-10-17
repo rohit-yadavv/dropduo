@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import QuickLookThumbnailing
 import UniformTypeIdentifiers
+import DropDuoCore
 
 struct DeviceView: View {
     @ObservedObject var model: AppModel
@@ -9,6 +10,8 @@ struct DeviceView: View {
     @FocusState private var composing: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    // `State` values rather than `@State`: Command Line Tools on macOS 27 ship without the SwiftUI macro plugin that `@State` needs.
+    private let checklist = State(initialValue: false)
     private var online: Bool { model.isOnline(device) }
     /// Oldest first, so the newest transfer sits beside the composer.
     private var items: [Transfer] { model.transfers.filter { $0.peer == device.id }.reversed() }
@@ -28,7 +31,7 @@ struct DeviceView: View {
             .navigationSubtitle(online ? "Connected" : "Not reachable")
             .toolbar {
                 ToolbarItemGroup {
-                    Button { NSWorkspace.shared.open(model.inboxRoot) } label: { Label("Received Files", systemImage: "folder") }
+                    Button { model.showReceivedFolder() } label: { Label("Received Files", systemImage: "folder") }
                         .help("Open received files in Finder")
                     Menu {
                         Button("Forget Device…", role: .destructive) { model.confirmation = device }
@@ -37,7 +40,11 @@ struct DeviceView: View {
                 }
             }
             .onDrop(of: [UTType.fileURL], isTargeted: $model.targeted) { providers in
-                for provider in providers { _ = provider.loadObject(ofClass: URL.self) { url, _ in if let url { Task { @MainActor in model.send([url]) } } } }
+                // A file dragged out of this timeline came from the phone; dropping it back here isn't a send.
+                let received = Set(items.filter { $0.direction == "Received" }.compactMap(\.path))
+                for provider in providers {
+                    _ = provider.loadObject(ofClass: URL.self) { url, _ in if let url, !received.contains(url.path) { Task { @MainActor in model.send([url]) } } }
+                }
                 return true
             }
             .overlay { if model.targeted { dropOverlay.transition(.opacity.combined(with: .scale(scale: 0.98))) } }
@@ -70,6 +77,8 @@ struct DeviceView: View {
             Text("Drop files here")
                 .font(.title2.weight(.semibold)).multilineTextAlignment(.center).padding(.top, 32)
             Button("Choose Files…") { model.chooseFiles() }.controlSize(.large).padding(.top, 22)
+            Text("Or right-click files and folders in Finder and choose Send with DropDuo.")
+                .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center).padding(.top, 18)
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -86,6 +95,8 @@ struct DeviceView: View {
             Text("Open DropDuo on your phone and connect to the same Wi-Fi. Transfers send when it reconnects.")
                 .font(.callout).foregroundStyle(.secondary)
             Spacer(minLength: 0)
+            Button("What to Check") { checklist.wrappedValue.toggle() }.buttonStyle(.link).font(.callout)
+                .popover(isPresented: checklist.projectedValue, arrowEdge: .top) { ReachabilityChecklist(device: device.name) }
         }
         .padding(.horizontal, 14).padding(.vertical, 11)
         .background {
@@ -159,20 +170,24 @@ struct TransferItem: View {
     let device: String
     // `State` values rather than `@State`: Command Line Tools on macOS 27 ship without the SwiftUI macro plugin that `@State` needs.
     private let hover = State(initialValue: false)
-    private let copiedState = State(initialValue: false)
+    /// Which of Copy and Copy Code was just used, to confirm it.
+    private let copiedState = State<String?>(initialValue: nil)
     private let thumbnailState = State<NSImage?>(initialValue: nil)
     private var hovering: Bool { hover.wrappedValue }
-    private var copied: Bool { copiedState.wrappedValue }
+    private var copied: String? { copiedState.wrappedValue }
     private var thumbnail: NSImage? { thumbnailState.wrappedValue }
     private var sent: Bool { transfer.direction == "Sent" }
-    private var active: Bool { ["Preparing", "Sending", "Receiving"].contains(transfer.state) }
+    private var active: Bool { AppModel.ongoing.contains(transfer.state) }
     private var waiting: Bool { transfer.state == "Interrupted" && transfer.autoRetry == true }
     private var failed: Bool { transfer.state == "Interrupted" && !waiting }
     private var complete: Bool { transfer.state == "Complete" }
-    /// The file on this Mac, when it's still there.
+    /// The file or folder on this Mac, when it's still there.
     private var file: URL? { transfer.path.flatMap { FileManager.default.fileExists(atPath: $0) ? URL(fileURLWithPath: $0) : nil } }
-    private var type: UTType? { UTType(filenameExtension: (transfer.name as NSString).pathExtension) }
+    private var folder: Bool { file.flatMap { try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory } ?? false }
+    private var type: UTType? { folder ? .folder : UTType(filenameExtension: (transfer.name as NSString).pathExtension) }
     private var media: Bool { type.map { $0.conforms(to: .image) || $0.conforms(to: .movie) } ?? false }
+    /// A sign-in code in a received text, offered by itself.
+    private var code: String? { sent ? nil : transfer.text.flatMap { webLink($0) == nil ? OneTimeCode.find(in: $0) : nil } }
 
     var body: some View {
         VStack(alignment: sent ? .trailing : .leading, spacing: 5) {
@@ -199,7 +214,8 @@ struct TransferItem: View {
         .shadow(color: Brand.shadow, radius: 2, y: 1)
         .frame(maxWidth: 460, alignment: sent ? .trailing : .leading)
         .contextMenu {
-            Button("Copy") { copy(text) }
+            if let code { Button("Copy Code") { copy(code, as: "code") } }
+            Button("Copy") { copy(text, as: "text") }
             if let url = webLink(text) { Button("Open Link") { NSWorkspace.shared.open(url) } }
         }
     }
@@ -243,6 +259,15 @@ struct TransferItem: View {
                     Text(transfer.name).font(.body.weight(.medium)).lineLimit(1).truncationMode(.middle)
                     if active { ProgressView(value: transfer.progress).controlSize(.small).tint(Brand.cobalt) }
                     else if let detail { Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
+                    if active, let stats = transfer.stats {
+                        Text(stats.sizeDescription).font(.caption).foregroundStyle(.secondary)
+                        if transfer.state != "Verifying" {
+                            TimelineView(.periodic(from: .now, by: 1)) { _ in
+                                Text(stats.rateDescription()).font(.caption).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 actions
@@ -256,6 +281,7 @@ struct TransferItem: View {
         .shadow(color: Brand.shadow, radius: 3, y: 1)
         .opacity(waiting ? 0.75 : 1)
         .contentShape(shape)
+        .draggableFile(complete && !sent ? file : nil)
         .onTapGesture(count: 2) { if complete, let file { NSWorkspace.shared.open(file) } }
         .contextMenu {
             if complete, let file {
@@ -303,6 +329,7 @@ struct TransferItem: View {
 
     /// Kind and size, like "JPEG image, 2.4 MB".
     private var detail: String? {
+        if folder { return "Folder" }
         let size = file.flatMap { (try? $0.resourceValues(forKeys: [.fileSizeKey]))?.fileSize }.map { ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file) }
         let parts = [type?.localizedDescription.map { $0.prefix(1).uppercased() + $0.dropFirst() }, size].compactMap { $0 }
         return parts.isEmpty ? nil : parts.joined(separator: ", ")
@@ -321,8 +348,11 @@ struct TransferItem: View {
             Text(status).monospacedDigit()
             if transfer.text != nil {
                 if complete {
-                    Button(copied ? "Copied" : "Copy") { copy(transfer.text ?? "") }.buttonStyle(.link)
-                        .disabled(copied)
+                    if let code {
+                        Button(copied == "code" ? "Copied" : "Copy Code") { copy(code, as: "code") }.buttonStyle(.link).disabled(copied != nil)
+                    }
+                    Button(copied == "text" ? "Copied" : "Copy") { copy(transfer.text ?? "", as: "text") }.buttonStyle(.link)
+                        .disabled(copied != nil)
                 } else if waiting {
                     Button("Don't Send") { model.cancel(transfer) }.buttonStyle(.link)
                 } else if failed, sent {
@@ -345,8 +375,9 @@ struct TransferItem: View {
         let time = transfer.date.formatted(date: .omitted, time: .shortened)
         switch transfer.state {
         case "Preparing": return "Preparing…"
+        case "Verifying": return "Verifying…"
         case "Sending", "Receiving": return "\(transfer.state) \(Int(transfer.progress * 100))%"
-        case "Complete": return "\(sent ? "Sent" : transfer.text == nil ? "In Downloads" : "Received") · \(time)"
+        case "Complete": return "\(sent ? "Sent" : "Received") · \(time)"
         case "Cancelled": return "Cancelled · \(time)"
         case "Interrupted" where waiting: return transfer.error ?? "Sends when \(device) is back"
         case "Interrupted": return transfer.error ?? "Not sent"
@@ -355,14 +386,6 @@ struct TransferItem: View {
     }
 
     // MARK: Helpers
-
-    /// A shared text counts as a link card only when it is a single web address.
-    private func webLink(_ text: String) -> URL? {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.contains(where: \.isWhitespace), let url = URL(string: trimmed), let scheme = url.scheme?.lowercased(),
-              ["http", "https"].contains(scheme), url.host() != nil else { return nil }
-        return url
-    }
 
     /// Makes web addresses inside a note clickable.
     private func linked(_ text: String) -> AttributedString {
@@ -377,10 +400,48 @@ struct TransferItem: View {
         return value
     }
 
-    private func copy(_ text: String) {
+    private func copy(_ text: String, as kind: String) {
         NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
-        copiedState.wrappedValue = true
-        Task { try? await Task.sleep(for: .seconds(1.5)); copiedState.wrappedValue = false }
+        copiedState.wrappedValue = kind
+        Task { try? await Task.sleep(for: .seconds(1.5)); copiedState.wrappedValue = nil }
+    }
+}
+
+/// What usually keeps a phone from reaching this Mac.
+private struct ReachabilityChecklist: View {
+    let device: String
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("If \(device) can't connect").font(.headline)
+            item("wifi", "Same Wi-Fi", "The phone and this Mac are on the same Wi-Fi network.")
+            item("smartphone", "DropDuo on the phone", "Open it once. With Stay connected allowed, it keeps connecting in the background.")
+            if #available(macOS 15, *) {
+                item("network", "Local Network access", "DropDuo is turned on in System Settings › Privacy & Security › Local Network.")
+                Button("Open Local Network Settings") {
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocalNetwork")!)
+                }
+                .padding(.leading, 30)
+            }
+            item("building.2", "Guest or office Wi-Fi", "Some networks stop devices from reaching each other. Try another network.")
+        }
+        .padding(18).frame(width: 340)
+    }
+
+    private func item(_ symbol: String, _ title: String, _ detail: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Image(systemName: symbol).foregroundStyle(Brand.cobalt).frame(width: 20)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.body.weight(.semibold))
+                Text(detail).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+private extension View {
+    /// Lets a received file be dragged into Finder, Mail or any other app that takes files.
+    @ViewBuilder func draggableFile(_ file: URL?) -> some View {
+        if let file { onDrag { NSItemProvider(contentsOf: file) ?? NSItemProvider() } } else { self }
     }
 }
 

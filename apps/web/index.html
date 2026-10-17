@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>DropDuo: share between your Mac and Android phone</title>
-  <meta name="description" content="Native apps that send files, photos, links and text between your Mac and Android phone over your local network. Pair once. No account, no cloud.">
+  <meta name="description" content="Native apps that send files, folders, photos, links and text between your Mac and Android phone over your local network. Pair once. No account, no cloud.">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#F5F6F8">
   <meta property="og:type" content="website">
   <meta property="og:title" content="DropDuo">
-  <meta property="og:description" content="Mac to Android. Android to Mac. Files, photos, links and text over your local network.">
+  <meta property="og:description" content="Mac to Android. Android to Mac. Files, folders, photos, links and text over your local network.">
   <meta property="og:image" content="assets/brand/dropduo-icon.png">
   <link rel="icon" href="assets/brand/dropduo-icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/brand/dropduo-icon.png">
@@ -79,7 +79,7 @@
             <span class="line"><span class="line__in">Mac to Android.</span></span>
             <span class="line line--cobalt"><span class="line__in">Android to Mac.</span></span>
           </h1>
-          <p class="hero__sub enter" style="--d: 360ms">Files, photos, links and text, straight across your local network. Pair once. No account, no cloud.</p>
+          <p class="hero__sub enter" style="--d: 360ms">Files, folders, photos, links and text, straight across your local network. Pair once. No account, no cloud.</p>
           <div class="hero__ctas enter" style="--d: 480ms">
             <a class="btn btn--primary" href="#download" data-platform-cta>
               <svg class="i" aria-hidden="true"><use href="assets/icons.svg#download-simple"/></svg>
@@ -113,7 +113,7 @@
         <div class="demo__frame reveal">
           <video class="demo__video" src="assets/video/dropduo-demo.mp4" poster="assets/video/dropduo-demo.jpg" width="1920" height="1080" controls muted loop playsinline preload="none" aria-describedby="demo-desc" data-demo></video>
         </div>
-        <p class="sr-only" id="demo-desc">A silent demo. A phone scans the Mac's pairing code and the Mac approves it. A photo dragged onto the Mac lands on the phone, verified. A link shared on Android arrives on the Mac. Transfers stay on the local network, encrypted, with no account.</p>
+        <p class="sr-only" id="demo-desc">A silent demo. A phone scans the Mac's pairing code and the Mac approves it. A photo dragged onto the Mac lands on the phone, verified. A folder right-clicked in Finder and sent with DropDuo arrives on the phone as a folder. A link shared on Android arrives on the Mac. Transfers stay on the local network, encrypted, with no account.</p>
       </div>
     </section>
 
@@ -127,15 +127,20 @@
               <h3>The photo you just took.</h3>
               <p>Share it from Photos or any other app. It lands on your Mac as the original file, not a compressed copy.</p>
             </li>
-            <li class="send" tabindex="0" data-dir="m2a" data-icon="file" data-name="Lease draft.pdf" data-size="1.8 MB" data-how="Drag onto the window">
+            <li class="send" tabindex="0" data-dir="m2a" data-icon="file" data-name="Lease draft.pdf" data-size="1.8 MB" data-how="Right-click → Send with DropDuo">
               <span class="send__dir"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-apple"/></svg><span class="sr-only">Mac to Android</span><svg class="i send__arrow" aria-hidden="true"><use href="assets/icons.svg#arrow-right"/></svg><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-android"/></svg></span>
               <h3>The PDF you need on your phone.</h3>
-              <p>Drag it onto DropDuo on your Mac, or choose Send files. Your phone has it a moment later.</p>
+              <p>Right-click it in Finder and choose Send with DropDuo, or drag it onto the app. Your phone has it a moment later.</p>
             </li>
             <li class="send" tabindex="0" data-dir="a2m" data-icon="film-strip" data-name="Trip to Kasol.mov" data-size="2.4 GB" data-how="Resumes after a retry" data-mode="resume">
               <span class="send__dir"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-android"/></svg><span class="sr-only">Android to Mac</span><svg class="i send__arrow" aria-hidden="true"><use href="assets/icons.svg#arrow-right"/></svg><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-apple"/></svg></span>
               <h3>The long video, even when Wi-Fi drops.</h3>
               <p>Retry an interrupted transfer and it continues from where it stopped. Files appear only after an integrity check.</p>
+            </li>
+            <li class="send" tabindex="0" data-dir="m2a" data-icon="folder" data-name="Wedding photos" data-size="1.2 GB" data-how="Right-click a folder in Finder">
+              <span class="send__dir"><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-apple"/></svg><span class="sr-only">Mac to Android</span><svg class="i send__arrow" aria-hidden="true"><use href="assets/icons.svg#arrow-right"/></svg><svg class="i" aria-hidden="true"><use href="assets/icons.svg#brand-android"/></svg></span>
+              <h3>The whole folder, still a folder.</h3>
+              <p>Send a folder from your Mac and it lands in your phone's Downloads with every subfolder and file inside.</p>
             </li>
           </ol>
         </div>

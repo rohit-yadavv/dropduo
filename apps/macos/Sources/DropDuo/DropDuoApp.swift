@@ -7,6 +7,8 @@ import DropDuoCore
     var body: some Scene {
         WindowGroup("DropDuo", id: "main") { MainView(model: delegate.model, delegate: delegate).frame(minWidth: 720, minHeight: 520).tint(Brand.cobalt) }
             .defaultSize(width: 920, height: 640)
+            // Files dropped on the Dock icon go to the app delegate; without this, each drop would also open another window.
+            .handlesExternalEvents(matching: [])
             .commands { CommandGroup(replacing: .newItem) {} }
         Settings { SettingsView(model: delegate.model, updater: delegate.updater).tint(Brand.cobalt) }
     }
@@ -32,7 +34,23 @@ import DropDuoCore
         statusItem = status
         model.notifier.openApp = { [weak self] in self?.showMain() }
         model.windowVisible = { [weak self] in self?.mainWindow?.isVisible == true }
+        NSApp.servicesProvider = self
+        // Lists Send with DropDuo in Finder's Services menu right away, instead of after the next login.
+        NSUpdateDynamicServices()
     }
+
+    /// Send with DropDuo in the Services menu, for files in Finder; declared under NSServices in Info.plist.
+    @objc func sendFiles(_ pasteboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString>?) {
+        model.send(pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? [])
+    }
+
+    /// Send with DropDuo for text selected in any app.
+    @objc func sendText(_ pasteboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString>?) {
+        if let text = pasteboard.string(forType: .string) { model.send(text: text) }
+    }
+
+    /// Files dropped on the Dock icon.
+    func application(_ application: NSApplication, open urls: [URL]) { model.send(urls) }
 
     func showMain() {
         updater.checkAutomatically()
@@ -92,7 +110,7 @@ struct MainView: View {
         .alert("DropDuo", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("OK") { model.error = nil } } message: { Text(model.error ?? "") }
         .confirmationDialog("Forget \(model.confirmation?.name ?? "this device")?", isPresented: Binding(get: { model.confirmation != nil }, set: { if !$0 { model.confirmation = nil } })) {
             if let device = model.confirmation { Button("Forget Device", role: .destructive) { model.forget(device); model.confirmation = nil } }
-        } message: { Text("It will need to pair again before it can share with this Mac. Received files stay in Downloads.") }
+        } message: { Text("It will need to pair again before it can share with this Mac. Received files stay on this Mac.") }
         .background(WindowReader { delegate.attach($0) })
         .onAppear {
             delegate.openWindow = { openWindow(id: "main") }
@@ -131,8 +149,8 @@ struct Sidebar: View {
     /// What the row says under the device name while something is moving or waiting.
     private func activity(_ device: Device) -> String? {
         let mine = model.transfers.filter { $0.peer == device.id }
-        if let active = mine.first(where: { ["Preparing", "Sending", "Receiving"].contains($0.state) }) {
-            return active.state == "Preparing" ? "Preparing…" : "\(active.state) \(Int(active.progress * 100))%"
+        if let active = mine.first(where: { AppModel.ongoing.contains($0.state) }) {
+            return ["Preparing", "Verifying"].contains(active.state) ? "\(active.state)…" : "\(active.state) \(Int(active.progress * 100))%"
         }
         let waiting = mine.filter { $0.state == "Interrupted" && $0.autoRetry == true }.count
         return waiting == 0 ? nil : "\(waiting) waiting to send"
@@ -224,8 +242,12 @@ struct WelcomeView: View {
 }
 
 private extension View {
-    /// Keep the title legible when media previews scroll behind the toolbar.
+    /// Keep the title legible when media previews scroll behind the toolbar. The window's own toolbar background starts a
+    /// little left of the sidebar divider, so the detail column draws its own instead.
     @ViewBuilder func readableToolbar() -> some View {
-        if #available(macOS 26, *) { toolbarBackgroundVisibility(.visible, for: .windowToolbar) } else { self }
+        if #available(macOS 26, *) {
+            toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+                .safeAreaInset(edge: .top, spacing: 0) { Divider().background(Color(nsColor: .windowBackgroundColor), ignoresSafeAreaEdges: .top) }
+        } else { self }
     }
 }

@@ -13,7 +13,8 @@ public final class Inbox {
             name != ".", name != "..", name.utf8.count <= 218,
             !name.contains("/"), !name.contains("\\"), !name.unicodeScalars.contains(where: { $0.value < 32 }),
             let size = offer.size, size >= 0, size <= Wire.maxFile,
-            let hash = offer.sha256, hash.count == 64, hash.allSatisfy({ "0123456789abcdef".contains($0) })
+            let hash = offer.sha256, hash.count == 64, hash.allSatisfy({ "0123456789abcdef".contains($0) }),
+            offer.kind == nil || offer.kind == "folder"
         else { throw PortError.invalid("Invalid file metadata") }
     }
     private func url(_ id: String, _ suffix: String) throws -> URL {
@@ -21,14 +22,22 @@ public final class Inbox {
         return partials.appendingPathComponent(id + suffix)
     }
     public func destination(_ offer: Message) -> URL { root.appendingPathComponent(offer.id! + "-" + offer.name!) }
+    /// Finishing leaves this marker, so an offer sent again after the file moved elsewhere completes without arriving twice.
+    private func delivered(_ offer: Message) throws -> Bool {
+        guard let marker = try? String(contentsOf: url(offer.id!, ".done"), encoding: .utf8) else { return false }
+        guard marker == offer.sha256 else { throw PortError.invalid("Completed file changed") }
+        return true
+    }
     public func prepare(_ offer: Message) throws -> Int64 {
         try Self.validate(offer)
+        guard offer.kind == nil else { throw PortError.invalid("This version of DropDuo can't receive folders. Update it, then try again.") }
         let metadata = try url(offer.id!, ".json"), part = try url(offer.id!, ".part")
         let target = destination(offer)
         if fm.fileExists(atPath: target.path) {
             guard (try fm.attributesOfItem(atPath: target.path)[.size] as? NSNumber)?.int64Value == offer.size, try Wire.hash(target) == offer.sha256 else { throw PortError.invalid("Completed file changed") }
             return offer.size!
         }
+        if try delivered(offer) { return offer.size! }
         if let bytes = try? Data(contentsOf: metadata) {
             let old = try JSONDecoder().decode(Message.self, from: bytes)
             guard old.name == offer.name, old.size == offer.size, old.sha256 == offer.sha256 else { throw PortError.invalid("Resume metadata mismatch") }
@@ -48,17 +57,21 @@ public final class Inbox {
         try handle.write(contentsOf: data); try handle.synchronize()
         return offset + Int64(data.count)
     }
-    public func finish(_ offer: Message) throws -> URL {
+    /// Returns the received file, or nil when it already arrived and was moved elsewhere.
+    public func finish(_ offer: Message) throws -> URL? {
         let target = destination(offer)
         if fm.fileExists(atPath: target.path) {
             guard (try fm.attributesOfItem(atPath: target.path)[.size] as? NSNumber)?.int64Value == offer.size, try Wire.hash(target) == offer.sha256 else { throw PortError.invalid("Completed file changed") }; return target
         }
+        if try delivered(offer) { return nil }
         let part = try url(offer.id!, ".part")
         let size = (try fm.attributesOfItem(atPath: part.path)[.size] as? NSNumber)?.int64Value
         guard size == offer.size, try Wire.hash(part) == offer.sha256 else {
             try cancel(offer.id!); throw PortError.invalid("Integrity verification failed; retry the file")
         }
-        try fm.moveItem(at: part, to: target); try? fm.removeItem(at: url(offer.id!, ".json")); return target
+        try fm.moveItem(at: part, to: target)
+        try Data(offer.sha256!.utf8).write(to: url(offer.id!, ".done"), options: .atomic)
+        try? fm.removeItem(at: url(offer.id!, ".json")); return target
     }
     public func cancel(_ id: String) throws {
         for suffix in [".part", ".json"] { try? fm.removeItem(at: url(id, suffix)) }

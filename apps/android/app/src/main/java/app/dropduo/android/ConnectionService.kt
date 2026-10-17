@@ -38,17 +38,17 @@ class ConnectionService : Service() {
                     AppState.update { it.copy(status = "Connecting to ${ticket.name}…") }
                     val channel = SecureChannel.connect(ticket, Build.MODEL.take(60))
                     AppState.pairConfirmed(ticket)
-                    val peer = PeerEngine(channel, Inbox(AppState.inbox().resolve(ticket.pairID)).also { it.cleanExpired() }, AppState::record)
+                    val peer = PeerEngine(channel, Inbox(AppState.inbox().resolve(ticket.pairID)).also { it.cleanExpired() }) { AppState.record(it, pairID = ticket.pairID) }
                     if (!running || AppState.ticket?.pairID != ticket.pairID) { peer.close(); continue }
                     synchronized(AppState) {
                         peer.receivingEnabled = AppState.ui.value.receiving && !AppState.installingUpdate
                         AppState.engine = peer
                     }
-                    AppState.update { it.copy(connected = true, device = ticket.name, status = "Connected to ${ticket.name}") }
+                    AppState.update { it.copy(connected = true, unreachable = false, device = ticket.name, status = "Connected to ${ticket.name}") }
                     AppState.resumePending()
                     peer.run()
                 } catch (e: Exception) {
-                    if (running) { AppState.pairFailed(ticket); AppState.update { it.copy(connected = false, status = "Mac not found. Is it awake with DropDuo open, on this Wi-Fi? Retrying…") } }
+                    if (running) { AppState.pairFailed(ticket); AppState.update { it.copy(connected = false, unreachable = true, status = "Can't reach ${ticket.name}. Retrying…") } }
                 } finally { AppState.engine?.close(); AppState.engine = null; AppState.update { it.copy(connected = false) } }
             }
             try { Thread.sleep(4000) } catch (_: InterruptedException) { break }

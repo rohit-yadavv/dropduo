@@ -30,9 +30,22 @@ class CoreTest {
             val inbox = Inbox(dir)
             assertEquals(0, inbox.prepare(offer)); assertEquals(3, inbox.append(offer, 0, "abc".toByteArray()))
             assertEquals(3, Inbox(dir).prepare(offer)); inbox.append(offer, 3, "def".toByteArray())
-            assertEquals("abcdef", inbox.finish(offer).readText())
+            assertEquals("abcdef", inbox.finish(offer)!!.readText())
             assertTrue(runCatching { inbox.prepare(offer.copy(name = "../escape")) }.isFailure)
             assertTrue(runCatching { inbox.prepare(offer.copy(size = -1)) }.isFailure)
+        } finally { dir.deleteRecursively() }
+    }
+    @Test fun movedFileIsNotReceivedTwice() {
+        val dir = Files.createTempDirectory("dropduo-moved").toFile()
+        try {
+            val source = File(dir, "source").apply { writeText("abc") }
+            val offer = Message("offer", UUID.randomUUID().toString(), "photo.jpg", 3, Wire.hash(source))
+            val inbox = Inbox(File(dir, "inbox"))
+            inbox.prepare(offer); inbox.append(offer, 0, "abc".toByteArray())
+            // The app moves a finished file to shared storage; the same offer sent again then completes without any data.
+            assertTrue(inbox.finish(offer)!!.delete())
+            assertEquals(3L, inbox.prepare(offer)); assertNull(inbox.finish(offer))
+            assertTrue(runCatching { inbox.prepare(offer.copy(sha256 = "0".repeat(64))) }.isFailure)
         } finally { dir.deleteRecursively() }
     }
     @Test fun emptyFilesIdempotenceCancellationAndFramingLimits() {
@@ -76,7 +89,7 @@ class CoreTest {
             assertEquals(1000L, Inbox(File(dir, "inbox")).prepare(offer))
             var offset = 1000L
             while (offset < archive.size) offset = inbox.append(offer, offset, archive.copyOfRange(offset.toInt(), minOf(archive.size, offset.toInt() + Wire.CHUNK_SIZE)))
-            val folder = inbox.finish(offer)
+            val folder = inbox.finish(offer)!!
             assertEquals(inbox.destination(offer), folder)
             assertTrue(folder.isDirectory)
             assertEquals("abc", File(folder, "a.txt").readText())
@@ -84,8 +97,8 @@ class CoreTest {
             assertEquals("ü", File(folder, "naïve ü.txt").readText())
             assertArrayEquals(big, File(folder, "sub/b.bin").readBytes())
             assertEquals(listOf("a.txt", "empty", "empty.txt", "naïve ü.txt", "sub"), folder.list()!!.sorted())
-            // Only the unpacked folder is left, and a repeated offer or finish finds it complete.
-            assertEquals(emptyList<String>(), File(dir, "inbox/.partial").list()!!.toList())
+            // Only the unpacked folder and its finished marker are left, and a repeated offer or finish finds it complete.
+            assertEquals(listOf("${offer.id}.done"), File(dir, "inbox/.partial").list()!!.toList())
             assertEquals(archive.size.toLong(), inbox.prepare(offer))
             assertEquals(folder, inbox.finish(offer))
             assertTrue(runCatching { inbox.prepare(offer.copy(id = UUID.randomUUID().toString(), kind = "other")) }.isFailure)

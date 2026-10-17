@@ -138,7 +138,7 @@ class PeerEngine(private val channel: SecureChannel, private val inbox: Inbox, p
                         val offer = incoming[id] ?: error("Unknown transfer")
                         // The file is saved, so record it before the reply that may fail on a dropped connection.
                         val file = inbox.finish(offer); incoming.remove(id)
-                        event(PeerEvent(id, offer.name!!, "Received", "Complete", 1.0, file.path)); channel.send(Message("complete", id))
+                        event(PeerEvent(id, offer.name!!, "Received", "Complete", 1.0, file?.path)); channel.send(Message("complete", id))
                     }
                     "text" -> {
                         check(receivingEnabled) { PAUSED }; check(message.text != null && message.text.toByteArray().size <= 64000) { TEXT_TOO_LONG }

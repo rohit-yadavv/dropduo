@@ -24,10 +24,16 @@ class Inbox(val root: File) {
     private fun completed(offer: Message, target: File) =
         if (offer.kind == "folder") require(target.isDirectory) { "Completed folder changed" }
         else require(target.length() == offer.size && Wire.hash(target) == offer.sha256) { "Completed file changed" }
+    /** Finishing leaves this marker, so an offer sent again after the file moved elsewhere completes without arriving twice. */
+    private fun delivered(offer: Message): Boolean {
+        val marker = part(offer.id!!, ".done"); if (!marker.exists()) return false
+        require(marker.readText() == offer.sha256) { "Completed file changed" }; return true
+    }
     @Synchronized fun prepare(offer: Message): Long {
         validate(offer)
         val target = destination(offer)
         if (target.exists()) { completed(offer, target); return offer.size!! }
+        if (delivered(offer)) return offer.size!!
         val meta = part(offer.id!!, ".json"); val file = part(offer.id, ".part")
         if (meta.exists()) {
             val old = Wire.gson.fromJson(meta.readText(), Message::class.java)
@@ -47,8 +53,10 @@ class Inbox(val root: File) {
         }
         return offset + data.size
     }
-    @Synchronized fun finish(offer: Message): File {
+    /** Returns the received file or folder, or null when it already arrived and was moved elsewhere. */
+    @Synchronized fun finish(offer: Message): File? {
         val target = destination(offer); if (target.exists()) { completed(offer, target); return target }
+        if (delivered(offer)) return null
         val file = part(offer.id!!, ".part")
         if (file.length() != offer.size || Wire.hash(file) != offer.sha256) { cancel(offer.id); error("Integrity verification failed; retry the file") }
         if (offer.kind == "folder") {
@@ -56,7 +64,7 @@ class Inbox(val root: File) {
             try { FolderArchive.extract(file, unpacked) } catch (e: Exception) { cancel(offer.id); throw e }
             require(unpacked.renameTo(target)) { "Could not save the received folder" }; file.delete()
         } else require(file.renameTo(target)) { "Could not save received file" }
-        part(offer.id, ".json").delete(); return target
+        part(offer.id, ".done").writeText(offer.sha256!!); part(offer.id, ".json").delete(); return target
     }
     @Synchronized fun cancel(id: String) { part(id, ".part").delete(); part(id, ".json").delete(); part(id, ".folder").deleteRecursively() }
     fun cleanExpired() { partials.listFiles()?.filter { it.lastModified() < System.currentTimeMillis() - 7L * 86400_000 }?.forEach { it.deleteRecursively() } }

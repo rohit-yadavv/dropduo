@@ -57,7 +57,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class Actions(val scan: () -> Unit, val connect: () -> Unit, val files: () -> Unit, val save: (Transfer) -> Unit, val open: (Transfer) -> Unit, val installUpdate: () -> Unit)
+class Actions(val scan: () -> Unit, val connect: () -> Unit, val files: () -> Unit, val photo: () -> Unit, val open: (Transfer) -> Unit, val keepConnected: () -> Unit,
+              val installUpdate: () -> Unit)
 
 private const val UNPAIRED_STATUS = "Pair your Mac to get started"
 private val ACTIVE = listOf("Preparing", "Sending", "Receiving")
@@ -76,6 +77,7 @@ private enum class Screen { Pairing, Home, Settings }
         scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(message, duration = SnackbarDuration.Long) }
     }
     LaunchedEffect(state.device) { if (state.device == null) settings = false }
+    LaunchedEffect(state.reveal) { if (state.reveal != null) settings = false }
     BackHandler(enabled = settings) { settings = false }
     DropDuoTheme {
         Box(Modifier.fillMaxSize().background(colors.background)) {
@@ -141,6 +143,8 @@ private enum class Screen { Pairing, Home, Settings }
     val context = LocalContext.current
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val days = remember(state.history) { state.history.groupBy { startOfDay(it.time) } }
+    // A tapped notification shows its transfer.
+    LaunchedEffect(state.reveal) { state.reveal?.let { id -> selected = id; AppState.update { it.copy(reveal = null) } } }
     LazyColumn(Modifier.fillMaxSize().statusBarsPadding(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = bottom + 32.dp)) {
         item(key = "top") {
             Row(Modifier.fillMaxWidth().padding(start = 6.dp, top = 6.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -150,9 +154,10 @@ private enum class Screen { Pairing, Home, Settings }
         }
         item(key = "update") { UpdateCard(actions.installUpdate, Modifier.padding(bottom = 12.dp)) }
         item(key = "device") { DeviceCard(state, actions.connect) }
+        if (state.askBackground && state.connected) item(key = "background") { KeepConnectedCard(actions.keepConnected, Modifier.animateItem().padding(top = 12.dp)) }
         item(key = "send") { SendActions(actions.files) { textSheet = true } }
         item(key = "recent") { Text("Recent", style = Type.title, color = colors.text, modifier = Modifier.padding(start = 6.dp, top = 32.dp)) }
-        if (state.history.isEmpty()) item(key = "empty") { EmptyRecent() }
+        if (state.history.isEmpty()) item(key = "empty") { EmptyRecent(actions.photo) }
         days.forEach { (day, rows) ->
             item(key = "day-$day") { Text(dayLabel(context, day), style = Type.captionStrong, color = colors.secondary, modifier = Modifier.animateItem().padding(start = 6.dp, top = 18.dp, bottom = 8.dp)) }
             itemsIndexed(rows, key = { _, row -> row.id }) { index, row ->
@@ -246,7 +251,25 @@ private enum class Screen { Pairing, Home, Settings }
     }
 }
 
-@Composable private fun EmptyRecent() {
+/** Some phones stop apps in the background, and then the Mac can't reach the phone, so DropDuo asks once it's connected. */
+@Composable private fun KeepConnectedCard(onAllow: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(color = colors.accentSoft, shape = RoundedCornerShape(22.dp), modifier = modifier.fillMaxWidth()) {
+        Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Stay connected", style = Type.bodyStrong, color = colors.text)
+                Text("Let DropDuo run in the background, so what your Mac sends arrives while the app is closed.", style = Type.caption, color = colors.secondary)
+            }
+            Spacer(Modifier.width(12.dp))
+            TapSurface(onAllow, shape = CircleShape, color = colors.accent, contentColor = colors.onAccent) {
+                Text("Allow", style = Type.captionStrong, modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp))
+            }
+            IconButton(onClick = AppState::declineBackground, modifier = Modifier.size(40.dp)) { Glyph(R.drawable.ic_close, "Not now", colors.secondary, size = 16.dp) }
+        }
+    }
+}
+
+/** Until something is shared, offers a photo to try it, since that's what most people send first. */
+@Composable private fun EmptyRecent(onPhoto: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(top = 12.dp).background(colors.surface, RoundedCornerShape(24.dp)).padding(horizontal = 28.dp, vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally) {
         Row(horizontalArrangement = Arrangement.spacedBy((-8).dp)) {
@@ -259,6 +282,16 @@ private enum class Screen { Pairing, Home, Settings }
         }
         Spacer(Modifier.height(18.dp))
         Text("Nothing shared yet", style = Type.headline, color = colors.text)
+        Spacer(Modifier.height(6.dp))
+        Text("Send a photo to see it on your Mac.", style = Type.caption, color = colors.secondary, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(18.dp))
+        TapSurface(onPhoto, shape = CircleShape, color = colors.surfaceHigh, contentColor = colors.text) {
+            Row(Modifier.padding(start = 14.dp, end = 16.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Glyph(R.drawable.ic_image, null, colors.text, size = 18.dp)
+                Spacer(Modifier.width(8.dp))
+                Text("Choose a photo", style = Type.bodyStrong)
+            }
+        }
     }
 }
 
@@ -409,6 +442,10 @@ private enum class Link { On, Searching, Off }
                 StatusLine(row, maxLines = 3)
             }
         }
+        SharedStorage.place(row)?.let {
+            Spacer(Modifier.height(14.dp))
+            Text("Saved to $it", style = Type.caption, color = colors.secondary)
+        }
         row.text?.let { text ->
             Spacer(Modifier.height(18.dp))
             Surface(color = colors.surfaceHigh, shape = RoundedCornerShape(18.dp)) {
@@ -419,15 +456,11 @@ private enum class Link { On, Searching, Off }
         }
         fun act(block: () -> Unit) = { block(); onDismiss() }
         val buttons = buildList {
-            link?.let { uri -> add(SheetButton(R.drawable.ic_open, "Open link", act {
-                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }.onFailure { AppState.error("No app on this phone can open that link.") }
-            })) }
+            link?.let { uri -> add(SheetButton(R.drawable.ic_open, "Open link", act { openLink(context, uri) })) }
             row.text?.let { text -> add(SheetButton(R.drawable.ic_copy, "Copy", act { copy(context, text) })) }
-            if (row.state == "Complete" && row.direction == "Received" && row.path != null) {
-                // No app can open a folder in DropDuo's storage, so folders are saved somewhere first.
-                if (!row.folder) add(SheetButton(R.drawable.ic_open, "Open", act { actions.open(row) }))
-                add(SheetButton(R.drawable.ic_save, if (row.folder) "Save to a folder" else "Save a copy", act { actions.save(row) }))
-            }
+            // Android has no common way to open a folder; where it was saved is shown instead.
+            if (row.state == "Complete" && row.direction == "Received" && !row.folder && (row.saved != null || row.path != null))
+                add(SheetButton(R.drawable.ic_open, "Open", act { actions.open(row) }))
             if (canRetry(row)) add(0, SheetButton(R.drawable.ic_retry, "Retry now", act { AppState.retry(row) }))
         }
         if (buttons.isNotEmpty()) {
@@ -529,7 +562,7 @@ private class SheetButton(val icon: Int, val label: String, val onClick: () -> U
         SectionTitle("Storage")
         Group({ GroupRow("Clear recent history", it, if (state.history.isEmpty()) "Nothing to clear" else "Received files are kept", icon = R.drawable.ic_trash,
             onClick = AppState::clearHistory.takeIf { state.history.isNotEmpty() }) })
-        Text("Use Save a copy to keep files after uninstalling DropDuo.",
+        Text("Photos and videos you receive are saved to your gallery, and other files to Downloads › DropDuo.",
             style = Type.caption, color = colors.secondary, modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 10.dp))
         SectionTitle("Updates")
         UpdateCard(actions.installUpdate, alwaysVisible = true)
@@ -723,9 +756,9 @@ private fun kindIcon(row: Transfer) = when (kindOf(row)) {
     Kind.Text -> R.drawable.ic_text; Kind.Link -> R.drawable.ic_link; Kind.Image -> R.drawable.ic_image; Kind.Video -> R.drawable.ic_video; Kind.Folder -> R.drawable.ic_folder; Kind.File -> R.drawable.ic_file
 }
 /** A shared text counts as a link only when it is a single web address. */
-private fun linkOf(text: String): Uri? = text.trim().takeIf { it.none(Char::isWhitespace) && (it.startsWith("https://", true) || it.startsWith("http://", true)) }
+fun linkOf(text: String): Uri? = text.trim().takeIf { it.none(Char::isWhitespace) && (it.startsWith("https://", true) || it.startsWith("http://", true)) }
     ?.let(Uri::parse)?.takeIf { !it.host.isNullOrEmpty() }
-private fun title(row: Transfer) = when {
+fun title(row: Transfer) = when {
     row.text != null -> linkOf(row.text)?.let { "${it.host?.removePrefix("www.")}${it.path?.takeIf { p -> p != "/" }.orEmpty()}" }
         ?: row.text.lineSequence().firstOrNull { it.isNotBlank() }?.trim() ?: "Text"
     else -> row.name
@@ -756,28 +789,38 @@ private fun dayLabel(context: Context, day: Long) = when {
     DateUtils.isToday(day + DateUtils.DAY_IN_MILLIS) -> "Yesterday"
     else -> DateUtils.formatDateTime(context, day, DateUtils.FORMAT_SHOW_WEEKDAY or DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_ALL or DateUtils.FORMAT_NO_YEAR)
 }
-private fun copy(context: Context, text: String) =
+fun copy(context: Context, text: String) =
     context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("DropDuo", text))
+fun openLink(context: Context, uri: Uri) {
+    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }.onFailure { AppState.error("No app on this phone can open that link.") }
+}
 private fun clipboardText(context: Context) =
     context.getSystemService(ClipboardManager::class.java).primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()?.takeIf { it.isNotBlank() }
 
 /** Thumbnails for received photos and videos, decoded off the main thread and kept for the session. */
 private object Thumbnails {
     private val cache = LruCache<String, ImageBitmap>(48)
-    fun cached(path: String, px: Int): ImageBitmap? = cache.get("$px:$path")
-    fun load(path: String, video: Boolean, px: Int): ImageBitmap? {
-        cached(path, px)?.let { return it }
-        val file = File(path).takeIf { it.exists() } ?: return null
-        val bitmap = runCatching { if (video) ThumbnailUtils.createVideoThumbnail(file, Size(px, px), null) else ThumbnailUtils.createImageThumbnail(file, Size(px, px), null) }.getOrNull()
-        return bitmap?.asImageBitmap()?.also { cache.put("$px:$path", it) }
+    fun cached(source: String, px: Int): ImageBitmap? = cache.get("$px:$source")
+    /** [source] is the content URI of a file saved to shared storage, or a path to DropDuo's own copy. */
+    fun load(context: Context, source: String, video: Boolean, px: Int): ImageBitmap? {
+        cached(source, px)?.let { return it }
+        val bitmap = runCatching {
+            if (source.startsWith("content:")) context.contentResolver.loadThumbnail(Uri.parse(source), Size(px, px), null)
+            else {
+                val file = File(source).takeIf { it.exists() } ?: return null
+                if (video) ThumbnailUtils.createVideoThumbnail(file, Size(px, px), null) else ThumbnailUtils.createImageThumbnail(file, Size(px, px), null)
+            }
+        }.getOrNull()
+        return bitmap?.asImageBitmap()?.also { cache.put("$px:$source", it) }
     }
 }
 
 @Composable private fun rememberThumbnail(row: Transfer, px: Int): ImageBitmap? {
+    val context = LocalContext.current
     val kind = kindOf(row)
-    val path = row.path.takeIf { row.state == "Complete" && row.direction == "Received" && (kind == Kind.Image || kind == Kind.Video) }
-    val image by produceState(path?.let { Thumbnails.cached(it, px) }, path, px) {
-        if (path != null && value == null) value = withContext(Dispatchers.IO) { Thumbnails.load(path, kind == Kind.Video, px) }
+    val source = (row.saved ?: row.path).takeIf { row.state == "Complete" && row.direction == "Received" && (kind == Kind.Image || kind == Kind.Video) }
+    val image by produceState(source?.let { Thumbnails.cached(it, px) }, source, px) {
+        if (source != null && value == null) value = withContext(Dispatchers.IO) { Thumbnails.load(context, source, kind == Kind.Video, px) }
     }
     return image
 }

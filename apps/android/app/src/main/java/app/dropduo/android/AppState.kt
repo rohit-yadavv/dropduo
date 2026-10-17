@@ -18,9 +18,13 @@ data class Transfer(val id: String, val name: String, val direction: String, val
     /** The pairing a send is meant for, so a queued send never goes to a different Mac; null until one is paired. */
     val pairID: String? = null,
     /** A folder from the Mac; once received, [path] is the unpacked folder. */
-    val folder: Boolean = false)
+    val folder: Boolean = false,
+    /** Where a received file or folder was saved for other apps (see [SharedStorage.save]); [path] is gone once it's set. */
+    val saved: String? = null)
+/** [askBackground] is set while Android may stop DropDuo in the background and the user hasn't said no; [reveal] is a transfer to show. */
 data class UiState(val device: String? = null, val connected: Boolean = false, val status: String = "Pair your Mac to get started",
-    val receiving: Boolean = true, val history: List<Transfer> = emptyList(), val error: String? = null)
+    val receiving: Boolean = true, val history: List<Transfer> = emptyList(), val error: String? = null,
+    val askBackground: Boolean = false, val reveal: String? = null)
 const val WAITING_FOR_MAC = "Waiting for your Mac"
 private val ONGOING = listOf("Preparing", "Sending", "Receiving")
 private const val OTHER_MAC = "Not sent. Retry to send it to your current Mac."
@@ -32,6 +36,8 @@ object AppState {
     @Volatile var ticket: Ticket? = null
     @Volatile var engine: PeerEngine? = null
     @Volatile var installingUpdate = false
+    /** DropDuo is on screen, so arrivals show in its history instead of a notification. */
+    @Volatile var visible = false
     val hasActiveTransfers get() = sending.isNotEmpty() || importing.isNotEmpty() || ui.value.history.any { it.state in ONGOING }
     @Synchronized fun beginUpdateInstallation(): Boolean {
         if (hasActiveTransfers || installingUpdate) return false
@@ -42,6 +48,7 @@ object AppState {
     private val importing = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private val cancelledImports = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private val sending = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val saving = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private val pendingPair = java.util.concurrent.atomic.AtomicBoolean(false)
     private val pairingGate = Any()
     private fun historyFile() = File(context.filesDir, "history.json")
@@ -58,6 +65,9 @@ object AppState {
         val kept = history.mapNotNull { it.path }.toSet()
         outgoing().listFiles()?.filter { it.path !in kept }?.forEach { it.delete() }
         ui.value = UiState(device = ticket?.name, history = history, receiving = app.getSharedPreferences("settings", 0).getBoolean("receiving", true))
+        // Files received before they were saved to shared storage, or whose save failed, move there now.
+        history.filter { it.direction == "Received" && it.state == "Complete" && it.saved == null && it.path?.let { path -> File(path).exists() } == true }
+            .forEach { save(it, notify = false) }
     }
     @Synchronized fun update(transform: (UiState) -> UiState) { ui.value = transform(ui.value) }
     fun error(message: String) = update { it.copy(error = message) }
@@ -99,6 +109,12 @@ object AppState {
         stop(context); ticket = null; secure.remove(); update { it.copy(device = null, status = "Pair your Mac to get started") }
         if (forgotten != null) releaseQueued { it == forgotten }
     }
+    /** Remembers that the user doesn't want DropDuo kept running in the background. */
+    fun declineBackground() { context.getSharedPreferences("settings", 0).edit().putBoolean("declinedBackground", true).apply(); update { it.copy(askBackground = false) } }
+    fun checkBackground() {
+        val allowed = context.getSystemService(android.os.PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)
+        update { it.copy(askBackground = !allowed && !context.getSharedPreferences("settings", 0).getBoolean("declinedBackground", false)) }
+    }
     fun setReceiving(value: Boolean) {
         engine?.receivingEnabled = value && !installingUpdate
         context.getSharedPreferences("settings", 0).edit().putBoolean("receiving", value).apply()
@@ -109,11 +125,36 @@ object AppState {
         val old = ui.value.history.firstOrNull { it.id == event.id }
         val row = Transfer(event.id, old?.name ?: event.name, old?.direction ?: event.direction, event.state, event.progress,
             event.path ?: old?.path, event.text ?: old?.text, event.error, autoRetry, old?.time ?: System.currentTimeMillis(), pairID ?: old?.pairID,
-            event.folder || old?.folder == true)
+            event.folder || old?.folder == true, old?.saved)
         val history = limit(listOf(row) + ui.value.history.filter { it.id != event.id })
         ui.value = ui.value.copy(history = history)
         // New rows are saved right away so a send survives the app closing before it finishes.
         if (old == null || event.state in listOf("Complete", "Interrupted", "Cancelled")) saveHistory(history)
+        // A text or file the Mac sends again after the connection dropped arrives only once.
+        if (row.direction == "Received" && row.state == "Complete") {
+            if (row.text != null) { if (old?.state != "Complete") ReceivedNotifier.show(context, row) }
+            else if (row.saved == null && row.path != null) save(row, notify = true)
+        }
+    }
+    /** Copies a received file or folder to shared storage and drops DropDuo's own copy. Runs in the background so the connection keeps going. */
+    private fun save(row: Transfer, notify: Boolean) {
+        val source = File(row.path ?: return)
+        if (!saving.add(row.id)) return
+        scope.launch {
+            var saved: String? = null
+            try {
+                saved = SharedStorage.save(context, source, row.name, row.folder)
+                synchronized(this@AppState) {
+                    val history = ui.value.history.map { if (it.id == row.id) it.copy(saved = saved) else it }
+                    ui.value = ui.value.copy(history = history); saveHistory(history)
+                }
+                source.deleteRecursively()
+            } catch (e: Exception) {
+                // DropDuo keeps its copy, so the file still opens here, and saving is tried again next time the app starts.
+                error("Couldn't save ${row.name} to this phone's storage. It's still in DropDuo.")
+            } finally { saving.remove(row.id) }
+            if (notify) ReceivedNotifier.show(context, row.copy(saved = saved))
+        }
     }
     /** History is also the send queue, so only finished rows count toward its limit. */
     private fun limit(history: List<Transfer>): List<Transfer> { var finished = 0; return history.filter { it.state in ONGOING || it.autoRetry || ++finished <= 100 } }

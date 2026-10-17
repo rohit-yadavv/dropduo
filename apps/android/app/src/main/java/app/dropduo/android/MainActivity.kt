@@ -4,9 +4,9 @@ import android.Manifest
 import android.content.*
 import android.net.Uri
 import android.os.*
-import android.provider.DocumentsContract
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.core.content.FileProvider
@@ -17,6 +17,10 @@ import java.io.File
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        /** The transfer a received notification opens. */
+        const val TRANSFER = "transfer"
+    }
     private val previewMode get() = BuildConfig.DEBUG && intent.hasExtra("preview")
     private val installPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         if (packageManager.canRequestPackageInstalls()) installUpdate()
@@ -26,61 +30,34 @@ class MainActivity : ComponentActivity() {
         AppState.finishUpdateInstallation()
         AppUpdater.message("If you cancelled installation, tap Install to try again.")
     }
-    private var exportSource: File? = null
     private val scan = registerForActivityResult(ScanContract()) { result ->
         result.contents?.let { AppState.pair(it); connect() }
     }
     private val files = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris -> if (uris.isNotEmpty()) AppState.importAndSend(uris) }
+    private val photo = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let { AppState.importAndSend(listOf(it)) } }
     private val notifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { AppState.start(this) }
-    private val export = registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        val source = exportSource; exportSource = null
-        if (uri != null && source != null) AppState.scope.launchIo {
-            runCatching { contentResolver.openOutputStream(uri)?.use { out -> source.inputStream().use { it.copyTo(out) } } ?: throw IllegalStateException("Could not save file") }
-                .onFailure { AppState.error(it.message ?: "Could not save file") }
-        }
-    }
-    /** Saves a received folder as a new folder inside the one the user picks. */
-    private val exportFolder = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
-        val source = exportSource; exportSource = null
-        if (tree != null && source != null) AppState.scope.launchIo {
-            runCatching {
-                val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
-                // Received folders are stored as "<transfer ID>-<name>".
-                val name = source.name.drop(37).ifEmpty { source.name }
-                copyFolder(source, parent, name)
-                // The snackbar also carries confirmations.
-                AppState.error("Saved $name")
-            }.onFailure { AppState.error("Couldn't save the folder. Choose another location and try again.") }
-        }
-    }
-    private fun copyFolder(source: File, parent: Uri, name: String) {
-        val folder = DocumentsContract.createDocument(contentResolver, parent, DocumentsContract.Document.MIME_TYPE_DIR, name) ?: error("Could not create folder")
-        for (child in source.listFiles().orEmpty().sortedBy { it.name }) {
-            if (child.isDirectory) { copyFolder(child, folder, child.name); continue }
-            val mime = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(child.extension.lowercase()) ?: "application/octet-stream"
-            val file = DocumentsContract.createDocument(contentResolver, folder, mime, child.name) ?: error("Could not create file")
-            contentResolver.openOutputStream(file)?.use { out -> child.inputStream().use { it.copyTo(out) } } ?: error("Could not write file")
-        }
-    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState); enableEdgeToEdge()
-        // The save picker may return to a recreated activity.
-        exportSource = savedInstanceState?.getString("exportSource")?.let(::File)
         if (previewMode) {
             AppState.stop(this)
             intent.getStringExtra("preview")?.let(AppState::preview)
         }
         setContent { DropDuoApp(Actions(scan = { scan.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt("Scan the code shown on your Mac").setBeepEnabled(false).setOrientationLocked(true)) },
-            connect = ::connect, files = { files.launch(arrayOf("*/*")) }, save = { row -> row.path?.let { exportSource = File(it); if (row.folder) exportFolder.launch(null) else export.launch(row.name) } }, open = ::openFile, installUpdate = ::installUpdate)) }
+            connect = ::connect, files = { files.launch(arrayOf("*/*")) }, photo = { photo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
+            open = ::openFile, keepConnected = ::keepConnected, installUpdate = ::installUpdate)) }
         if (!previewMode) {
             if (AppState.ticket != null) connect()
-            // A recreated activity or one reopened from Recents carries a share that was already sent.
-            if (savedInstanceState == null && intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) handleShare(intent)
+            // A recreated activity or one reopened from Recents carries a share or notification tap that was already handled.
+            if (savedInstanceState == null && intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) { handleShare(intent); handleNotification(intent) }
         }
     }
-    override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); exportSource?.let { outState.putString("exportSource", it.path) } }
-    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleShare(intent) }
-    override fun onResume() { super.onResume(); if (!previewMode) AppUpdater.check() }
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleShare(intent); handleNotification(intent) }
+    // onStop can come a while after leaving the app; arrivals in that gap would get no notification.
+    override fun onResume() {
+        super.onResume(); AppState.visible = true; ReceivedNotifier.clear(this)
+        if (!previewMode) { AppUpdater.check(); AppState.checkBackground() }
+    }
+    override fun onPause() { super.onPause(); AppState.visible = false }
     private fun installUpdate() {
         if (!AppUpdater.ui.value.ready) return
         if (AppState.hasActiveTransfers) { AppUpdater.message("Finish or cancel your transfers before installing the update."); return }
@@ -120,13 +97,29 @@ class MainActivity : ComponentActivity() {
             Intent.ACTION_SEND_MULTIPLE -> intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)?.let { AppState.importAndSend(it) }
         }
     }
+    /** Opens what a received notification shows: a file or link directly, anything else in DropDuo. */
+    private fun handleNotification(intent: Intent) {
+        val id = intent.getStringExtra(TRANSFER) ?: return
+        intent.removeExtra(TRANSFER)
+        val row = AppState.ui.value.history.firstOrNull { it.id == id } ?: return
+        val link = row.text?.let(::linkOf)
+        when {
+            link != null -> openLink(this, link)
+            row.text == null && !row.folder -> openFile(row)
+            else -> AppState.update { it.copy(reveal = id) }
+        }
+    }
     private fun openFile(row: Transfer) {
-        try {
-            val file = File(row.path ?: return); require(file.exists()) { "File is no longer available" }
-            val uri = FileProvider.getUriForFile(this, "$packageName.files", file)
-            val mime = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension.lowercase()) ?: "application/octet-stream"
-            startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, mime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
-        } catch (e: Exception) { AppState.error("No app could open this file. Use Save a copy instead.") }
+        val uri = try {
+            row.saved?.let(Uri::parse)?.also { contentResolver.openFileDescriptor(it, "r")?.close() }
+                ?: FileProvider.getUriForFile(this, "$packageName.files", File(row.path ?: return).also { require(it.exists()) })
+        } catch (e: Exception) { AppState.error("This file was moved or deleted."); return }
+        try { startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, SharedStorage.mime(row.name) ?: "application/octet-stream").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) }
+        catch (e: ActivityNotFoundException) { AppState.error("No app on this phone can open this file.") }
+    }
+    /** Asks Android to let DropDuo run in the background, so the Mac can reach the phone while the app is closed. */
+    private fun keepConnected() {
+        try { startActivity(Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))) }
+        catch (e: Exception) { runCatching { startActivity(Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } }
     }
 }
-private fun kotlinx.coroutines.CoroutineScope.launchIo(block: suspend () -> Unit) = this.launch { block() }

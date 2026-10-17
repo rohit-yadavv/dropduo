@@ -167,7 +167,7 @@ struct TransferItem: View {
     private var copied: Bool { copiedState.wrappedValue }
     private var thumbnail: NSImage? { thumbnailState.wrappedValue }
     private var sent: Bool { transfer.direction == "Sent" }
-    private var active: Bool { ["Preparing", "Sending", "Receiving"].contains(transfer.state) }
+    private var active: Bool { AppModel.ongoing.contains(transfer.state) }
     private var waiting: Bool { transfer.state == "Interrupted" && transfer.autoRetry == true }
     private var failed: Bool { transfer.state == "Interrupted" && !waiting }
     private var complete: Bool { transfer.state == "Complete" }
@@ -246,6 +246,15 @@ struct TransferItem: View {
                     Text(transfer.name).font(.body.weight(.medium)).lineLimit(1).truncationMode(.middle)
                     if active { ProgressView(value: transfer.progress).controlSize(.small).tint(Brand.cobalt) }
                     else if let detail { Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
+                    if active, let stats = transfer.stats {
+                        Text(stats.sizeDescription).font(.caption).foregroundStyle(.secondary)
+                        if transfer.state != "Verifying" {
+                            TimelineView(.periodic(from: .now, by: 1)) { _ in
+                                Text(stats.rateDescription()).font(.caption).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 actions
@@ -349,6 +358,7 @@ struct TransferItem: View {
         let time = transfer.date.formatted(date: .omitted, time: .shortened)
         switch transfer.state {
         case "Preparing": return "Preparing…"
+        case "Verifying": return "Verifying…"
         case "Sending", "Receiving": return "\(transfer.state) \(Int(transfer.progress * 100))%"
         case "Complete": return "\(sent ? "Sent" : transfer.text == nil ? "In Downloads" : "Received") · \(time)"
         case "Cancelled": return "Cancelled · \(time)"

@@ -54,6 +54,7 @@ import java.io.File
 import java.util.Calendar
 import java.util.Date
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -61,7 +62,7 @@ class Actions(val scan: () -> Unit, val connect: () -> Unit, val files: () -> Un
               val installUpdate: () -> Unit)
 
 private const val UNPAIRED_STATUS = "Pair your Mac to get started"
-private val ACTIVE = listOf("Preparing", "Sending", "Receiving")
+private val ACTIVE = listOf("Preparing", "Sending", "Receiving", "Verifying")
 private enum class Screen { Pairing, Home, Settings }
 
 @Composable fun DropDuoApp(actions: Actions) {
@@ -174,7 +175,11 @@ private enum class Screen { Pairing, Home, Settings }
     val active = state.history.firstOrNull { it.state in ACTIVE }.takeIf { state.connected }
     val link = when { state.connected -> Link.On; pending -> Link.Searching; else -> Link.Off }
     val label = when {
-        active != null -> if (active.state == "Preparing") "Preparing…" else "${active.state} ${percent(active)}%"
+        active != null -> when (active.state) {
+            "Preparing" -> "Preparing…"
+            "Verifying" -> "Verifying…"
+            else -> "${active.state} ${percent(active)}%"
+        }
         state.connected -> "Connected"
         state.status == UNPAIRED_STATUS -> "Not connected"
         else -> state.status
@@ -310,12 +315,25 @@ private enum class Screen { Pairing, Home, Settings }
                     modifier = Modifier.fillMaxWidth().padding(top = 3.dp, bottom = 6.dp).height(4.dp).clip(CircleShape))
             }
             StatusLine(row)
+            TransferDetails(row)
         }
         when {
             active -> IconButton(onClick = { AppState.cancel(row) }) { Glyph(R.drawable.ic_close, "Cancel transfer", colors.secondary, size = 20.dp) }
             canRetry(row) -> IconButton(onClick = { AppState.retry(row) }) { Glyph(R.drawable.ic_retry, "Retry", colors.accentText, size = 20.dp) }
             else -> Spacer(Modifier.width(8.dp))
         }
+    }
+}
+
+@Composable private fun TransferDetails(row: Transfer) {
+    val stats = row.stats?.takeIf { row.state in ACTIVE } ?: return
+    // Re-evaluate a stalled link even when no more progress events arrive.
+    val now by produceState(app.dropduo.core.TransferProgress.now(), row.id) {
+        while (true) { delay(1000); value = app.dropduo.core.TransferProgress.now() }
+    }
+    Column(Modifier.padding(top = 3.dp)) {
+        Text(stats.sizeDescription, style = Type.caption, color = colors.secondary)
+        if (row.state != "Verifying") Text(stats.rateDescription(now), style = Type.caption, color = colors.secondary)
     }
 }
 
@@ -440,6 +458,7 @@ private enum class Link { On, Searching, Off }
                 Text(when { link != null -> "Link"; row.text != null -> "Text"; else -> row.name }, style = Type.headline, color = colors.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(3.dp))
                 StatusLine(row, maxLines = 3)
+                TransferDetails(row)
             }
         }
         SharedStorage.place(row)?.let {
@@ -774,6 +793,7 @@ private fun tone(row: Transfer) = when {
 private fun statusText(context: Context, row: Transfer) = when (row.state) {
     "Complete" -> listOfNotNull(if (row.direction == "Sent") "Sent" else "Received", row.time.takeIf { it > 0 }?.let { DateFormat.getTimeFormat(context).format(Date(it)) }).joinToString(" · ")
     "Preparing" -> "Preparing…"
+    "Verifying" -> "Verifying…"
     "Sending", "Receiving" -> "${row.state} · ${percent(row)}%"
     "Interrupted" -> row.error ?: "Didn't finish"
     "Cancelled" -> "Cancelled"

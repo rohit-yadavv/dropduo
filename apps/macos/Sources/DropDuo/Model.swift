@@ -9,6 +9,9 @@ struct Transfer: Codable, Identifiable {
     var progress: Double; var path: String?; var text: String?; var error: String?; var date: Date
     /// Set when a send is waiting for an unreachable phone or was cut off by a lost connection; it goes out when the phone reconnects.
     var autoRetry: Bool?
+    /// Live estimates use a monotonic clock and are never restored from history.
+    var stats: TransferProgress? = nil
+    private enum CodingKeys: String, CodingKey { case id, peer, name, direction, state, progress, path, text, error, date, autoRetry }
 }
 @MainActor final class AppModel: ObservableObject {
     @Published var targeted = false
@@ -25,7 +28,7 @@ struct Transfer: Codable, Identifiable {
     @Published var openAtLogin = LoginItem.isEnabled
     @Published var loginError: String?
     var installingUpdate = false
-    static let ongoing = ["Preparing", "Sending", "Receiving"]
+    static let ongoing = ["Preparing", "Sending", "Receiving", "Verifying"]
     var hasActiveTransfers: Bool { !running.isEmpty || pendingApproval || transfers.contains { Self.ongoing.contains($0.state) } }
     func pauseReceivingForUpdate() async { for engine in engines.values { await engine.setReceiving(false) } }
     func finishUpdateAttempt() { installingUpdate = false; for engine in engines.values { Task { await engine.setReceiving(receiving) } }; for peer in online { resumePending(peer) } }
@@ -141,14 +144,22 @@ struct Transfer: Codable, Identifiable {
     private func record(_ event: PeerEvent, peer: String) {
         let existing = transfers.firstIndex(where: { $0.id == event.id && $0.peer == peer })
         let finished = event.state == "Complete" && existing.map { transfers[$0].state } != "Complete"
+        var stats: TransferProgress?
+        if let total = event.totalBytes, let bytes = event.transferredBytes {
+            if let index = existing, transfers[index].stats?.totalBytes == total,
+               ["Sending", "Receiving", "Verifying"].contains(transfers[index].state) {
+                stats = transfers[index].stats; stats?.advance(bytes: bytes, at: event.sampledAt)
+            } else { stats = TransferProgress(totalBytes: total, transferredBytes: bytes, at: event.sampledAt) }
+        }
         if let index = existing {
             transfers[index].state = event.state; transfers[index].progress = event.progress
+            transfers[index].stats = stats
             transfers[index].path = event.path ?? transfers[index].path
             transfers[index].text = event.text ?? transfers[index].text; transfers[index].error = event.error
             if ["Complete", "Cancelled"].contains(event.state) { transfers[index].autoRetry = nil }
         } else {
             transfers.insert(Transfer(id: event.id, peer: peer, name: event.name, direction: event.direction, state: event.state,
-                progress: event.progress, path: event.path, text: event.text, error: event.error, date: Date()), at: 0)
+                progress: event.progress, path: event.path, text: event.text, error: event.error, date: Date(), stats: stats), at: 0)
         }
         // History is also the send queue, so only finished rows count toward its limit.
         var kept = 0
@@ -287,12 +298,16 @@ struct Transfer: Codable, Identifiable {
         let now = Date()
         transfers = [
             Transfer(id: "6", peer: phone.id, name: "Text", direction: "Sent", state: "Interrupted", progress: 0, text: "Pick up the printer cable on the way home", error: "Waiting for \(phone.name)", date: now, autoRetry: true),
-            Transfer(id: "5", peer: phone.id, name: "Quarterly report.pdf", direction: "Sent", state: "Sending", progress: 0.62, path: "/tmp/Quarterly report.pdf", date: now),
+            Transfer(id: "5", peer: phone.id, name: "Quarterly report.pdf", direction: "Sent", state: "Sending", progress: 0.62, path: "/tmp/Quarterly report.pdf", date: now, stats: previewProgress()),
             Transfer(id: "4", peer: phone.id, name: "Text", direction: "Received", state: "Complete", progress: 1, text: "https://dropduo.app/download", date: now.addingTimeInterval(-60)),
             Transfer(id: "3", peer: phone.id, name: "IMG_2041.jpg", direction: "Received", state: "Complete", progress: 1, path: "/tmp/IMG_2041.jpg", date: now.addingTimeInterval(-600)),
             Transfer(id: "2", peer: phone.id, name: "Holiday clip.mov", direction: "Sent", state: "Interrupted", progress: 0.3, path: "/tmp/Holiday clip.mov", error: "Connection interrupted", date: now.addingTimeInterval(-3600)),
             Transfer(id: "1", peer: phone.id, name: "Text", direction: "Sent", state: "Complete", progress: 1, text: "Meeting notes are in the shared folder, check the second page.", date: now.addingTimeInterval(-90000))
         ]
+    }
+    private func previewProgress() -> TransferProgress {
+        var stats = TransferProgress(totalBytes: 340_000_000, transferredBytes: 200_800_000, at: ProcessInfo.processInfo.systemUptime - 2)
+        stats.advance(bytes: 210_800_000); return stats
     }
     #endif
 }

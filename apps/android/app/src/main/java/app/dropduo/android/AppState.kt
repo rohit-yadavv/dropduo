@@ -20,13 +20,15 @@ data class Transfer(val id: String, val name: String, val direction: String, val
     /** A folder from the Mac; once received, [path] is the unpacked folder. */
     val folder: Boolean = false,
     /** Where a received file or folder was saved for other apps (see [SharedStorage.save]); [path] is gone once it's set. */
-    val saved: String? = null)
+    val saved: String? = null,
+    /** Live estimates use a monotonic clock and are never restored from history. */
+    @Transient val stats: TransferProgress? = null)
 /** [askBackground] is set while Android may stop DropDuo in the background and the user hasn't said no; [reveal] is a transfer to show. */
 data class UiState(val device: String? = null, val connected: Boolean = false, val status: String = "Pair your Mac to get started",
     val receiving: Boolean = true, val history: List<Transfer> = emptyList(), val error: String? = null,
     val askBackground: Boolean = false, val reveal: String? = null)
 const val WAITING_FOR_MAC = "Waiting for your Mac"
-private val ONGOING = listOf("Preparing", "Sending", "Receiving")
+private val ONGOING = listOf("Preparing", "Sending", "Receiving", "Verifying")
 private const val OTHER_MAC = "Not sent. Retry to send it to your current Mac."
 object AppState {
     lateinit var context: Application
@@ -123,9 +125,14 @@ object AppState {
     /** [pairID] is the Mac the transfer is with, when known; it replaces the one stored on the row. */
     @Synchronized fun record(event: PeerEvent, autoRetry: Boolean = false, pairID: String? = null) {
         val old = ui.value.history.firstOrNull { it.id == event.id }
+        val total = event.totalBytes; val bytes = event.transferredBytes
+        val stats = if (total != null && bytes != null) {
+            old?.stats?.takeIf { it.totalBytes == total && old.state in listOf("Sending", "Receiving", "Verifying") }
+                ?.advance(bytes, event.sampledAt) ?: TransferProgress(total, bytes, event.sampledAt)
+        } else null
         val row = Transfer(event.id, old?.name ?: event.name, old?.direction ?: event.direction, event.state, event.progress,
             event.path ?: old?.path, event.text ?: old?.text, event.error, autoRetry, old?.time ?: System.currentTimeMillis(), pairID ?: old?.pairID,
-            event.folder || old?.folder == true, old?.saved)
+            event.folder || old?.folder == true, old?.saved, stats)
         val history = limit(listOf(row) + ui.value.history.filter { it.id != event.id })
         ui.value = ui.value.copy(history = history)
         // New rows are saved right away so a send survives the app closing before it finishes.
@@ -262,7 +269,8 @@ object AppState {
         if (!BuildConfig.DEBUG) return
         val now = System.currentTimeMillis(); val minute = 60_000L; val day = 86_400_000L
         val history = if (scene == "empty") emptyList() else listOf(
-            Transfer("preview-1", "IMG_2048.heic", "Sent", "Sending", 0.62, time = now),
+            Transfer("preview-1", "IMG_2048.heic", "Sent", "Sending", 0.62, time = now,
+                stats = TransferProgress(340_000_000, 200_800_000, TransferProgress.now() - 2).advance(210_800_000)),
             Transfer("preview-2", "Text", "Received", "Complete", 1.0, text = "https://maps.app.goo.gl/dinner-friday", time = now - 4 * minute),
             Transfer("preview-3", "Pick up the printer cable", "Sent", "Interrupted", text = "Pick up the printer cable on the way home", error = WAITING_FOR_MAC, autoRetry = true, time = now - 26 * minute),
             Transfer("preview-4", "Lease agreement.pdf", "Received", "Complete", 1.0, path = File(inbox(), "preview/Lease agreement.pdf").path, time = now - 48 * minute),

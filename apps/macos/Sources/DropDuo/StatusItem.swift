@@ -28,11 +28,12 @@ import AppKit
         } else {
             menu.addItem(disabled("No paired devices", image: symbol("smartphone")))
         }
-        let active = model.transfers.filter { ["Preparing", "Sending", "Receiving"].contains($0.state) }
+        let active = model.transfers.filter { AppModel.ongoing.contains($0.state) }
         if let first = active.first {
             let receiving = first.direction == "Received"
-            let verb = receiving ? "Receiving" : "Sending"
-            menu.addItem(disabled(active.count == 1 ? "\(verb) \(first.name) · \(Int(first.progress * 100))%" : "\(verb) \(active.count) files…",
+            let verb = first.state
+            let status = ["Preparing", "Verifying"].contains(verb) ? "\(verb) \(first.name)…" : "\(verb) \(first.name) · \(Int(first.progress * 100))%"
+            menu.addItem(disabled(active.count == 1 ? status : "\(verb) \(active.count) files…",
                 image: symbol(receiving ? "arrow.down.circle" : "arrow.up.circle")))
         }
         if model.devices.count > 1 {

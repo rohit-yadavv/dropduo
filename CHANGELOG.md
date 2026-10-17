@@ -4,6 +4,8 @@ Each [GitHub release](https://github.com/rohit-yadavv/dropduo/releases) lists th
 
 ## Unreleased
 
+- Show transferred size, recent speed and estimated time remaining for each active file on both apps, with a separate verification status.
+- Keep the Mac awake during active transfers while allowing the display to sleep; release sleep prevention when a transfer ends.
 - Received files land where you look for them on Android: photos and videos in your gallery, other files and folders in **Downloads › DropDuo**. They stay after uninstalling DropDuo, so **Save a copy** is gone, and files received with earlier versions move there too.
 - Android shows a notification when something arrives while DropDuo is closed: tap it to open the file or link, or choose **Copy** for text. A burst of files alerts once.
 - Once connected, Android asks to let DropDuo run in the background, so what the Mac sends arrives while the app is closed.

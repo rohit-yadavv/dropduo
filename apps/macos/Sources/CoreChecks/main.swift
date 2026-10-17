@@ -92,6 +92,8 @@ func expectEqual<T: Equatable>(_ left: T, _ right: T, line: Int = #line) { preco
 func expectThrows<T>(_ expression: @autoclosure () throws -> T) { do { _ = try expression(); fatalError("Expected failure") } catch {} }
 
 let checks = CoreTests()
+checkTransferProgress()
+checkTransferActivities()
 try checks.testAuthenticatedFramesRejectReplayAndTampering()
 try checks.testWorstCaseChunkFitsInFrame()
 try checks.testTicketRoundTrip()
@@ -117,4 +119,4 @@ _ = try inbox.prepare(paused); try inbox.cancel(paused.id!)
 expectEqual(try inbox.prepare(paused), 0)
 var malformed = FrameCipher(key: Data(repeating: 0, count: 32))
 expectThrows(try malformed.open(Data(repeating: 0, count: 35)))
-print("PASS: authenticated frames, worst-case chunk size, replay/tampering, pairing ticket, resume, integrity, safe names and folder payloads")
+print("PASS: authenticated frames, worst-case chunk size, replay/tampering, pairing ticket, resume, integrity, safe names, folder payloads, transfer estimates and sleep-assertion lifecycle")

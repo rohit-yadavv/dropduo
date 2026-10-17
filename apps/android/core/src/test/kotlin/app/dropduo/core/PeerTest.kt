@@ -11,6 +11,44 @@ import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.concurrent.thread
 
 class PeerTest {
+    @Test fun resumedAndEmptySendsReportBytesAndVerifyBeforeCompleting() {
+        for (size in listOf(0, Wire.CHUNK_SIZE + 17)) {
+            val root = Files.createTempDirectory("dropduo-progress").toFile()
+            val (local, remote) = sockets()
+            val sent = CopyOnWriteArrayList<PeerEvent>()
+            val received = CopyOnWriteArrayList<PeerEvent>()
+            val source = File(root, "source.bin").apply { writeBytes(ByteArray(size) { (it % 251).toByte() }) }
+            val id = UUID.randomUUID().toString()
+            val inbox = Inbox(File(root, "received"))
+            val offer = Message("offer", id, source.name, source.length(), Wire.hash(source))
+            inbox.prepare(offer)
+            val offset = if (size == 0) 0L else 100L
+            if (offset > 0) inbox.append(offer, 0, source.readBytes().copyOf(offset.toInt()))
+            val sender = PeerEngine(SecureChannel(local, ByteArray(32) { 1 }, ByteArray(32) { 2 }), Inbox(File(root, "sent")), sent::add)
+            val receiver = PeerEngine(SecureChannel(remote, ByteArray(32) { 2 }, ByteArray(32) { 1 }), inbox, received::add)
+            val sendReader = thread { runCatching { sender.run() } }
+            val receiveReader = thread { runCatching { receiver.run() } }
+            try {
+                sender.sendFile(source, id)
+                for ((events, phase) in listOf(sent to "Sending", received to "Receiving")) {
+                    val initial = events.first { it.state == phase }
+                    assertEquals(offset, initial.transferredBytes)
+                    assertEquals(size.toLong(), initial.totalBytes)
+                    assertEquals(if (size == 0) 1.0 else offset.toDouble()/size, initial.progress, 0.0)
+                    val verifying = events.indexOfFirst { it.state == "Verifying" }
+                    val complete = events.indexOfFirst { it.state == "Complete" }
+                    assertTrue(events.toString(), verifying >= 0 && complete > verifying)
+                    assertEquals(size.toLong(), events[verifying].transferredBytes)
+                }
+                assertArrayEquals(source.readBytes(), inbox.destination(offer).readBytes())
+            } finally {
+                sender.close(); receiver.close(); sendReader.join(5000); receiveReader.join(5000); root.deleteRecursively()
+            }
+            assertFalse(sendReader.isAlive)
+            assertFalse(receiveReader.isAlive)
+        }
+    }
+
     @Test fun invalidChunkStopsReceivingProgressAndReportsFailure() {
         val root = Files.createTempDirectory("dropduo-peer").toFile()
         val listener = ServerSocket(0)

@@ -144,8 +144,8 @@ struct Sidebar: View {
     /// What the row says under the device name while something is moving or waiting.
     private func activity(_ device: Device) -> String? {
         let mine = model.transfers.filter { $0.peer == device.id }
-        if let active = mine.first(where: { ["Preparing", "Sending", "Receiving"].contains($0.state) }) {
-            return active.state == "Preparing" ? "Preparing…" : "\(active.state) \(Int(active.progress * 100))%"
+        if let active = mine.first(where: { AppModel.ongoing.contains($0.state) }) {
+            return ["Preparing", "Verifying"].contains(active.state) ? "\(active.state)…" : "\(active.state) \(Int(active.progress * 100))%"
         }
         let waiting = mine.filter { $0.state == "Interrupted" && $0.autoRetry == true }.count
         return waiting == 0 ? nil : "\(waiting) waiting to send"

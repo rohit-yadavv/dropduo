@@ -21,14 +21,8 @@ concurrency:
   cancel-in-progress: true
 jobs:
   macos:
-    name: macOS (${{ matrix.arch }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - {runner: macos-15, arch: arm64}
-          - {runner: macos-15-intel, arch: x86_64}
-    runs-on: ${{ matrix.runner }}
+    name: macOS
+    runs-on: xcode-27
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -36,15 +30,14 @@ jobs:
       - run: ./scripts/check macos
       - run: ./scripts/build-macos
       - name: Verify and archive
-        env: {ARCH: "${{ matrix.arch }}"}
         run: |
           codesign --verify --deep --strict dist/DropDuo.app
-          ditto -c -k --sequesterRsrc --keepParent dist/DropDuo.app "dist/DropDuo-macos-${ARCH}-development.zip"
+          ditto -c -k --sequesterRsrc --keepParent dist/DropDuo.app dist/DropDuo-macos-development.zip
           cd dist
-          shasum -a 256 "DropDuo-macos-${ARCH}-development.zip" > "DropDuo-macos-${ARCH}-development.zip.sha256"
+          shasum -a 256 DropDuo-macos-development.zip > DropDuo-macos-development.zip.sha256
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: dropduo-macos-${{ matrix.arch }}-development
+          name: dropduo-macos-development
           path: |
             dist/*.zip
             dist/*.sha256
@@ -82,7 +75,7 @@ jobs:
           retention-days: 14
   interoperability:
     name: Swift / JVM interoperability
-    runs-on: macos-15
+    runs-on: xcode-27
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

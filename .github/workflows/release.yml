@@ -48,13 +48,7 @@ jobs:
           echo "commit=$(git rev-parse HEAD)" | tee -a "$GITHUB_OUTPUT"
   macos:
     needs: gate
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - {runner: macos-15, arch: arm64}
-          - {runner: macos-15-intel, arch: x86_64}
-    runs-on: ${{ matrix.runner }}
+    runs-on: xcode-27
     timeout-minutes: 45
     env:
       DROPDUO_VERSION: ${{ needs.gate.outputs.version }}
@@ -97,7 +91,7 @@ jobs:
         run: python3 scripts/update-feed.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: release-macos-${{ matrix.arch }}
+          name: release-macos
           path: dist/release/
           if-no-files-found: error
           retention-days: 30
@@ -179,10 +173,8 @@ jobs:
           gh api "repos/$GH_REPO/releases/generate-notes" -f tag_name="$TAG" -f target_commitish="$COMMIT" --jq .body >> dist/release-notes.md
           # Creates the tag on the built commit. Never overwrites: an existing tag or release fails here.
           # Releases are never marked pre-release, so GitHub and the website offer the newest build.
-          # Downloads, checksums and signed Mac update feeds; build metadata stays in workflow artifacts.
+          # Downloads, checksums and the signed Mac update feed; build metadata stays in workflow artifacts.
           set -- dist/release/*.zip dist/release/*.apk dist/release/SHA256SUMS
-          if [ -f dist/release/appcast-mac-applesilicon.xml ]; then
-            set -- "$@" dist/release/appcast-mac-applesilicon.xml dist/release/appcast-mac-intel.xml
-          fi
+          if [ -f dist/release/appcast-mac.xml ]; then set -- "$@" dist/release/appcast-mac.xml; fi
           gh release create "$TAG" "$@" \
             --target "$COMMIT" --title "DropDuo $TAG" --notes-file dist/release-notes.md

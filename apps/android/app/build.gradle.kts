@@ -1,12 +1,10 @@
-import java.util.Properties
-
 plugins { id("com.android.application"); kotlin("android"); id("org.jetbrains.kotlin.plugin.compose") }
-val releaseVersion = Properties().apply {
-    rootProject.file("../../version.properties").inputStream().use { load(it) }
-}
-// The Release workflow sets these; version.properties covers local and test builds.
-val appVersionName = providers.environmentVariable("DROPDUO_VERSION").orNull ?: releaseVersion.getProperty("versionName")
-val appVersionCode = (providers.environmentVariable("DROPDUO_BUILD").orNull ?: releaseVersion.getProperty("versionCode")).toInt()
+// Releases set the version and build; local builds use the newest release tag and the commit count, as releases do.
+// Release tags sit on master, so pick the highest one rather than the nearest; "-" suffixes sort before the release.
+fun git(vararg args: String) = providers.exec { commandLine("git", *args); isIgnoreExitValue = true }.standardOutput.asText.get().trim()
+val appVersionName = providers.environmentVariable("DROPDUO_VERSION").orNull
+    ?: git("-c", "versionsort.suffix=-", "tag", "--list", "v*", "--sort=-v:refname").substringBefore("\n").removePrefix("v").ifEmpty { "0.0.0" }
+val appVersionCode = (providers.environmentVariable("DROPDUO_BUILD").orNull ?: git("rev-list", "--count", "HEAD").ifEmpty { "1" }).toInt()
 val signingPath = providers.environmentVariable("DROPDUO_ANDROID_KEYSTORE").orNull
 android {
     namespace = "app.dropduo.android"

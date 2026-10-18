@@ -1,7 +1,6 @@
 // swift-tools-version: 6.0
 import PackageDescription
 let package = Package(name: "DropDuo", platforms: [.macOS(.v14)], products: [
-    .library(name: "DropDuoCore", targets: ["DropDuoCore"]),
     .executable(name: "DropDuo", targets: ["DropDuo"]),
     .executable(name: "dropduo-interop", targets: ["Interop"])
 ], dependencies: [

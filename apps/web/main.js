@@ -217,15 +217,13 @@
     if (platform === "android") half.parentElement.classList.add("duo--android-first");
   }
 
-  // Release asset names:
-  // dropduo-mac-applesilicon-vVERSION.zip, dropduo-mac-intel-vVERSION.zip, dropduo-android-vVERSION.apk.
-  // Releases up to v0.1.0-alpha.6 used DropDuo-vVERSION-macos-arm64[-development].zip, -macos-x86_64, -android.apk.
+  // Release asset names: dropduo-mac-vVERSION.zip and dropduo-android-vVERSION.apk.
+  // v0.1.8 and earlier named the Mac download dropduo-mac-applesilicon-vVERSION.zip.
   const platforms = document.querySelector("[data-release-state]");
   const status = document.querySelector("[data-release-status]");
   const patterns = {
-    "mac-arm64": /(^dropduo-mac-applesilicon-v.+|-macos-arm64(-development)?)\.zip$/i,
-    "mac-x86_64": /(^dropduo-mac-intel-v.+|-macos-x86_64(-development)?)\.zip$/i,
-    android: /(^dropduo-android-v.+|-android(-development)?)\.apk$/i,
+    mac: /^dropduo-mac-(applesilicon-)?v.+\.zip$/i,
+    android: /^dropduo-android-v.+\.apk$/i,
   };
 
   const formatSize = (bytes) => bytes >= 1e6 ? `${(bytes / 1e6).toFixed(bytes >= 1e7 ? 0 : 1)} MB` : `${Math.max(1, Math.round(bytes / 1e3))} KB`;

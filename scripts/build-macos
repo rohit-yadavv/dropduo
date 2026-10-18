@@ -2,8 +2,20 @@
 set -eu
 cd "$(dirname "$0")/.."
 configuration=${1:-release}
-swift build --package-path apps/macos -c "$configuration" --product DropDuo
+# Releases set the version and build; local builds use the newest release tag and the commit count, as releases do.
+# Release tags sit on master, so pick the highest one rather than the nearest; "-" suffixes sort before the release.
+DROPDUO_VERSION=${DROPDUO_VERSION:-$(git -c versionsort.suffix=- tag --list 'v*' --sort=-v:refname 2>/dev/null | sed -n '1s/^v//p')}
+DROPDUO_BUILD=${DROPDUO_BUILD:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}
+export DROPDUO_VERSION="${DROPDUO_VERSION:-0.0.0}" DROPDUO_BUILD
+# macOS draws controls by the SDK an app records, not the SDK it was compiled with. SwiftPM's newer build system links
+# without telling clang the SDK, which records the minimum macOS instead and gets the old, smaller window chrome.
+sdk=$(xcrun --sdk macosx --show-sdk-path)
+swift build --package-path apps/macos -c "$configuration" --product DropDuo \
+  -Xswiftc -Xclang-linker -Xswiftc -isysroot -Xswiftc -Xclang-linker -Xswiftc "$sdk"
 bin=$(swift build --package-path apps/macos -c "$configuration" --show-bin-path)
+recorded=$(vtool -show-build "$bin/DropDuo" | awk '$1 == "sdk" { print $2 }')
+expected=$(xcrun --sdk macosx --show-sdk-version)
+[ "$recorded" = "$expected" ] || { echo "DropDuo recorded SDK $recorded instead of $expected." >&2; exit 1; }
 app="dist/DropDuo.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 # Preserve Sparkle's versioned symlinks, helper apps and XPC services in our non-Xcode bundle.
@@ -24,18 +36,15 @@ for path in re.findall(r'cmd LC_RPATH\n.*?path (.*?) \(offset', commands, re.S):
 PY
 cp apps/macos/Resources/Info.plist "$app/Contents/Info.plist"
 python3 - "$app/Contents/Info.plist" <<'PY'
-import base64, os, platform, plistlib, sys
+import base64, os, plistlib, sys
 from pathlib import Path
-# The Release workflow sets DROPDUO_VERSION/DROPDUO_BUILD; version.properties covers local and test builds.
-version = dict(line.split('=', 1) for line in Path('version.properties').read_text().splitlines() if '=' in line)
-name = os.environ.get('DROPDUO_VERSION') or version['versionName']
+name = os.environ['DROPDUO_VERSION']
 path = Path(sys.argv[1])
 info = plistlib.loads(path.read_bytes())
 info['CFBundleShortVersionString'] = name.split('-', 1)[0]
-info['CFBundleVersion'] = os.environ.get('DROPDUO_BUILD') or version['versionCode']
+info['CFBundleVersion'] = os.environ['DROPDUO_BUILD']
 info['DropDuoVersion'] = name
-chip = {'arm64': 'applesilicon', 'x86_64': 'intel'}[platform.machine()]
-info['SUFeedURL'] = f'https://github.com/rohit-yadavv/dropduo/releases/latest/download/appcast-mac-{chip}.xml'
+info['SUFeedURL'] = 'https://github.com/rohit-yadavv/dropduo/releases/latest/download/appcast-mac.xml'
 key = os.environ.get('DROPDUO_UPDATE_PUBLIC_KEY', '').strip()
 if key:
     if len(base64.b64decode(key, validate=True)) != 32:

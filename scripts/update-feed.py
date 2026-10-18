@@ -18,8 +18,8 @@ def make_feed(metadata, size, signature):
     if not re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(alpha|beta|rc)\.([1-9]\d*))?", version):
         raise ValueError("Invalid update version.")
     name = f"dropduo-mac-v{version}.zip"
-    if metadata["artifact"] != name or metadata["platform"] != "macos" or metadata["mode"] != "distribution":
-        raise ValueError("Only versioned distribution Mac downloads can enter the update feed.")
+    if metadata["artifact"] != name or metadata["platform"] != "macos":
+        raise ValueError("Only versioned Mac downloads can enter the update feed.")
     if not isinstance(build, int) or isinstance(build, bool) or not 1 <= build <= 2_100_000_000 or size <= 0:
         raise ValueError("Invalid update build or length.")
     if len(base64.b64decode(signature, validate=True)) != 64:

@@ -6,15 +6,13 @@ cd "$(dirname "$0")/.."
 task_keychain="$RUNNER_TEMP/dropduo-signing.keychain-db"
 case "${1:-}" in
   install)
-    : "${MAC_CERTIFICATE_BASE64:?Missing Developer ID certificate}"
+    : "${MAC_CERTIFICATE_BASE64:?Missing signing certificate}"
     : "${MAC_CERTIFICATE_PASSWORD:?Missing certificate password}"
-    : "${DROPDUO_SIGN_IDENTITY:?Missing Developer ID identity}"
-    case "$DROPDUO_SIGN_IDENTITY" in 'Developer ID Application:'*) ;; *) echo 'Use a Developer ID Application identity.' >&2; exit 1 ;; esac
     python3 - <<'PY'
 import base64, os
 from pathlib import Path
 path = Path(os.environ['RUNNER_TEMP']) / 'dropduo-certificate.p12'
-path.write_bytes(base64.b64decode(os.environ['MAC_CERTIFICATE_BASE64'], validate=True))
+path.write_bytes(base64.b64decode(os.environ['MAC_CERTIFICATE_BASE64'].strip(), validate=True))
 path.chmod(0o600)
 PY
     task_keychain_password=$(openssl rand -base64 32)

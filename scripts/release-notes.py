@@ -30,11 +30,10 @@ if len({m['commit'] for m in metadata}) != 1:
     raise SystemExit("Platform artifacts were built from different commits.")
 if len({m.get('build') for m in metadata}) != 1:
     raise SystemExit("Platform artifacts have different build numbers.")
-feeds = {path.name for path in out.glob('appcast-*.xml')}
-if feeds != ({'appcast-mac.xml'} if mode == 'distribution' else set()):
-    raise SystemExit("Distribution releases require the signed Mac update feed; development releases have none.")
+if {path.name for path in out.glob('appcast-*.xml')} != {'appcast-mac.xml'}:
+    raise SystemExit("Releases require the signed Mac update feed.")
 for item in metadata:
-    if mode != 'distribution' or item['platform'] != 'macos':
+    if item['platform'] != 'macos':
         continue
     feed = ET.parse(out / 'appcast-mac.xml').getroot().find('channel/item')
     sparkle = '{http://www.andymatuschak.org/xml-namespaces/sparkle}'
@@ -45,7 +44,7 @@ for item in metadata:
     if enclosure is None or enclosure.get('url') != expected_url or enclosure.get('length') != str((out / item['artifact']).stat().st_size) or not enclosure.get(sparkle + 'edSignature'):
         raise SystemExit("Mac update feed does not match its archive.")
 (out / "SHA256SUMS").write_text(''.join(checksums))
-status = ("Development prerelease: Mac apps are ad-hoc signed and not notarized. Android APK is debug-signed. "
+status = ("Development release: the Mac app is signed with DropDuo's own certificate and not notarized by Apple. Android APK is debug-signed. "
           "Android debug certificates can change between runs; export received files before uninstalling a previous build. "
           "Do not present these downloads as production-signed software.") if mode == "development" else (
           "Mac apps use Developer ID signing and Apple notarization. Android APK uses the maintainer's distribution key.")

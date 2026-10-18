@@ -11,7 +11,7 @@ spec.loader.exec_module(feed)
 
 class UpdateFeedTests(unittest.TestCase):
     def metadata(self):
-        return dict(version="0.2.0", build=100, platform="macos", mode="distribution", artifact="dropduo-mac-v0.2.0.zip")
+        return dict(version="0.2.0", build=100, platform="macos", artifact="dropduo-mac-v0.2.0.zip")
 
     def test_feed_points_at_the_signed_archive_and_build(self):
         signature = base64.b64encode(bytes(64)).decode()
@@ -22,9 +22,9 @@ class UpdateFeedTests(unittest.TestCase):
         self.assertEqual(item.find("enclosure").get("url"), f"{feed.REPOSITORY}/releases/download/v0.2.0/dropduo-mac-v0.2.0.zip")
         self.assertEqual(item.find("enclosure").get(f"{{{feed.SPARKLE}}}edSignature"), signature)
 
-    def test_development_builds_bad_names_numbers_and_signatures_are_rejected(self):
+    def test_bad_names_numbers_and_signatures_are_rejected(self):
         original = self.metadata()
-        for change in [dict(mode="development"), dict(platform="android"), dict(artifact="../evil.zip"), dict(build=0), dict(build=True), dict(build=2_100_000_001)]:
+        for change in [dict(platform="android"), dict(artifact="../evil.zip"), dict(build=0), dict(build=True), dict(build=2_100_000_001)]:
             with self.assertRaises(ValueError):
                 feed.make_feed({**original, **change}, 123, base64.b64encode(bytes(64)).decode())
         for signature in ["bad", base64.b64encode(bytes(32)).decode()]:

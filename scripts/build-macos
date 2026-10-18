@@ -51,7 +51,7 @@ if key:
         raise SystemExit('Invalid Sparkle public key.')
     info['SUPublicEDKey'] = key
 elif os.environ.get('DROPDUO_SIGN_IDENTITY', '-') != '-':
-    raise SystemExit('Distribution builds require DROPDUO_UPDATE_PUBLIC_KEY.')
+    raise SystemExit('Signed builds require DROPDUO_UPDATE_PUBLIC_KEY.')
 info['SUEnableAutomaticChecks'] = False # AppUpdater makes silent, daily availability probes.
 info['SUAutomaticallyUpdate'] = False
 info['SUAllowsAutomaticUpdates'] = False
@@ -66,12 +66,14 @@ rm -rf "$app/Contents/Resources/DropDuo_DropDuo.bundle"
 cp apps/macos/Sources/DropDuo/Resources/*.png "$app/Contents/Resources/"
 # Releases upload only the app, so its license and notices travel inside it.
 cp LICENSE "$app/Contents/Resources/"
+# Releases sign with DropDuo's own certificate, or Developer ID once Apple signing is set up; local builds sign ad hoc.
+# Only Developer ID gets the hardened runtime notarization needs: its library validation stops a self-signed app from
+# loading Sparkle, because the certificate has no Apple team ID.
 sign() {
-  if [ "${DROPDUO_SIGN_IDENTITY:--}" = '-' ]; then
-    codesign --force --sign - --preserve-metadata=entitlements "$1"
-  else
-    codesign --force --options runtime --timestamp --sign "$DROPDUO_SIGN_IDENTITY" --preserve-metadata=entitlements "$1"
-  fi
+  case "${DROPDUO_SIGN_IDENTITY:--}" in
+    'Developer ID Application:'*) codesign --force --options runtime --timestamp --sign "$DROPDUO_SIGN_IDENTITY" --preserve-metadata=entitlements "$1" ;;
+    *) codesign --force --sign "${DROPDUO_SIGN_IDENTITY:--}" --preserve-metadata=entitlements "$1" ;;
+  esac
 }
 embedded="$app/Contents/Frameworks/Sparkle.framework/Versions/B"
 sign "$embedded/XPCServices/Downloader.xpc"

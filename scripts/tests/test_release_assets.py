@@ -9,6 +9,10 @@ import subprocess
 import tempfile
 import unittest
 
+spec = importlib.util.spec_from_file_location("release_feed", Path(__file__).parents[1] / "update-feed.py")
+generator = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(generator)
+
 
 class ReleaseAssetTests(unittest.TestCase):
     def setUp(self):
@@ -25,10 +29,14 @@ class ReleaseAssetTests(unittest.TestCase):
         self.commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=self.root, text=True).strip()
         self.out = self.root / "dist/release"
         self.out.mkdir(parents=True)
-        for name, target in [("mac.zip", "macos"), ("android.apk", "android")]:
+        for name, target in [("dropduo-mac-v0.1.0-alpha.1.zip", "macos"), ("android.apk", "android")]:
             data = target.encode()
             (self.out / name).write_bytes(data)
-            (self.out / (name + ".json")).write_text(json.dumps({"artifact": name, "version": "0.1.0-alpha.1", "mode": "development", "platform": target, "commit": self.commit, "dirty": False, "sha256": hashlib.sha256(data).hexdigest()}))
+            item = {"artifact": name, "version": "0.1.0-alpha.1", "build": 100, "mode": "development", "platform": target, "commit": self.commit, "dirty": False, "sha256": hashlib.sha256(data).hexdigest()}
+            (self.out / (name + ".json")).write_text(json.dumps(item))
+        mac = dict(version="0.1.0-alpha.1", build=100, platform="macos", artifact="dropduo-mac-v0.1.0-alpha.1.zip")
+        feed, xml = generator.make_feed(mac, len(b"macos"), base64.b64encode(bytes(64)).decode())
+        (self.out / feed).write_bytes(xml)
 
     def assemble(self, mode="development"):
         return subprocess.run(["python3", "scripts/release-notes.py"], cwd=self.root, env={**os.environ, "TAG": "v0.1.0-alpha.1", "MODE": mode}, capture_output=True, text=True)
@@ -48,34 +56,23 @@ class ReleaseAssetTests(unittest.TestCase):
         self.assertNotEqual(self.assemble().returncode, 0)
 
     def test_incomplete_platform_set_is_rejected(self):
-        (self.out / "mac.zip.json").unlink()
+        (self.out / "dropduo-mac-v0.1.0-alpha.1.zip.json").unlink()
         self.assertNotEqual(self.assemble().returncode, 0)
 
     def test_wrong_source_or_dirty_build_is_rejected(self):
-        path = self.out / "mac.zip.json"
+        path = self.out / "dropduo-mac-v0.1.0-alpha.1.zip.json"
         original = json.loads(path.read_text())
         for key, value in [("commit", "0" * 40), ("dirty", True), ("version", "0.2.0"), ("mode", "distribution")]:
             path.write_text(json.dumps({**original, key: value}))
             self.assertNotEqual(self.assemble().returncode, 0)
 
-    def test_distribution_requires_matching_update_feed(self):
-        spec = importlib.util.spec_from_file_location("release_feed", Path(__file__).parents[1] / "update-feed.py")
-        generator = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(generator)
-        for path in self.out.glob("*.json"):
-            item = json.loads(path.read_text())
-            item.update(mode="distribution", build=100)
-            if item['platform'] == 'macos':
-                artifact = f"dropduo-mac-v{item['version']}.zip"
-                (self.out / item['artifact']).rename(self.out / artifact)
-                item['artifact'] = artifact
-                name, xml = generator.make_feed(item, (self.out / artifact).stat().st_size, base64.b64encode(bytes(64)).decode())
-            path.write_text(json.dumps(item))
-        self.assertNotEqual(self.assemble("distribution").returncode, 0)
-        (self.out / name).write_bytes(xml)
-        self.assertEqual(self.assemble("distribution").returncode, 0)
-        (self.out / name).write_bytes(xml.replace(b'>100<', b'>101<'))
-        self.assertNotEqual(self.assemble("distribution").returncode, 0)
+    def test_update_feed_must_match_the_mac_download(self):
+        feed = self.out / "appcast-mac.xml"
+        xml = feed.read_bytes()
+        feed.unlink()
+        self.assertNotEqual(self.assemble().returncode, 0)
+        feed.write_bytes(xml.replace(b'>100<', b'>101<'))
+        self.assertNotEqual(self.assemble().returncode, 0)
 
     def test_mismatched_build_numbers_are_rejected(self):
         path = self.out / 'android.apk.json'

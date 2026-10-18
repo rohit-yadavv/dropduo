@@ -36,8 +36,8 @@ try key.publicKey.rawRepresentation.base64EncodedString().write(to: root.appendi
             signature = signed.stdout.strip()
             command = ["swift", str(ROOT / "scripts/verify-update.swift"), str(artifact), public_key, signature]
             self.assertEqual(subprocess.run(command, capture_output=True).returncode, 0)
-            metadata = dict(version="0.2.0", build=100, architecture="arm64", platform="macos", mode="distribution", artifact="dropduo-mac-applesilicon-v0.2.0.zip")
-            name, xml = feed.make_feed(metadata, artifact.stat().st_size, signature, "notes")
+            metadata = dict(version="0.2.0", build=100, platform="macos", artifact="dropduo-mac-v0.2.0.zip")
+            name, xml = feed.make_feed(metadata, artifact.stat().st_size, signature)
             appcast = work / name
             appcast.write_bytes(xml)
             sign_feed = subprocess.run([str(SIGNER), "--ed-key-file", "-", str(appcast)], input=private_key, text=True, capture_output=True)

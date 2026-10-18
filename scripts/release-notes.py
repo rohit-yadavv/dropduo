@@ -10,9 +10,8 @@ root = Path(__file__).resolve().parent.parent
 out = root / "dist/release"
 tag, mode = os.environ["TAG"], os.environ["MODE"]
 metadata = [json.loads(path.read_text()) for path in sorted(out.glob("*.json"))]
-expected = {("macos", "arm64"), ("macos", "x86_64"), ("android", "android")}
-if len(metadata) != 3 or {(m['platform'], m['architecture']) for m in metadata} != expected:
-    raise SystemExit("Expected exactly Apple Silicon, Intel and Android assets.")
+if sorted(m['platform'] for m in metadata) != ["android", "macos"]:
+    raise SystemExit("Expected exactly one Mac and one Android asset.")
 checksums = []
 source_commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
 for item in metadata:
@@ -20,9 +19,11 @@ for item in metadata:
         raise SystemExit("Artifact version/mode differs from the release.")
     if item.get('dirty') is not False or item['commit'] != source_commit:
         raise SystemExit("Artifacts must come from the clean tagged source commit.")
+    # The notes and the website name these files, so each must have its platform's exact name for this version.
+    expected = {"macos": f"dropduo-mac-{tag}.zip", "android": f"dropduo-android-{tag}.apk"}[item['platform']]
     path = out / item['artifact']
-    if path.name != item['artifact'] or not path.is_file():
-        raise SystemExit("Invalid artifact name.")
+    if item['artifact'] != expected or not path.is_file():
+        raise SystemExit(f"Expected {expected}, found {item['artifact']}.")
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     if digest != item['sha256']:
         raise SystemExit("Artifact checksum differs from its build metadata.")
@@ -31,15 +32,12 @@ if len({m['commit'] for m in metadata}) != 1:
     raise SystemExit("Platform artifacts were built from different commits.")
 if len({m.get('build') for m in metadata}) != 1:
     raise SystemExit("Platform artifacts have different build numbers.")
-feeds = {path.name for path in out.glob('appcast-*.xml')}
-expected_feeds = {'appcast-mac-applesilicon.xml', 'appcast-mac-intel.xml'} if mode == 'distribution' else set()
-if feeds != expected_feeds:
-    raise SystemExit("Distribution releases require both signed Mac update feeds; development releases have none.")
+if {path.name for path in out.glob('appcast-*.xml')} != {'appcast-mac.xml'}:
+    raise SystemExit("Releases require the signed Mac update feed.")
 for item in metadata:
-    if mode != 'distribution' or item['platform'] != 'macos':
+    if item['platform'] != 'macos':
         continue
-    chip = {'arm64': 'applesilicon', 'x86_64': 'intel'}[item['architecture']]
-    feed = ET.parse(out / f'appcast-mac-{chip}.xml').getroot().find('channel/item')
+    feed = ET.parse(out / 'appcast-mac.xml').getroot().find('channel/item')
     sparkle = '{http://www.andymatuschak.org/xml-namespaces/sparkle}'
     if feed is None or feed.find(sparkle + 'version').text != str(item['build']) or feed.find(sparkle + 'shortVersionString').text != item['version']:
         raise SystemExit("Mac update feed version differs from the archive.")
@@ -48,19 +46,16 @@ for item in metadata:
     if enclosure is None or enclosure.get('url') != expected_url or enclosure.get('length') != str((out / item['artifact']).stat().st_size) or not enclosure.get(sparkle + 'edSignature'):
         raise SystemExit("Mac update feed does not match its archive.")
 (out / "SHA256SUMS").write_text(''.join(checksums))
-# An optional CHANGELOG.md section for this version leads the notes; GitHub appends the merged pull requests.
-changelog = (root / "CHANGELOG.md").read_text()
-heading = "## " + tag[1:] + "\n"
-section = changelog.split(heading, 1)[1].split("\n## ", 1)[0].strip() + "\n\n" if heading in changelog else ""
-status = ("Development prerelease: Mac apps are ad-hoc signed and not notarized. Android APK is debug-signed. "
+status = ("Development release: the Mac app is signed with DropDuo's own certificate and not notarized by Apple. Android APK is debug-signed. "
           "Android debug certificates can change between runs; export received files before uninstalling a previous build. "
           "Do not present these downloads as production-signed software.") if mode == "development" else (
           "Mac apps use Developer ID signing and Apple notarization. Android APK uses the maintainer's distribution key.")
 version = tag[1:]
+# GitHub appends the merged pull requests when the release is published.
 notes = "**Download DropDuo: [rohit-yadavv.github.io/dropduo](https://rohit-yadavv.github.io/dropduo/#download)**\n\n"
-notes += f"{section}{status}\n\n"
-notes += f"Or pick a file below: `dropduo-mac-applesilicon-v{version}.zip` for Macs with Apple silicon (M1 or newer), "
-notes += f"`dropduo-mac-intel-v{version}.zip` for Intel Macs, and `dropduo-android-v{version}.apk` for Android 10+. "
+notes += f"{status}\n\n"
+notes += f"Or pick a file below: `dropduo-mac-v{version}.zip` for Macs with Apple silicon (M1 or newer) "
+notes += f"and `dropduo-android-v{version}.apk` for Android 10+. "
 notes += "Unzip and move DropDuo.app to Applications. Both devices need a reachable local network. "
 notes += "The license is inside each download.\n\n"
 notes += "Verify downloads with SHA256SUMS. Source commit: `" + metadata[0]['commit'] + "`.\n\n"

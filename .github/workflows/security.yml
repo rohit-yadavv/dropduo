@@ -20,7 +20,8 @@ jobs:
       matrix:
         include:
           - {language: java-kotlin, runner: ubuntu-24.04}
-          - {language: swift, runner: macos-15}
+          # CodeQL supports Swift 6.3 (Xcode 26), not yet 6.4 (Xcode 27).
+          - {language: swift, runner: macos-26}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     permissions:

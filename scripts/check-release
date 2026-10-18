@@ -36,11 +36,9 @@ def next_version(tags, requested=None):
         return requested
     if latest is None:
         return "0.1.0"
-    major, minor, patch, stage, number = parse(latest)
-    # Older alpha tags continue their count: 0.1.0-alpha.6 → 0.1.7.
-    if stage != 3:
-        patch = max(patch, number)
-    return f"{major}.{minor}.{patch + 1}"
+    major, minor, patch, stage, _ = parse(latest)
+    # A prerelease is followed by its release (0.2.0-beta.1 → 0.2.0), a release by the next patch.
+    return f"{major}.{minor}.{patch + 1 if stage == 3 else patch}"
 
 
 def mode_for(signed):

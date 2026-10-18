@@ -14,9 +14,9 @@ class ReleaseVersionTests(unittest.TestCase):
         tags = ["v0.1.7", "v0.1.10", "v0.1.9", "not-a-version"]
         self.assertEqual(release.next_version(tags), "0.1.11")
 
-    def test_older_alpha_tags_continue_their_count(self):
-        self.assertEqual(release.next_version(["v0.1.0-alpha.5", "v0.1.0-alpha.6"]), "0.1.7")
-        self.assertEqual(release.next_version(["v0.1.0-alpha.6", "v0.1.7"]), "0.1.8")
+    def test_prerelease_is_followed_by_its_release(self):
+        self.assertEqual(release.next_version(["v0.1.8", "v0.2.0-beta.1"]), "0.2.0")
+        self.assertEqual(release.next_version(["v0.1.0-alpha.6", "v0.1.7", "v0.1.8"]), "0.1.9")
 
     def test_first_release(self):
         self.assertEqual(release.next_version([]), "0.1.0")
@@ -25,7 +25,7 @@ class ReleaseVersionTests(unittest.TestCase):
         tags = ["v0.1.0-alpha.5"]
         self.assertEqual(release.next_version(tags, "0.1.0"), "0.1.0")
         self.assertEqual(release.next_version(tags, "0.1.0-beta.1"), "0.1.0-beta.1")
-        self.assertEqual(release.next_version(tags, ""), "0.1.6")
+        self.assertEqual(release.next_version(tags, ""), "0.1.0")
         for requested in ("0.1.0-alpha.5", "0.1.0-alpha.4", "01.0.0", "1.0.0-alpha.0", "v0.1.0-alpha.6", "1.0"):
             with self.assertRaises(ValueError):
                 release.next_version(tags, requested)

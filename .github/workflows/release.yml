@@ -57,6 +57,7 @@ jobs:
       # DropDuo's own certificate until Apple signing is set up. Every release keeps the same identity, so macOS keeps
       # Keychain access and permissions across in-app updates.
       DROPDUO_SIGN_IDENTITY: ${{ needs.gate.outputs.mode == 'distribution' && secrets.MAC_SIGN_IDENTITY || 'DropDuo Self-Signed' }}
+      DROPDUO_NOTARIZE: ${{ needs.gate.outputs.mode == 'distribution' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {ref: "${{ needs.gate.outputs.commit }}", persist-credentials: false}

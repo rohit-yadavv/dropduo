@@ -29,7 +29,7 @@ class ReleaseAssetTests(unittest.TestCase):
         self.commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=self.root, text=True).strip()
         self.out = self.root / "dist/release"
         self.out.mkdir(parents=True)
-        for name, target in [("dropduo-mac-v0.1.0-alpha.1.zip", "macos"), ("android.apk", "android")]:
+        for name, target in [("dropduo-mac-v0.1.0-alpha.1.zip", "macos"), ("dropduo-android-v0.1.0-alpha.1.apk", "android")]:
             data = target.encode()
             (self.out / name).write_bytes(data)
             item = {"artifact": name, "version": "0.1.0-alpha.1", "build": 100, "mode": "development", "platform": target, "commit": self.commit, "dirty": False, "sha256": hashlib.sha256(data).hexdigest()}
@@ -52,7 +52,14 @@ class ReleaseAssetTests(unittest.TestCase):
         self.assertFalse((self.out / "LICENSE").exists())
 
     def test_tampered_download_is_rejected(self):
-        (self.out / "android.apk").write_bytes(b"modified")
+        (self.out / "dropduo-android-v0.1.0-alpha.1.apk").write_bytes(b"modified")
+        self.assertNotEqual(self.assemble().returncode, 0)
+
+    def test_download_with_another_name_is_rejected(self):
+        path = self.out / "dropduo-android-v0.1.0-alpha.1.apk.json"
+        item = json.loads(path.read_text())
+        (self.out / item['artifact']).rename(self.out / "android.apk")
+        path.write_text(json.dumps({**item, "artifact": "android.apk"}))
         self.assertNotEqual(self.assemble().returncode, 0)
 
     def test_incomplete_platform_set_is_rejected(self):
@@ -75,7 +82,7 @@ class ReleaseAssetTests(unittest.TestCase):
         self.assertNotEqual(self.assemble().returncode, 0)
 
     def test_mismatched_build_numbers_are_rejected(self):
-        path = self.out / 'android.apk.json'
+        path = self.out / 'dropduo-android-v0.1.0-alpha.1.apk.json'
         item = json.loads(path.read_text())
         item['build'] = 123
         path.write_text(json.dumps(item))

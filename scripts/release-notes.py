@@ -19,9 +19,11 @@ for item in metadata:
         raise SystemExit("Artifact version/mode differs from the release.")
     if item.get('dirty') is not False or item['commit'] != source_commit:
         raise SystemExit("Artifacts must come from the clean tagged source commit.")
+    # The notes and the website name these files, so each must have its platform's exact name for this version.
+    expected = {"macos": f"dropduo-mac-{tag}.zip", "android": f"dropduo-android-{tag}.apk"}[item['platform']]
     path = out / item['artifact']
-    if path.name != item['artifact'] or not path.is_file():
-        raise SystemExit("Invalid artifact name.")
+    if item['artifact'] != expected or not path.is_file():
+        raise SystemExit(f"Expected {expected}, found {item['artifact']}.")
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     if digest != item['sha256']:
         raise SystemExit("Artifact checksum differs from its build metadata.")

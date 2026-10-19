@@ -18,7 +18,7 @@ Files, folders, photos, links and text, straight across your local network. Pair
 ![Android 10+](https://img.shields.io/badge/Android-10%2B-111?logo=android&logoColor=3DDC84)
 [![MIT license](https://img.shields.io/badge/license-MIT-555)](LICENSE)
 
-https://github.com/user-attachments/assets/f6fe2231-1fd6-43fe-b10b-c47dc80c8edb
+[![DropDuo demo: a photo dropped on the Mac lands on an Android phone](apps/web/assets/video/dropduo-demo.jpg)](https://rohit-yadavv.github.io/dropduo/#demo)
 
 </div>
 
